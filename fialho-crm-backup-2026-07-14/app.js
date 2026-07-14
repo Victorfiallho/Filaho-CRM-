@@ -1,4 +1,6 @@
 const DB_KEY = "fialho_crm_mvp_v1";
+const BACKUP_FILENAME_PREFIX = "fialho-crm-backup";
+const BACKUP_STALE_DAYS = 7;
 
 const COMPANIES = [
   { id:"peach_fresh", name:"Peach Fresh Cleaning", slug:"peach-fresh-cleaning", logo:"PF", color:"#f36f45", accent:"#0f766e", industry:"Cleaning" },
@@ -271,13 +273,32 @@ function renderShell(){
             <div class="sub">${c.name}</div>
           </div>
           <div class="search"><input placeholder="Search this company..." value="${escapeAttr(searchText)}" oninput="searchText=this.value;renderCurrent()"></div>
+          <button class="btn ghost" onclick="backupData()">Backup Data</button>
+          <button class="btn ghost" onclick="triggerRestoreData()">Restore Data</button>
+          <input id="restoreDataFile" class="hidden-file" type="file" accept=".json,application/json" onchange="restoreDataFromFile(this.files[0]);this.value=''">
           <button class="btn ghost" data-action="new-lead" onclick="openRecordModal('lead')">New lead</button>
           <button class="btn" data-action="new-customer" onclick="openRecordModal('customer')">New client</button>
         </header>
+        ${backupWarningHtml()}
         <section class="content" id="view"></section>
       </main>
     </div>`;
   renderCurrent();
+}
+
+function backupWarningHtml(){
+  const lastBackup = db?.last_backup_at ? new Date(db.last_backup_at) : null;
+  const ageMs = lastBackup ? Date.now() - lastBackup.getTime() : Infinity;
+  const isStale = !lastBackup || Number.isNaN(lastBackup.getTime()) || ageMs > BACKUP_STALE_DAYS * 24 * 60 * 60 * 1000;
+  if(!isStale) return "";
+  const message = lastBackup
+    ? `Your last CRM backup was ${lastBackup.toLocaleDateString()}. Create a new backup to reduce data-loss risk.`
+    : "No CRM backup has been created from this browser yet. Create a backup before entering important data.";
+  return `<div class="backup-warning">
+    <b>Backup recommended:</b>
+    <span>${escapeHtml(message)}</span>
+    <button class="btn slim" onclick="backupData()">Backup Data</button>
+  </div>`;
 }
 
 function pageTitle(){
@@ -1744,6 +1765,102 @@ function closeModal(){ $("#modal-root").innerHTML = ""; }
 function driveRootLink(label){
   const url = db.integration_settings?.google_drive?.folder_urls?.[activeCompanyId];
   return url ? `<a href="${escapeAttr(url)}" target="_blank">${escapeHtml(label)}</a>` : `<span class="muted">Not linked</span>`;
+}
+function backupData(){
+  db.last_backup_at = now();
+  FialhoDB.save();
+  const raw = localStorage.getItem(DB_KEY);
+  if(!raw){ toast("No CRM data found to back up."); return; }
+  const stamp = new Date().toISOString().replace(/[:.]/g,"-");
+  downloadText(`${BACKUP_FILENAME_PREFIX}-${stamp}.json`, raw, "application/json");
+  renderShell();
+  toast("Backup downloaded.");
+}
+function triggerRestoreData(){
+  $("#restoreDataFile")?.click();
+}
+function restoreDataFromFile(file){
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = event => {
+    const result = validateBackupJson(event.target.result);
+    if(!result.valid){
+      toast(result.error || "That backup file is not valid.");
+      return;
+    }
+    const summary = backupSummary(result.data);
+    const confirmed = window.confirm(
+      `Restore this Fialho CRM backup?\n\n` +
+      `Companies: ${summary.companies}\n` +
+      `Clients: ${summary.clients}\n` +
+      `Leads: ${summary.leads}\n` +
+      `Jobs: ${summary.jobs}\n` +
+      `Imports: ${summary.imports}\n` +
+      `Calendar records: ${summary.calendarRecords}\n\n` +
+      `This will replace the current CRM data stored under ${DB_KEY}.`
+    );
+    if(!confirmed){
+      toast("Restore canceled.");
+      return;
+    }
+    localStorage.setItem(DB_KEY, JSON.stringify(result.data));
+    FialhoDB.load();
+    if(!session){
+      toast("Backup restored. Please log in.");
+      renderLogin();
+      return;
+    }
+    if(!activeCompanyId){
+      toast("Backup restored. Select a company.");
+      renderCompanyPicker();
+      return;
+    }
+    renderShell();
+    toast("Backup restored.");
+  };
+  reader.onerror = () => toast("Could not read that backup file.");
+  reader.readAsText(file);
+}
+function validateBackupJson(text){
+  let data;
+  try{
+    data = JSON.parse(text);
+  }catch(error){
+    return { valid:false, error:"Backup must be valid JSON." };
+  }
+  if(!data || typeof data !== "object" || Array.isArray(data)){
+    return { valid:false, error:"Backup must be a CRM data object." };
+  }
+  const requiredArrays = ["companies","users","customers","leads","jobs","imports","notes","files"];
+  const missingArray = requiredArrays.find(key => !Array.isArray(data[key]));
+  if(missingArray) return { valid:false, error:`Backup is missing the ${missingArray} list.` };
+  if(!data.stages || typeof data.stages !== "object" || Array.isArray(data.stages)){
+    return { valid:false, error:"Backup is missing pipeline stages." };
+  }
+  if(!data.services || typeof data.services !== "object" || Array.isArray(data.services)){
+    return { valid:false, error:"Backup is missing company services." };
+  }
+  if(!data.integration_settings || typeof data.integration_settings !== "object" || Array.isArray(data.integration_settings)){
+    return { valid:false, error:"Backup is missing integration settings." };
+  }
+  const invalidCompanyRecord = ["customers","leads","jobs","imports","notes","files"].some(table =>
+    data[table].some(row => row && typeof row === "object" && !row.company_id)
+  );
+  if(invalidCompanyRecord){
+    return { valid:false, error:"Backup contains company records without company_id." };
+  }
+  return { valid:true, data };
+}
+function backupSummary(data){
+  const jobs = Array.isArray(data.jobs) ? data.jobs : [];
+  return {
+    companies:Array.isArray(data.companies) ? data.companies.length : 0,
+    clients:Array.isArray(data.customers) ? data.customers.length : 0,
+    leads:Array.isArray(data.leads) ? data.leads.length : 0,
+    jobs:jobs.length,
+    imports:Array.isArray(data.imports) ? data.imports.length : 0,
+    calendarRecords:jobs.filter(job => job && job.scheduled_date).length
+  };
 }
 function downloadText(filename,text,type="text/plain"){
   const blob = new Blob([text], { type });

@@ -51,6 +51,9 @@ h1,h2,h3{margin:0;letter-spacing:-.01em}
 .side-foot{margin-top:auto;padding:14px 18px;border-top:1px solid rgba(255,255,255,.08);font-size:12px;color:#93a0b4}
 .main{min-width:0}
 .topbar{height:64px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px;padding:0 20px;position:sticky;top:0;z-index:5}
+.backup-warning{margin:14px 20px 0;background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;border-radius:10px;padding:11px 14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;box-shadow:0 1px 3px rgba(23,32,51,.04)}
+.backup-warning span{flex:1;min-width:220px}
+.hidden-file{display:none}
 .hamburger{display:none;background:#fff;border:1px solid var(--line);border-radius:8px;padding:8px}
 .search{margin-left:auto;min-width:260px}
 .search input{width:100%;border:1px solid var(--line);background:var(--soft);border-radius:9px;padding:9px 11px}
@@ -130,6 +133,7 @@ tr:hover td{background:#fbfcfd}
   .sidebar.open{transform:none}
   .hamburger{display:inline-flex}
   .topbar{height:auto;min-height:64px;flex-wrap:wrap;padding:12px}
+  .backup-warning{margin:12px 12px 0}
   .search{order:3;margin-left:0;min-width:100%;width:100%}
   .content{padding:12px}
   .company-grid{grid-template-columns:1fr}

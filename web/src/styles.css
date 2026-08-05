@@ -292,6 +292,7 @@ tr:hover td{background:rgba(255,255,255,.35)}
 .cal-more{font-size:11px;color:var(--muted-soft)}
 .map-filters{display:grid;grid-template-columns:repeat(4,minmax(140px,1fr));gap:10px;margin-bottom:14px}
 .map-filters select,.map-filters input{border:1px solid rgba(255,255,255,.9);border-radius:var(--radius-sm);background:var(--soft);padding:9px 11px;min-width:0}
+.map-layout{grid-template-columns:1.4fr .8fr}
 .leaflet-map-canvas{height:520px;border:1px solid var(--glass-border);border-radius:var(--radius);overflow:hidden;background:#eef4f0}
 .route-pin span{width:26px;height:26px;border-radius:999px;display:grid;place-items:center;color:#fff;font-weight:800;font-size:12px;border:2px solid #fff;box-shadow:var(--shadow-sm)}
 input[type="checkbox"]{
@@ -391,7 +392,12 @@ input[type="checkbox"]:focus-visible{outline:none;box-shadow:0 0 0 3px var(--bra
   .cal-head{display:none}
   .cal-cell{min-height:88px}
   .map-filters{grid-template-columns:1fr}
+  .map-layout{grid-template-columns:1fr}
   .leaflet-map-canvas{height:420px}
   .inline-actions{flex-direction:column;align-items:stretch}
   .mobile-company{display:block}
+  .stage{max-height:60vh}
+  .pipeline{grid-template-columns:repeat(5,78vw)}
+  .brand .logo{width:48px;height:48px}
+  .side-foot{flex-direction:column}
 }

@@ -133,7 +133,7 @@ export default function MapRoutes() {
   const googleMapsUrl = routeStops ? buildGoogleMapsRouteUrl(routeStops) : "";
 
   return (
-    <div className="grid" style={{ gridTemplateColumns: "1.4fr .8fr", alignItems: "start" }}>
+    <div className="grid map-layout" style={{ alignItems: "start" }}>
       <section className="card">
         <div className="card-h">
           <div><h3>Company map</h3><span className="sub">OpenStreetMap tiles — no API key needed</span></div>

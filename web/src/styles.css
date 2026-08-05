@@ -159,13 +159,16 @@ h1,h2,h3{margin:0;letter-spacing:-.02em;font-weight:700;color:var(--ink)}
 .company-card h3{font-weight:700;font-size:16px;color:var(--ink)}
 .logo{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;line-height:1;background:linear-gradient(135deg,var(--company-color),color-mix(in srgb,var(--company-color) 65%,#000));color:#fff;font-weight:800;letter-spacing:.01em;box-shadow:var(--shadow-xs)}
 
-/* Company-select icon badges: soft tint container + Lucide-style SVG icon, per sector */
+/* Company-select icon badges: soft tint container + Lucide-style SVG icon, per sector.
+   Sized bigger than the sidebar's .brand .logo so a real logo image (with its own
+   wordmark/detail) stays legible instead of shrinking to an illegible speck. */
 .company-card .logo{
-  width:48px;height:48px;border-radius:16px;box-shadow:none;
+  width:76px;height:76px;border-radius:16px;box-shadow:none;padding:8px;
   background:rgba(100,116,139,.10);color:var(--muted);
   transition:transform .2s ease;
 }
 .company-card .logo svg{display:block}
+.company-card .logo img{display:block}
 .company-card:hover .logo{transform:scale(1.05)}
 .company-card[data-company="peach_fresh"] .logo{background:rgba(255,237,213,.8);color:#ea580c}
 .company-card[data-company="wish_cabinets"] .logo{background:rgba(241,245,249,.8);color:#334155}
@@ -189,8 +192,9 @@ h1,h2,h3{margin:0;letter-spacing:-.02em;font-weight:700;color:var(--ink)}
   display:flex;flex-direction:column;
 }
 .brand{padding:18px;display:flex;align-items:center;gap:13px;border-bottom:1px solid var(--line)}
-.brand .logo{background:rgba(100,116,139,.10);color:var(--muted);box-shadow:var(--shadow-xs)}
+.brand .logo{background:rgba(100,116,139,.10);color:var(--muted);box-shadow:var(--shadow-xs);padding:5px}
 .brand .logo svg{display:block}
+.brand .logo img{display:block}
 .brand .logo[data-company="peach_fresh"]{background:rgba(255,237,213,.9);color:#ea580c}
 .brand .logo[data-company="wish_cabinets"]{background:rgba(241,245,249,.9);color:#334155}
 .brand .logo[data-company="peach_state_flooring"]{background:rgba(254,243,199,.9);color:#b45309}
@@ -274,6 +278,22 @@ tr:hover td{background:rgba(255,255,255,.35)}
 .map-filters{display:grid;grid-template-columns:repeat(4,minmax(140px,1fr));gap:10px;margin-bottom:14px}
 .map-filters select,.map-filters input{border:1px solid rgba(255,255,255,.9);border-radius:var(--radius-sm);background:var(--soft);padding:9px 11px;min-width:0}
 .leaflet-map-canvas{height:520px;border:1px solid var(--glass-border);border-radius:var(--radius);overflow:hidden;background:#eef4f0}
+.route-pin span{width:26px;height:26px;border-radius:999px;display:grid;place-items:center;color:#fff;font-weight:800;font-size:12px;border:2px solid #fff;box-shadow:var(--shadow-sm)}
+input[type="checkbox"]{
+  appearance:none;-webkit-appearance:none;flex-shrink:0;
+  width:18px;height:18px;margin:0;
+  border:1.5px solid var(--line-strong);border-radius:5px;background:#fff;
+  display:inline-grid;place-content:center;cursor:pointer;
+  transition:background-color .15s ease,border-color .15s ease,box-shadow .15s ease;
+}
+input[type="checkbox"]:hover{border-color:var(--brand)}
+input[type="checkbox"]:checked{background:var(--brand);border-color:var(--brand)}
+input[type="checkbox"]:checked::after{
+  content:"";width:5px;height:9px;
+  border:solid #fff;border-width:0 2px 2px 0;
+  transform:rotate(45deg) translate(-1px,-1px);
+}
+input[type="checkbox"]:focus-visible{outline:none;box-shadow:0 0 0 3px var(--brand-ring)}
 .map-empty{position:absolute;inset:0;display:grid;place-items:center;color:var(--muted);font-weight:600;text-align:center;padding:24px;background:rgba(238,244,240,.9);pointer-events:none}
 .route-block{background:var(--glass);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);border:1px solid var(--glass-border);border-radius:var(--radius);padding:14px;margin-bottom:10px}
 .route-stop{display:grid;gap:3px;border-top:1px solid var(--line);padding:10px 0;font-size:13px}

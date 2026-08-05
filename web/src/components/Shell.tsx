@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Navigate, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { COMPANY_ICONS, MODULES } from "../domain/constants";
+import { COMPANY_ICONS, COMPANY_LOGOS, MODULES } from "../domain/constants";
 import { useAuth } from "../state/AuthContext";
 import { useCompany } from "../state/CompanyContext";
 import { useModal } from "../state/ModalContext";
@@ -40,7 +40,11 @@ export default function Shell() {
     <div className="app-shell" style={{ ["--company-color" as any]: activeCompany.color || undefined }}>
       <aside className={`sidebar${sidebarOpen ? " open" : ""}`} id="sidebar">
         <div className="brand">
-          <div className="logo" data-company={activeCompany.id} dangerouslySetInnerHTML={{ __html: COMPANY_ICONS[activeCompany.id] || activeCompany.logo || "" }} />
+          <div className="logo" data-company={activeCompany.id}>
+            {COMPANY_LOGOS[activeCompany.id]
+              ? <img src={COMPANY_LOGOS[activeCompany.id]} alt={activeCompany.name} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+              : <span dangerouslySetInnerHTML={{ __html: COMPANY_ICONS[activeCompany.id] || activeCompany.logo || "" }} />}
+          </div>
           <div><b>Fialho CRM</b><span>{activeCompany.name}</span></div>
         </div>
         <nav className="nav" ref={navRef}>

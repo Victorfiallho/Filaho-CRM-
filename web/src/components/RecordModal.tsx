@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import Select from "./Select";
 import { listCustomers, insertCustomer, updateCustomer } from "../data/customers";
+import { geocodeAddress } from "../data/geocoding";
 import { insertJob, updateJob } from "../data/jobs";
 import { upsertClientFromLead } from "../data/leadClientSync";
 import { insertLead, updateLead } from "../data/leads";
@@ -106,6 +107,25 @@ function RecordModalContent() {
     }));
   };
 
+  // Auto-fills lat/lng on save when an address is given but coordinates
+  // weren't set manually, so pins show up on Map & Routes without anyone
+  // having to remember to click "Geocode visible records" afterward.
+  // Best-effort: a failed/slow geocode never blocks the save itself.
+  async function autoGeocode(data: { address?: string; city?: string; state?: string; zip?: string; lat?: unknown; lng?: unknown }) {
+    if (!activeCompanyId) return;
+    if (Number(data.lat) && Number(data.lng)) return;
+    if (!data.address && !data.city && !data.zip) return;
+    try {
+      const loc = await geocodeAddress(activeCompanyId, data.address || "", data.city || "", data.state || "", data.zip || "");
+      if (loc) {
+        data.lat = loc.lat;
+        data.lng = loc.lng;
+      }
+    } catch {
+      // saving proceeds without coordinates; Map & Routes can still catch up later
+    }
+  }
+
   const titleType = type === "customer" ? "client" : type;
   const title = `${isEdit ? "Edit" : "New"} ${titleType}`;
 
@@ -138,6 +158,7 @@ function RecordModalContent() {
           lat: Number(form.lat || 0) || "",
           lng: Number(form.lng || 0) || ""
         };
+        await autoGeocode(data);
         if (isEdit && r.id) await updateJob(r.id, activeCompanyId, data as any);
         else await insertJob({ ...(data as any), id: uid("job"), created_at: now() });
         queryClient.invalidateQueries({ queryKey: ["jobs", activeCompanyId] });
@@ -170,6 +191,7 @@ function RecordModalContent() {
           data.notes = form.notes;
           data.drive_folder_url = form.drive_folder_url;
         }
+        await autoGeocode(data);
 
         if (isEdit && r.id) {
           if (type === "lead") {

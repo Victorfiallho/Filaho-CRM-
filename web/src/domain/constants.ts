@@ -4,6 +4,15 @@
 // instead of being hardcoded here, since that's the whole point of the migration —
 // these constants are the parts that were never data, just UI/config.
 
+// Real per-company logos (web/public/logos/*.png). COMPANY_ICONS below stays
+// as the fallback for any company id that doesn't have a logo file.
+export const COMPANY_LOGOS: Record<string, string> = {
+  peach_fresh: "/logos/peach_fresh.png",
+  wish_cabinets: "/logos/wish_cabinets.png",
+  peach_state_flooring: "/logos/peach_state_flooring.png",
+  arca_cabinets: "/logos/arca_cabinets.png"
+};
+
 export const COMPANY_ICONS: Record<string, string> = {
   peach_fresh: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" width="22" height="22"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/><path d="M4 17v2"/><path d="M5 18H3"/></svg>`,
   wish_cabinets: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" width="22" height="22"><rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/></svg>`,
@@ -45,7 +54,10 @@ export const IMPORT_PRESETS: Record<ImportSourceType, { label: string; aliases: 
 // that's all that's kept (the original also carried unused required_fields/
 // templates metadata per key).
 export const INTEGRATION_PLACEHOLDERS: Record<string, { status: string }> = {
-  google_maps: { status: "planned" },
+  // Swapped from Google Maps to Leaflet + OpenStreetMap/Nominatim (see
+  // pages/MapRoutes.tsx and data/geocoding.ts) — actually live, no API key
+  // or setup needed, so this is no longer just a "planned" placeholder.
+  map_geocoding: { status: "connected" },
   google_calendar: { status: "planned" },
   google_sheets: { status: "planned" },
   google_drive: { status: "planned" },

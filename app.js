@@ -7,6 +7,13 @@ const COMPANIES = [
   { id:"arca_cabinets", name:"Arca Cabinets", slug:"arca-cabinets", logo:"AC", color:"#334155", accent:"#14a38b", industry:"Cabinets" }
 ];
 
+const COMPANY_ICONS = {
+  peach_fresh:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" width="22" height="22"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/><path d="M4 17v2"/><path d="M5 18H3"/></svg>`,
+  wish_cabinets:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" width="22" height="22"><rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/></svg>`,
+  peach_state_flooring:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" width="22" height="22"><path d="m12.83 2.18-8.58 3.9a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83l-8.58-3.91a2 2 0 0 0-1.66 0Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/></svg>`,
+  arca_cabinets:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" width="22" height="22"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>`
+};
+
 const DEFAULT_USER = {
   id:"u_owner",
   name:"Pedro Fialho",
@@ -52,6 +59,7 @@ let importState = { type:"csv", fileName:"", headers:[], rows:[], mapping:{}, pr
 let mapFilters = { zip:"", city:"", service_type:"all", lead_status:"all", job_status:"all", date:"" };
 let calendarDate = new Date();
 let mapsRuntime = { key:"", promise:null, instance:null, markers:[] };
+let navIndicatorPos = { top:0, height:0 };
 
 const $ = sel => document.querySelector(sel);
 const money = n => "$" + Math.round(Number(n || 0)).toLocaleString("en-US");
@@ -223,8 +231,8 @@ function renderCompanyPicker(){
         </div>
         <div class="company-grid">
           ${COMPANIES.map(c => `
-            <button class="company-card" style="--company-color:${c.color}" onclick="selectCompany('${c.id}')">
-              <div class="logo">${c.logo}</div>
+            <button class="company-card" data-company="${c.id}" style="--company-color:${c.color}" onclick="selectCompany('${c.id}')">
+              <div class="logo">${COMPANY_ICONS[c.id] || c.logo}</div>
               <h3 style="margin-top:14px">${c.name}</h3>
               <p class="sub">${c.industry} workspace</p>
             </button>`).join("")}
@@ -252,10 +260,11 @@ function renderShell(){
     <div class="app-shell">
       <aside class="sidebar" id="sidebar">
         <div class="brand">
-          <div class="logo">${c.logo}</div>
+          <div class="logo" data-company="${c.id}">${COMPANY_ICONS[c.id] || c.logo}</div>
           <div><b>Fialho CRM</b><span>${c.name}</span></div>
         </div>
         <nav class="nav">
+          <span class="nav-indicator" id="navIndicator" style="transform:translateY(${navIndicatorPos.top}px);height:${navIndicatorPos.height}px"></span>
           ${MODULES.map(([id,label]) => `<button class="${route===id?"active":""}" onclick="go('${id}')">${label}</button>`).join("")}
         </nav>
         <div class="side-foot">
@@ -274,10 +283,22 @@ function renderShell(){
           <button class="btn ghost" data-action="new-lead" onclick="openRecordModal('lead')">New lead</button>
           <button class="btn" data-action="new-customer" onclick="openRecordModal('customer')">New client</button>
         </header>
-        <section class="content" id="view"></section>
+        <section class="content view-enter" id="view"></section>
       </main>
     </div>`;
   renderCurrent();
+  positionNavIndicator();
+}
+
+function positionNavIndicator(){
+  requestAnimationFrame(() => {
+    const active = document.querySelector(".nav button.active");
+    const indicator = $("#navIndicator");
+    if(!active || !indicator) return;
+    navIndicatorPos = { top:active.offsetTop, height:active.offsetHeight };
+    indicator.style.transform = `translateY(${navIndicatorPos.top}px)`;
+    indicator.style.height = navIndicatorPos.height + "px";
+  });
 }
 
 function pageTitle(){
@@ -1740,7 +1761,12 @@ function readForm(type){
   return data;
 }
 
-function closeModal(){ $("#modal-root").innerHTML = ""; }
+function closeModal(){
+  const bg = $(".modal-bg");
+  if(!bg){ $("#modal-root").innerHTML = ""; return; }
+  bg.classList.add("closing");
+  setTimeout(() => { $("#modal-root").innerHTML = ""; }, 160);
+}
 function driveRootLink(label){
   const url = db.integration_settings?.google_drive?.folder_urls?.[activeCompanyId];
   return url ? `<a href="${escapeAttr(url)}" target="_blank">${escapeHtml(label)}</a>` : `<span class="muted">Not linked</span>`;

@@ -379,9 +379,16 @@ input[type="checkbox"]:focus-visible{outline:none;box-shadow:0 0 0 3px var(--bra
   .sidebar.open{transform:none}
   .main{border-radius:18px}
   .topbar{border-radius:18px 18px 0 0}
-  .hamburger{display:inline-flex}
-  .topbar{height:auto;min-height:64px;flex-wrap:wrap;padding:12px}
+  .hamburger{display:inline-flex;order:1}
+  .topbar{height:auto;min-height:64px;flex-wrap:wrap;padding:12px;gap:10px}
+  /* Three tidy rows instead of buttons wrapping wherever they happen to fit:
+     [hamburger + title] / [search, full width] / [New lead | New client,
+     split evenly] — the "New client" pill going full-width alone on its own
+     row (app.js/desktop's DOM order with plain flex-wrap) was the main
+     eyesore on a narrow phone. */
+  .topbar > div:first-of-type{order:2;flex:1 1 auto;min-width:0}
   .search{order:3;margin-left:0;min-width:100%;width:100%}
+  .topbar [data-action="new-lead"],.topbar [data-action="new-customer"]{order:4;flex:1 1 0;min-width:0}
   .content{padding:14px}
   .company-panel{padding:22px;border-radius:18px}
   .company-panel > .between{flex-direction:column;align-items:flex-start;gap:14px}

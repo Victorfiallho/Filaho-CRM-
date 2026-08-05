@@ -192,15 +192,15 @@ h1,h2,h3{margin:0;letter-spacing:-.02em;font-weight:700;color:var(--ink)}
   display:flex;flex-direction:column;
 }
 .brand{padding:18px;display:flex;align-items:center;gap:13px;border-bottom:1px solid var(--line)}
-.brand .logo{background:rgba(100,116,139,.10);color:var(--muted);box-shadow:var(--shadow-xs);padding:5px}
+.brand .logo{width:56px;height:56px;border-radius:16px;background:rgba(100,116,139,.10);color:var(--muted);box-shadow:var(--shadow-xs);padding:6px}
 .brand .logo svg{display:block}
 .brand .logo img{display:block}
 .brand .logo[data-company="peach_fresh"]{background:rgba(255,237,213,.9);color:#ea580c}
 .brand .logo[data-company="wish_cabinets"]{background:rgba(241,245,249,.9);color:#334155}
 .brand .logo[data-company="peach_state_flooring"]{background:rgba(254,243,199,.9);color:#b45309}
 .brand .logo[data-company="arca_cabinets"]{background:rgba(244,244,245,.9);color:#3f3f46}
-.brand b{display:block;color:var(--ink);font-weight:700;font-size:14.5px;letter-spacing:-.015em}
-.brand span{display:block;margin-top:1px;font-size:12px;font-weight:500;color:var(--muted)}
+.brand b{display:block;color:var(--ink);font-weight:700;font-size:16px;letter-spacing:-.015em}
+.brand span{display:block;margin-top:2px;font-size:12.5px;font-weight:500;color:var(--muted)}
 .nav{position:relative;padding:14px 10px;display:grid;gap:2px}
 .nav-indicator{
   position:absolute;left:10px;right:10px;top:0;
@@ -211,7 +211,8 @@ h1,h2,h3{margin:0;letter-spacing:-.02em;font-weight:700;color:var(--ink)}
 .nav button{position:relative;z-index:1;display:flex;align-items:center;gap:10px;background:transparent;color:var(--muted);text-align:left;border-radius:var(--radius-sm);padding:10px 12px;font-weight:500}
 .nav button:hover{background:rgba(249,115,22,.06);color:var(--ink)}
 .nav button.active{background:transparent;color:var(--brand-2);font-weight:700}
-.side-foot{margin-top:auto;padding:16px 18px;border-top:1px solid var(--line);font-size:12px;color:var(--muted-soft)}
+.side-foot{padding:4px 10px 14px;font-size:12px;color:var(--muted-soft);display:flex;gap:8px}
+.side-foot .btn{flex:1 1 0;justify-content:center;padding:8px 10px;font-size:12.5px}
 .main{min-width:0}
 .topbar{
   height:68px;background:rgba(255,255,255,.5);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);
@@ -254,14 +255,18 @@ th,td{text-align:left;border-bottom:1px solid var(--line);padding:12px;white-spa
 th{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-weight:700;background:rgba(255,255,255,.3)}
 tr:hover td{background:rgba(255,255,255,.35)}
 .pill{display:inline-flex;align-items:center;border-radius:999px;padding:3px 10px;font-weight:600;font-size:11px;letter-spacing:.01em;background:rgba(100,116,139,.10);color:var(--ink-soft)}
-.pipeline{display:grid;grid-template-columns:repeat(5,minmax(180px,1fr));gap:14px;overflow:auto}
-.stage{background:rgba(255,255,255,.35);border:1px solid var(--line);border-radius:var(--radius);min-height:250px}
-.stage-h{padding:14px;font-weight:700;font-size:13px;display:flex;justify-content:space-between;color:var(--ink)}
+.pipeline{display:grid;grid-template-columns:repeat(5,minmax(180px,1fr));gap:14px;overflow:auto;align-items:start}
+.stage{background:rgba(255,255,255,.35);border:1px solid var(--line);border-radius:var(--radius);min-height:250px;max-height:calc(100vh - 260px);display:flex;flex-direction:column;transition:background-color .15s ease,border-color .15s ease}
+.stage.drag-over{background:var(--brand-soft);border-color:var(--brand)}
+.stage-h{padding:14px;font-weight:700;font-size:13px;display:flex;justify-content:space-between;color:var(--ink);position:sticky;top:0;background:inherit;border-radius:var(--radius) var(--radius) 0 0;z-index:1}
+.stage-scroll{overflow-y:auto}
 .lead-card{
   background:var(--glass-strong);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);
   margin:0 10px 10px;border:1px solid var(--glass-border);border-radius:var(--radius-sm);padding:12px;box-shadow:var(--shadow-xs);
+  cursor:grab;transition:box-shadow .15s ease,border-color .15s ease,opacity .15s ease;
 }
 .lead-card:hover{box-shadow:var(--shadow-sm);border-color:var(--brand-ring)}
+.lead-card.dragging{opacity:.4;cursor:grabbing}
 .calendar-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;margin-top:14px}
 .cal-head{background:rgba(255,255,255,.4);color:var(--muted);font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;text-align:center;padding:10px}
 .cal-cell{min-height:104px;background:rgba(255,255,255,.5);text-align:left;padding:8px;display:flex;flex-direction:column;gap:5px;color:var(--ink-soft)}
@@ -295,10 +300,12 @@ input[type="checkbox"]:checked::after{
 }
 input[type="checkbox"]:focus-visible{outline:none;box-shadow:0 0 0 3px var(--brand-ring)}
 .map-empty{position:absolute;inset:0;display:grid;place-items:center;color:var(--muted);font-weight:600;text-align:center;padding:24px;background:rgba(238,244,240,.9);pointer-events:none}
-.route-block{background:var(--glass);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);border:1px solid var(--glass-border);border-radius:var(--radius);padding:14px;margin-bottom:10px}
-.route-stop{display:grid;gap:3px;border-top:1px solid var(--line);padding:10px 0;font-size:13px}
+.route-block{background:var(--glass);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);border:1px solid var(--glass-border);border-radius:var(--radius);padding:14px;margin-bottom:10px;border-left:4px solid transparent;transition:background-color .15s ease,border-color .15s ease;overflow:hidden}
+.route-block.selected{background:var(--brand-soft);border-color:rgba(249,115,22,.35);border-left-color:var(--brand)}
+.route-stop{display:grid;gap:3px;border-top:1px solid var(--line);padding:10px 4px;margin:0 -4px;font-size:13px;border-radius:8px;transition:background-color .15s ease}
 .route-stop:first-child{border-top:0}
 .route-stop span{color:var(--muted);font-size:12px}
+.route-stop.selected{background:rgba(249,115,22,.1);border-top-color:transparent}
 .two{grid-template-columns:1fr 1fr}
 .three{grid-template-columns:repeat(3,1fr)}
 .form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}

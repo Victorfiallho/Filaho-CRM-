@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Navigate, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { useCustomers, useImportsHistory, useJobs, useLeads } from "../data/hooks";
 import { COMPANY_ICONS, COMPANY_LOGOS, MODULES } from "../domain/constants";
+import { money } from "../domain/format";
 import { useAuth } from "../state/AuthContext";
 import { useCompany } from "../state/CompanyContext";
 import { useModal } from "../state/ModalContext";
@@ -10,6 +12,38 @@ import RecordModal from "./RecordModal";
 function pageTitle(pathname: string) {
   const id = pathname.replace(/^\//, "");
   return (MODULES.find(m => m[0] === id) || MODULES[0])[1];
+}
+
+// A quick, module-relevant stat instead of just repeating the company name
+// (which the sidebar already shows) — makes this header line actually say
+// something instead of sitting there static on every page.
+function useTopbarSubtitle(pathname: string, companyId: string | null, companyName: string): string {
+  const { data: customers = [] } = useCustomers(companyId);
+  const { data: leads = [] } = useLeads(companyId);
+  const { data: jobs = [] } = useJobs(companyId);
+  const { data: imports = [] } = useImportsHistory(companyId);
+
+  switch (pathname.replace(/^\//, "")) {
+    case "pipeline": {
+      const open = leads.filter(l => l.stage_id !== "won");
+      const value = open.reduce((t, l) => t + Number(l.value || 0), 0);
+      return `${open.length} open lead${open.length === 1 ? "" : "s"} · ${money(value)} in pipeline`;
+    }
+    case "customers":
+      return `${customers.length} client${customers.length === 1 ? "" : "s"}`;
+    case "jobs": {
+      const scheduled = jobs.filter(j => j.scheduled_date).length;
+      return `${jobs.length} job${jobs.length === 1 ? "" : "s"} · ${scheduled} scheduled`;
+    }
+    case "calendar": {
+      const scheduled = jobs.filter(j => j.scheduled_date).length;
+      return `${scheduled} job${scheduled === 1 ? "" : "s"} on the calendar`;
+    }
+    case "import":
+      return imports.length ? `${imports.length} import${imports.length === 1 ? "" : "s"} so far` : "No imports yet";
+    default:
+      return companyName;
+  }
 }
 
 export default function Shell() {
@@ -27,6 +61,17 @@ export default function Shell() {
     const active = navRef.current?.querySelector<HTMLElement>("button.active");
     if (active) setIndicator({ top: active.offsetTop, height: active.offsetHeight });
   }, [location.pathname]);
+
+  // A search left over from the previous module silently filtering the next
+  // one (e.g. searching "Marietta" on Clients, then Jobs looking empty for no
+  // visible reason) was confusing enough to change from app.js's original
+  // "search persists forever" behavior — it now resets on every navigation.
+  useEffect(() => {
+    setSearchText("");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname]);
+
+  const topbarSubtitle = useTopbarSubtitle(location.pathname, activeCompanyId, activeCompany?.name || "");
 
   if (!session) return <Navigate to="/login" replace />;
   if (!activeCompanyId || !activeCompany) return <Navigate to="/companies" replace />;
@@ -61,7 +106,7 @@ export default function Shell() {
         </nav>
         <div className="side-foot">
           <button className="btn ghost slim" onClick={switchCompany}>Switch company</button>
-          <button className="btn ghost slim" style={{ marginTop: 8 }} onClick={() => signOut()}>Logout</button>
+          <button className="btn ghost slim" onClick={() => signOut()}>Logout</button>
         </div>
       </aside>
       <main className="main">
@@ -69,7 +114,7 @@ export default function Shell() {
           <button className="hamburger" onClick={() => setSidebarOpen(v => !v)}>Menu</button>
           <div>
             <h2>{pageTitle(location.pathname)}</h2>
-            <div className="sub">{activeCompany.name}</div>
+            <div className="sub">{topbarSubtitle}</div>
           </div>
           <div className="search">
             <input placeholder="Search this company..." value={searchText} onChange={e => setSearchText(e.target.value)} />

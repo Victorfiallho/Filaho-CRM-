@@ -3,6 +3,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import App from "./App";
+import SessionTimeoutGuard from "./components/SessionTimeoutGuard";
 import { AuthProvider } from "./state/AuthContext";
 import { CalendarProvider } from "./state/CalendarContext";
 import { CompanyProvider } from "./state/CompanyContext";
@@ -17,6 +18,7 @@ createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
+        <SessionTimeoutGuard />
         <CompanyProvider>
           <SearchProvider>
             <ModalProvider>

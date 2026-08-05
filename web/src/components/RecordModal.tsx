@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Select from "./Select";
 import { listCustomers, insertCustomer, updateCustomer } from "../data/customers";
@@ -73,6 +73,7 @@ function RecordModalContent() {
     notes: r.notes || ""
   }));
   const [saving, setSaving] = useState(false);
+  const modalBodyRef = useRef<HTMLDivElement | null>(null);
 
   // The custom Select shows nothing selected when `value` matches no option,
   // instead of a native <select>'s browser-default "first option" look — so
@@ -128,6 +129,30 @@ function RecordModalContent() {
 
   const titleType = type === "customer" ? "client" : type;
   const title = `${isEdit ? "Edit" : "New"} ${titleType}`;
+
+  // Esc closes the modal from anywhere in it. Enter in a plain text input
+  // jumps to the next field instead of doing nothing (or, on the last field,
+  // saves) — like Tab, but Enter, since that's the muscle-memory most people
+  // bring from other data-entry forms. Scoped to <input> only: a <textarea>
+  // needs Enter for newlines, and the custom Select's own trigger/options
+  // already use Enter/Space for their native open/choose behavior — hijacking
+  // Enter there would break picking an option with the keyboard.
+  function handleModalKeyDown(e: React.KeyboardEvent) {
+    if (e.key === "Escape") {
+      closeModal();
+      return;
+    }
+    if (e.key !== "Enter") return;
+    const target = e.target as HTMLElement;
+    if (target.tagName !== "INPUT") return;
+    e.preventDefault();
+    const container = modalBodyRef.current;
+    if (!container) return;
+    const focusables = Array.from(container.querySelectorAll<HTMLElement>("input, textarea, .cs-trigger"));
+    const idx = focusables.indexOf(target);
+    if (idx >= 0 && idx < focusables.length - 1) focusables[idx + 1].focus();
+    else handleSave();
+  }
 
   async function handleSave() {
     if (!activeCompanyId) return;
@@ -234,12 +259,12 @@ function RecordModalContent() {
 
   return (
     <div className="modal-bg">
-      <section className="modal">
+      <section className="modal" onKeyDown={handleModalKeyDown}>
         <div className="modal-h">
           <h3>{titleize(title)}</h3>
           <button className="btn ghost slim" onClick={closeModal}>Close</button>
         </div>
-        <div className="modal-b">
+        <div className="modal-b" ref={modalBodyRef}>
           {type === "job" ? (
             <div className="grid two">
               <Field label="Job/project title" value={form.title} onChange={v => set("title", v)} />

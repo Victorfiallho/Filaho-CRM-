@@ -10,11 +10,13 @@ import { geocodeRecords } from "../data/geocoding";
 import { groupBy, titleize, unique } from "../domain/format";
 import { buildGoogleMapsRouteUrl, clusterByProximity, nearestNeighborRoute, type LatLng } from "../domain/geo";
 import { DEFAULT_MAP_FILTERS, matchesMapFilters } from "../domain/mapUtils";
+import { filterRowsBySearch } from "../domain/search";
 import type { MapRecord } from "../domain/types";
 import { toast } from "../lib/toast";
 import { useCompany } from "../state/CompanyContext";
 import { useMapFilters } from "../state/MapContext";
 import { useModal } from "../state/ModalContext";
+import { useSearch } from "../state/SearchContext";
 
 type GeocodedRecord = MapRecord & LatLng;
 
@@ -30,6 +32,7 @@ export default function MapRoutes() {
   const { data: leads = [] } = useLeads(activeCompanyId);
   const { data: jobs = [] } = useJobs(activeCompanyId);
   const { mapFilters, setMapFilters } = useMapFilters();
+  const { searchText } = useSearch();
   const { openRecordModal } = useModal();
   const invalidate = useInvalidateCompanyData(activeCompanyId);
   const [geocoding, setGeocoding] = useState(false);
@@ -54,7 +57,10 @@ export default function MapRoutes() {
     ].filter(r => r.address || r.city || r.zip);
   }, [customers, leads, jobs]);
 
-  const filtered = useMemo(() => rows.filter(r => matchesMapFilters(r, mapFilters)), [rows, mapFilters]);
+  const filtered = useMemo(
+    () => filterRowsBySearch(rows.filter(r => matchesMapFilters(r, mapFilters)), searchText),
+    [rows, mapFilters, searchText]
+  );
   const zips = useMemo(() => unique(rows.map(r => r.zip).filter(Boolean) as string[]), [rows]);
   const cities = useMemo(() => unique(rows.map(r => r.city).filter(Boolean) as string[]), [rows]);
 
@@ -170,13 +176,15 @@ export default function MapRoutes() {
         </div>
         <div className="card-b">
           {proximityGroups.length === 0 && zipOnlyGroups.length === 0 && <div className="empty">No route groups yet</div>}
-          {proximityGroups.map((group, i) => (
-            <div className="route-block" key={`geo-${i}`}>
+          {proximityGroups.map((group, i) => {
+            const regionSelected = group.items.every(item => selectedIds.has(item.id));
+            return (
+            <div className={`route-block${regionSelected ? " selected" : ""}`} key={`geo-${i}`}>
               <div className="between">
                 <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
                   <input
                     type="checkbox"
-                    checked={group.items.every(item => selectedIds.has(item.id))}
+                    checked={regionSelected}
                     onChange={() => toggleRegionSelected(group.items)}
                   />
                   <b>{group.label}</b>
@@ -184,7 +192,7 @@ export default function MapRoutes() {
                 <span className="pill">{group.items.length} stops</span>
               </div>
               {group.items.map(item => (
-                <label className="route-stop" key={item.id} style={{ display: "flex", flexDirection: "row", alignItems: "flex-start", gap: 10, cursor: "pointer" }}>
+                <label className={`route-stop${selectedIds.has(item.id) ? " selected" : ""}`} key={item.id} style={{ display: "flex", flexDirection: "row", alignItems: "flex-start", gap: 10, cursor: "pointer" }}>
                   <input
                     type="checkbox"
                     style={{ marginTop: 3 }}
@@ -198,7 +206,8 @@ export default function MapRoutes() {
                 </label>
               ))}
             </div>
-          ))}
+            );
+          })}
           {zipOnlyGroups.map(([region, items]) => (
             <div className="route-block" key={`zip-${region}`}>
               <div className="between"><b>Region {region}xx</b><span className="pill">{items.length} stops (not geocoded)</span></div>

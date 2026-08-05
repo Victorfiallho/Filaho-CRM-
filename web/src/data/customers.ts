@@ -19,8 +19,8 @@ export async function getCustomer(id: string, companyId: string): Promise<Custom
   return (data as Customer) || null;
 }
 
-export async function insertCustomer(row: Omit<Customer, "id" | "created_at"> & { id?: string }): Promise<Customer> {
-  const record = { id: row.id || uid("cust"), created_at: now(), ...row };
+export async function insertCustomer(row: Omit<Customer, "id" | "created_at"> & { id?: string; created_at?: string }): Promise<Customer> {
+  const record = { id: row.id || uid("cust"), created_at: row.created_at || now(), ...row };
   const { data, error } = await supabase.from("customers").insert(record).select().single();
   if (error) throw error;
   return data as Customer;

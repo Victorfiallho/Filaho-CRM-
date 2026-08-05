@@ -16,24 +16,28 @@ import { useModal } from "../state/ModalContext";
 // rule on create/edit. Mechanical change: one controlled form per open modal
 // instead of reading raw `<input>` values off the DOM by id.
 export default function RecordModal() {
-  const { modal, closeModal } = useModal();
+  const { modal } = useModal();
   if (!modal) return null;
   return createPortal(<RecordModalContent key={modal.record?.id || modal.type} />, document.getElementById("modal-root")!);
 }
 
 function RecordModalContent() {
+  // `modal` is guaranteed non-null here (the RecordModal wrapper only mounts this
+  // component while it's set), but every hook below still has to run unconditionally
+  // on every render — so the "no modal / no company" bail-out is a plain variable,
+  // not an early return, and the actual `return null` happens after all hooks.
   const { modal, closeModal } = useModal();
   const { activeCompanyId, services, stages } = useCompany();
   const queryClient = useQueryClient();
-  if (!modal || !activeCompanyId) return null;
-  const { type, record, initial } = modal;
-  const r = { ...(initial || {}), ...(record || {}) } as any;
+  const type = modal?.type ?? "customer";
+  const record = modal?.record;
+  const r = { ...(modal?.initial || {}), ...(record || {}) } as any;
   const isEdit = Boolean(record);
 
   const { data: customers = [] } = useQuery({
     queryKey: ["customers", activeCompanyId],
-    queryFn: () => listCustomers(activeCompanyId),
-    enabled: type === "job"
+    queryFn: () => listCustomers(activeCompanyId!),
+    enabled: type === "job" && Boolean(activeCompanyId)
   });
 
   const [form, setForm] = useState(() => ({
@@ -60,6 +64,8 @@ function RecordModalContent() {
   }));
   const [saving, setSaving] = useState(false);
 
+  if (!modal || !activeCompanyId) return null;
+
   const set = (field: string, value: string) => setForm(f => ({ ...f, [field]: value }));
 
   const titleType = type === "customer" ? "client" : type;
@@ -77,7 +83,11 @@ function RecordModalContent() {
         const data = {
           company_id: activeCompanyId,
           title: form.title,
-          customer_id: form.customer_id || "",
+          // The <select> has no blank option (matches app.js's recordForm), so a
+          // browser leaves the first customer visually selected when nothing was
+          // explicitly chosen — mirror that by falling back to the first customer
+          // on save too, instead of silently saving an unassigned job.
+          customer_id: form.customer_id || customers[0]?.id || "",
           status: form.status || "planned",
           service_type: form.service_type,
           scheduled_date: form.scheduled_date,

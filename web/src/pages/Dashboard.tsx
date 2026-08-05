@@ -13,7 +13,6 @@ export default function Dashboard() {
 
   const won = leads.filter(l => l.stage_id === "won");
   const pipelineValue = leads.filter(l => l.stage_id !== "won").reduce((t, l) => t + Number(l.value || 0), 0);
-  const jobValue = jobs.reduce((t, j) => t + Number(j.estimated_value || 0), 0);
 
   return (
     <>

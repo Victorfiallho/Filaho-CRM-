@@ -11,10 +11,10 @@ import { listServices } from "../data/services";
 import { parseCSV } from "../domain/csv";
 import { IMPORT_FIELDS, IMPORT_PRESETS, type ImportSourceType } from "../domain/constants";
 import { findDuplicate, findDuplicateJob, type DuplicateMatch } from "../domain/dedupe";
-import { now, titleize, uid } from "../domain/format";
+import { now, uid } from "../domain/format";
 import { toGoogleSheetCsvUrl } from "../domain/googleSheets";
 import {
-  classifyCalendarEvent, extractFirstIcsFromZip, type IcsEvent, jobFromIcsEvent, parseICS
+  classifyCalendarEvent, extractFirstIcsFromZip, jobFromIcsEvent, parseICS
 } from "../domain/ics";
 import { autoMapHeaders, mappedRecord } from "../domain/importMapping";
 import { cleanCustomer, cleanJob, leadFromCustomer } from "../domain/records";

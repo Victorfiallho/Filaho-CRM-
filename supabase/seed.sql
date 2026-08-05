@@ -1,8 +1,8 @@
--- Fialho CRM — seed data (Phase 1 scaffold, not yet run against any project)
+-- Fialho CRM — seed data
 --
 -- Mirrors the hardcoded COMPANIES / seedDb() stage defaults / serviceDefaults()
--- in app.js, so a fresh Supabase database starts in the same state the app
--- already assumes today. Run once, after schema.sql, on the real project.
+-- that used to live in app.js, so a fresh Supabase database starts in the same
+-- state the original localStorage app assumed. Run once, after schema.sql.
 
 insert into companies (id, name, slug, logo, color, accent, industry) values
   ('peach_fresh', 'Peach Fresh Cleaning', 'peach-fresh-cleaning', 'PF', '#f36f45', '#0f766e', 'Cleaning'),

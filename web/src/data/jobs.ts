@@ -8,8 +8,8 @@ export async function listJobs(companyId: string): Promise<Job[]> {
   return (data || []) as Job[];
 }
 
-export async function insertJob(row: Omit<Job, "id" | "created_at"> & { id?: string }): Promise<Job> {
-  const record = { id: row.id || uid("job"), created_at: now(), ...row };
+export async function insertJob(row: Omit<Job, "id" | "created_at"> & { id?: string; created_at?: string }): Promise<Job> {
+  const record = { id: row.id || uid("job"), created_at: row.created_at || now(), ...row };
   const { data, error } = await supabase.from("jobs").insert(record).select().single();
   if (error) throw error;
   return data as Job;

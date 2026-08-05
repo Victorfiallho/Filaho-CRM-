@@ -35,6 +35,18 @@
 }
 *{box-sizing:border-box}
 body{
+  /* Once inside a company workspace, Shell.tsx stamps --company-color here
+     (not just on .app-shell — see the comment in Shell.tsx on why body, not
+     the shell div, is what RecordModal's portaled Save button can see too).
+     Redeclaring --brand/-2/-soft/-ring in terms of it means every button,
+     focus ring, and checkbox that already reads --brand automatically
+     becomes that company's color, with no per-component changes. Before a
+     company is chosen (Login, Select company) --company-color is unset, so
+     these fall back to the original fixed orange identity. */
+  --brand:var(--company-color,#f97316);
+  --brand-2:color-mix(in srgb,var(--company-color,#f97316) 84%,black);
+  --brand-soft:color-mix(in srgb,var(--company-color,#f97316) 10%,transparent);
+  --brand-ring:color-mix(in srgb,var(--company-color,#f97316) 22%,transparent);
   margin:0;
   min-height:100vh;
   background:var(--page-grad);
@@ -161,19 +173,21 @@ h1,h2,h3{margin:0;letter-spacing:-.02em;font-weight:700;color:var(--ink)}
 
 /* Company-select icon badges: soft tint container + Lucide-style SVG icon, per sector.
    Sized bigger than the sidebar's .brand .logo so a real logo image (with its own
-   wordmark/detail) stays legible instead of shrinking to an illegible speck. */
+   wordmark/detail) stays legible instead of shrinking to an illegible speck.
+   The tint and card accent are derived from each company's own `color` field
+   (--company-color, set per-card from the DB) instead of one-off hardcoded
+   hex values per company id — so it's correct for any company, not just the
+   four seeded ones, and it's the actual signal for "which company is this". */
+.company-card{border-left:4px solid var(--company-color)}
+.company-card:hover{border-left-color:var(--company-color)}
 .company-card .logo{
   width:76px;height:76px;border-radius:16px;box-shadow:none;padding:8px;
-  background:rgba(100,116,139,.10);color:var(--muted);
+  background:color-mix(in srgb,var(--company-color) 14%,white);color:var(--company-color);
   transition:transform .2s ease;
 }
 .company-card .logo svg{display:block}
 .company-card .logo img{display:block}
 .company-card:hover .logo{transform:scale(1.05)}
-.company-card[data-company="peach_fresh"] .logo{background:rgba(255,237,213,.8);color:#ea580c}
-.company-card[data-company="wish_cabinets"] .logo{background:rgba(241,245,249,.8);color:#334155}
-.company-card[data-company="peach_state_flooring"] .logo{background:rgba(254,243,199,.8);color:#b45309}
-.company-card[data-company="arca_cabinets"] .logo{background:rgba(244,244,245,.8);color:#3f3f46}
 .app-shell{
   margin:18px;
   min-height:calc(100vh - 36px);
@@ -192,25 +206,21 @@ h1,h2,h3{margin:0;letter-spacing:-.02em;font-weight:700;color:var(--ink)}
   display:flex;flex-direction:column;
 }
 .brand{padding:18px;display:flex;align-items:center;gap:13px;border-bottom:1px solid var(--line)}
-.brand .logo{width:56px;height:56px;border-radius:16px;background:rgba(100,116,139,.10);color:var(--muted);box-shadow:var(--shadow-xs);padding:6px}
+.brand .logo{width:56px;height:56px;border-radius:16px;background:color-mix(in srgb,var(--company-color) 14%,white);color:var(--company-color);box-shadow:var(--shadow-xs);padding:6px}
 .brand .logo svg{display:block}
 .brand .logo img{display:block}
-.brand .logo[data-company="peach_fresh"]{background:rgba(255,237,213,.9);color:#ea580c}
-.brand .logo[data-company="wish_cabinets"]{background:rgba(241,245,249,.9);color:#334155}
-.brand .logo[data-company="peach_state_flooring"]{background:rgba(254,243,199,.9);color:#b45309}
-.brand .logo[data-company="arca_cabinets"]{background:rgba(244,244,245,.9);color:#3f3f46}
 .brand b{display:block;color:var(--ink);font-weight:700;font-size:16px;letter-spacing:-.015em}
 .brand span{display:block;margin-top:2px;font-size:12.5px;font-weight:500;color:var(--muted)}
 .nav{position:relative;padding:14px 10px;display:grid;gap:2px}
 .nav-indicator{
   position:absolute;left:10px;right:10px;top:0;
-  background:var(--brand-soft);border-radius:var(--radius-sm);
+  background:color-mix(in srgb,var(--company-color) 12%,transparent);border-radius:var(--radius-sm);
   transition:transform .32s cubic-bezier(.4,0,.2,1),height .32s cubic-bezier(.4,0,.2,1);
   pointer-events:none;z-index:0;
 }
 .nav button{position:relative;z-index:1;display:flex;align-items:center;gap:10px;background:transparent;color:var(--muted);text-align:left;border-radius:var(--radius-sm);padding:10px 12px;font-weight:500}
-.nav button:hover{background:rgba(249,115,22,.06);color:var(--ink)}
-.nav button.active{background:transparent;color:var(--brand-2);font-weight:700}
+.nav button:hover{background:color-mix(in srgb,var(--company-color) 8%,transparent);color:var(--ink)}
+.nav button.active{background:transparent;color:var(--company-color);font-weight:700}
 .side-foot{padding:4px 10px 14px;font-size:12px;color:var(--muted-soft);display:flex;gap:8px}
 .side-foot .btn{flex:1 1 0;justify-content:center;padding:8px 10px;font-size:12.5px}
 .main{min-width:0}

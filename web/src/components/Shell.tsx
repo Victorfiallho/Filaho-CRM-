@@ -73,6 +73,20 @@ export default function Shell() {
 
   const topbarSubtitle = useTopbarSubtitle(location.pathname, activeCompanyId, activeCompany?.name || "");
 
+  // Also stamped on <body>, not just the .app-shell div below: RecordModal is
+  // portaled to #modal-root, a sibling of #root in index.html — outside
+  // .app-shell in the DOM — so a CSS variable scoped only to .app-shell would
+  // never reach the Save button in that modal. body is a shared ancestor of
+  // both, so the brand-color override in styles.css (which reads
+  // --company-color off body) reaches everything, portals included. Cleared
+  // on unmount so Login/CompanyPicker don't inherit a stale company color
+  // after switching companies or logging out.
+  useEffect(() => {
+    if (!activeCompany?.color) return;
+    document.body.style.setProperty("--company-color", activeCompany.color);
+    return () => { document.body.style.removeProperty("--company-color"); };
+  }, [activeCompany?.color]);
+
   if (!session) return <Navigate to="/login" replace />;
   if (!activeCompanyId || !activeCompany) return <Navigate to="/companies" replace />;
 

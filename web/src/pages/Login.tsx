@@ -1,5 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { Navigate } from "react-router-dom";
+import FialhoMark from "../components/FialhoMark";
+import { errorMessage } from "../lib/errorMessage";
 import { toast } from "../lib/toast";
 import { useAuth } from "../state/AuthContext";
 
@@ -17,7 +19,7 @@ export default function Login() {
     try {
       await signIn(email, password);
     } catch (error) {
-      toast(error instanceof Error ? error.message : "Could not sign in.");
+      toast(errorMessage(error, "Could not sign in."));
     } finally {
       setSubmitting(false);
     }
@@ -26,8 +28,10 @@ export default function Login() {
   return (
     <main className="login-shell">
       <section className="login-card">
-        <div className="mark">FC</div>
-        <h1>Fialho CRM</h1>
+        <div className="brand-lockup">
+          <FialhoMark size={40} />
+          <h1>Fialho CRM</h1>
+        </div>
         <p className="sub">Multi-company CRM operations.</p>
         <form onSubmit={handleSubmit}>
           <div className="field">

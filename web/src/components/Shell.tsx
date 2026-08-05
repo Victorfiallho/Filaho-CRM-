@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { NavLink, Navigate, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { Navigate, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { COMPANY_ICONS, MODULES } from "../domain/constants";
 import { useAuth } from "../state/AuthContext";
 import { useCompany } from "../state/CompanyContext";
@@ -46,9 +46,13 @@ export default function Shell() {
         <nav className="nav" ref={navRef}>
           <span className="nav-indicator" style={{ transform: `translateY(${indicator.top}px)`, height: indicator.height }} />
           {MODULES.map(([id, label]) => (
-            <NavLink key={id} to={`/${id}`} className={({ isActive }) => (isActive ? "active" : "")} onClick={() => setSidebarOpen(false)}>
+            <button
+              key={id}
+              className={location.pathname === `/${id}` ? "active" : ""}
+              onClick={() => { navigate(`/${id}`); setSidebarOpen(false); }}
+            >
               {label}
-            </NavLink>
+            </button>
           ))}
         </nav>
         <div className="side-foot">

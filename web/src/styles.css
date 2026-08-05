@@ -65,16 +65,32 @@ button{border:0;cursor:pointer;transition:background-color .15s ease,border-colo
   background:#fff;border:2px solid var(--brand);color:var(--brand);
   font-weight:800;letter-spacing:.04em;box-shadow:var(--shadow-sm);
 }
+.brand-lockup{display:flex;align-items:center;justify-content:center;gap:10px}
 h1,h2,h3{margin:0;letter-spacing:-.02em;font-weight:700;color:var(--ink)}
-.login-card h1{margin-top:18px;font-size:29px;font-weight:800;letter-spacing:-.03em}
+.login-card h1{font-size:29px;font-weight:800;letter-spacing:-.03em}
 .sub{color:var(--muted);font-size:13px;letter-spacing:.005em;font-weight:500}
 .login-card .field{text-align:left}
 .login-card .sub:last-of-type{font-size:11px;color:var(--muted-soft);font-weight:400;margin-top:14px}
 .field{display:grid;gap:6px;margin-top:16px}
 .field label{font-weight:600;font-size:12px;color:var(--ink-soft)}
-.field input,.field select,.field textarea{width:100%;border:1px solid rgba(255,255,255,.9);border-radius:var(--radius-sm);background:var(--soft);padding:10px 12px;outline:none;color:var(--ink)}
+.field input,.field select,.field textarea,.cs-trigger{width:100%;border:1px solid rgba(255,255,255,.9);border-radius:var(--radius-sm);background:var(--soft);padding:10px 12px;outline:none;color:var(--ink)}
 .field input::placeholder,.field textarea::placeholder{color:var(--muted-soft)}
-.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--brand);background:#fff;box-shadow:0 0 0 3px var(--brand-ring)}
+.field input:focus,.field select:focus,.field textarea:focus,.cs-trigger.open{border-color:var(--brand);background:#fff;box-shadow:0 0 0 3px var(--brand-ring)}
+
+/* Custom select — replaces the native <select> popup (which browsers render
+   with unstylable OS chrome) with a popup that follows the app's own design. */
+.cs{position:relative}
+.cs-trigger{display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;text-align:left;font-weight:500}
+.cs-trigger:disabled{opacity:.6;cursor:not-allowed}
+.cs-value{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cs-caret{color:var(--muted);flex:0 0 auto;transition:transform .15s ease}
+.cs-trigger.open .cs-caret{transform:rotate(180deg)}
+.cs-menu{z-index:1000;background:var(--glass-strong);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);border:1px solid var(--glass-border);border-radius:var(--radius-sm);box-shadow:var(--shadow-md);padding:6px;max-height:264px;overflow:auto}
+.cs-option{display:block;width:100%;text-align:left;padding:8px 10px;border-radius:8px;background:transparent;color:var(--ink-soft);font-weight:500;font-size:13.5px}
+.cs-option:hover:not(:disabled){background:var(--brand-soft);color:var(--ink)}
+.cs-option.selected{background:var(--brand);color:#fff}
+.cs-option:disabled{color:var(--muted-soft);cursor:not-allowed}
+.map-filters .cs{min-width:0}
 .field input[type="file"]{padding:8px 12px 8px 8px;color:var(--muted);font-size:13px}
 .field input[type="file"]::file-selector-button,
 .field input[type="file"]::-webkit-file-upload-button{
@@ -257,24 +273,8 @@ tr:hover td{background:rgba(255,255,255,.35)}
 .cal-more{font-size:11px;color:var(--muted-soft)}
 .map-filters{display:grid;grid-template-columns:repeat(4,minmax(140px,1fr));gap:10px;margin-bottom:14px}
 .map-filters select,.map-filters input{border:1px solid rgba(255,255,255,.9);border-radius:var(--radius-sm);background:var(--soft);padding:9px 11px;min-width:0}
-.map-canvas{height:520px;position:relative;border:1px solid var(--glass-border);border-radius:var(--radius);overflow:hidden;background:
-  linear-gradient(90deg,rgba(255,255,255,.55) 1px,transparent 1px) 0 0/58px 58px,
-  linear-gradient(rgba(255,255,255,.55) 1px,transparent 1px) 0 0/58px 58px,
-  radial-gradient(circle at 25% 25%,#e3f5ef,transparent 28%),
-  radial-gradient(circle at 75% 65%,#fceede,transparent 30%),
-  #eef4f0}
-.map-canvas:before{content:"";position:absolute;inset:12%;border:18px solid rgba(255,255,255,.5);border-left-color:transparent;border-bottom-color:transparent;border-radius:48% 55% 52% 46%;transform:rotate(-18deg)}
-.google-map{display:none;height:520px;border:1px solid var(--glass-border);border-radius:var(--radius);overflow:hidden}
-.map-pin{
-  position:absolute;transform:translate(-50%,-50%);display:grid;place-items:center;gap:3px;
-  background:var(--glass-strong);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);
-  border:1px solid var(--glass-border);border-radius:999px;padding:5px 8px;box-shadow:var(--shadow-md);
-  font-size:10px;min-width:42px;color:var(--ink);
-}
-.map-pin span{width:24px;height:24px;border-radius:999px;display:grid;place-items:center;background:var(--company-color);color:#fff;font-weight:800}
-.map-pin.lead span{background:var(--blue)}.map-pin.job span{background:var(--yellow)}.map-pin.customer span{background:var(--success)}
-.map-pin small{font-size:10px;color:var(--muted-soft)}
-.map-empty{position:absolute;inset:0;display:grid;place-items:center;color:var(--muted);font-weight:600}
+.leaflet-map-canvas{height:520px;border:1px solid var(--glass-border);border-radius:var(--radius);overflow:hidden;background:#eef4f0}
+.map-empty{position:absolute;inset:0;display:grid;place-items:center;color:var(--muted);font-weight:600;text-align:center;padding:24px;background:rgba(238,244,240,.9);pointer-events:none}
 .route-block{background:var(--glass);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);border:1px solid var(--glass-border);border-radius:var(--radius);padding:14px;margin-bottom:10px}
 .route-stop{display:grid;gap:3px;border-top:1px solid var(--line);padding:10px 0;font-size:13px}
 .route-stop:first-child{border-top:0}
@@ -354,8 +354,7 @@ tr:hover td{background:rgba(255,255,255,.35)}
   .cal-head{display:none}
   .cal-cell{min-height:88px}
   .map-filters{grid-template-columns:1fr}
-  .map-canvas{height:420px}
-  .google-map{height:420px}
+  .leaflet-map-canvas{height:420px}
   .inline-actions{flex-direction:column;align-items:stretch}
   .mobile-company{display:block}
 }

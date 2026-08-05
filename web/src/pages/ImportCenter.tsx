@@ -1,5 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
+import Select from "../components/Select";
 import { useCustomers, useImportsHistory, useIntegrationSettings, useInvalidateCompanyData } from "../data/hooks";
 import { saveIntegrationSettings } from "../data/integrationSettings";
 import { insertCustomer, updateCustomer } from "../data/customers";
@@ -19,6 +20,7 @@ import {
 import { autoMapHeaders, mappedRecord } from "../domain/importMapping";
 import { cleanCustomer, cleanJob, leadFromCustomer } from "../domain/records";
 import type { Customer, Job } from "../domain/types";
+import { errorMessage } from "../lib/errorMessage";
 import { toast } from "../lib/toast";
 import { useCompany } from "../state/CompanyContext";
 
@@ -256,6 +258,8 @@ export default function ImportCenter() {
       resetImportState();
       invalidate();
       toast(`${created} created, ${updated} updated, ${skipped} skipped.`);
+    } catch (error) {
+      toast(errorMessage(error, "Could not save the import."));
     } finally {
       setCommitting(false);
     }
@@ -271,9 +275,7 @@ export default function ImportCenter() {
           <div className="form-row">
             <div className="field">
               <label>Import source</label>
-              <select value={type} onChange={e => changeType(e.target.value as ImportSourceType)}>
-                {Object.entries(IMPORT_PRESETS).map(([k, p]) => <option key={k} value={k}>{p.label}</option>)}
-              </select>
+              <Select value={type} onChange={v => changeType(v as ImportSourceType)} options={Object.entries(IMPORT_PRESETS).map(([k, p]) => ({ value: k, label: p.label }))} />
             </div>
             <div className="field">
               <label>CSV, ICS, or Calendar ZIP file</label>
@@ -300,13 +302,11 @@ export default function ImportCenter() {
                 {IMPORT_FIELDS.map(([field, label]) => (
                   <div className="field" key={field}>
                     <label>{label}</label>
-                    <select
+                    <Select
                       value={mapping[field] || ""}
-                      onChange={e => setMapping(m => ({ ...m, [field]: e.target.value }))}
-                    >
-                      <option value="">Do not import</option>
-                      {headers.map(h => <option key={h} value={h}>{h}</option>)}
-                    </select>
+                      onChange={v => setMapping(m => ({ ...m, [field]: v }))}
+                      options={[{ value: "", label: "Do not import" }, ...headers.map(h => ({ value: h, label: h }))]}
+                    />
                   </div>
                 ))}
               </div>
@@ -391,18 +391,20 @@ function PreviewTable({ preview, isCalendarImport, companies, onAction, onCompan
             {preview.slice(0, 80).map(row => (
               <tr key={row.index}>
                 <td>
-                  <select value={row.action} onChange={e => onAction(row.index, e.target.value as PreviewRow["action"])}>
-                    <option value="create">Create new</option>
-                    <option value="update" disabled={!row.duplicate}>Update existing</option>
-                    <option value="skip">Skip</option>
-                  </select>
+                  <Select
+                    value={row.action}
+                    onChange={v => onAction(row.index, v as PreviewRow["action"])}
+                    options={[
+                      { value: "create", label: "Create new" },
+                      { value: "update", label: "Update existing", disabled: !row.duplicate },
+                      { value: "skip", label: "Skip" }
+                    ]}
+                  />
                 </td>
                 {isCalendarImport && row.kind === "job" && (
                   <>
                     <td>
-                      <select value={row.company_id} onChange={e => onCompanyChange(row.index, e.target.value)}>
-                        {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                      </select>
+                      <Select value={row.company_id} onChange={v => onCompanyChange(row.index, v)} options={companies.map(c => ({ value: c.id, label: c.name }))} />
                     </td>
                     <td><span className="pill">{row.review_label || "job"}</span><br /><span className="sub">{row.review_reason || "Looks like work"}</span></td>
                   </>

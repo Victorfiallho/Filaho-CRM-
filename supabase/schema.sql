@@ -108,12 +108,16 @@ create index if not exists leads_company_id_idx on leads(company_id);
 create index if not exists leads_customer_id_idx on leads(customer_id);
 
 -- ── jobs ──────────────────────────────────────────────────────────────
+-- customer_name/notes/source/source_uid mirror app.js's cleanJob() shape —
+-- source_uid in particular is what findDuplicateJob() matches on to avoid
+-- re-creating the same event on a repeat calendar import.
 create table if not exists jobs (
   id text primary key,
   company_id text not null references companies(id) on delete cascade,
   customer_id text references customers(id) on delete set null,
   lead_id text references leads(id) on delete set null,
   title text not null,
+  customer_name text default '',
   status text not null default 'planned',
   service_type text default '',
   scheduled_date date,
@@ -122,12 +126,21 @@ create table if not exists jobs (
   state text default '',
   zip text default '',
   estimated_value numeric not null default 0,
+  notes text default '',
+  source text default 'Manual',
+  source_uid text default '',
   drive_folder_url text default '',
   lat numeric,
   lng numeric,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+-- Idempotent for databases where `jobs` already exists from an earlier run
+-- of this file, before these columns were added.
+alter table jobs add column if not exists customer_name text default '';
+alter table jobs add column if not exists notes text default '';
+alter table jobs add column if not exists source text default 'Manual';
+alter table jobs add column if not exists source_uid text default '';
 create index if not exists jobs_company_id_idx on jobs(company_id);
 
 -- ── imports (CSV/ICS/Sheets import history) ──────────────────────────────

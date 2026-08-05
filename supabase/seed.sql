@@ -22,8 +22,7 @@ cross join (values
   ('scheduled', 'Scheduled', 4, '#14a38b', 'lead'),
   ('won', 'Won', 5, '#1f9d64', 'lead')
 ) as s(id, name, "order", color, type)
-on conflict (company_id, id) do nothing;
-
+on conflic1
 -- Service type lists match serviceDefaults() in app.js, keyed by industry.
 insert into company_services (company_id, service, position) values
   ('peach_fresh', 'Deep Cleaning', 0),

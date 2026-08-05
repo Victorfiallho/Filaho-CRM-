@@ -129,10 +129,15 @@ export default function Integrations() {
       </section>
 
       <div className="grid two">
-        <IntegrationCard
-          k="google_maps" title="Google Maps" description="Used for geocoding, map display, filtering, and route planning."
-          setting={settings.google_maps} onSaveSetting={saveIntegrationSetting} onToggle={toggleIntegration}
-        />
+        <section className="card">
+          <div className="card-h"><h3>Map &amp; Geocoding</h3><span className="pill">OpenStreetMap</span></div>
+          <div className="card-b">
+            <p className="sub">
+              Map & Routes now runs on OpenStreetMap (Leaflet tiles + Nominatim geocoding) — no API key needed,
+              no cost, nothing to configure here. This replaces the Google Maps API this card used to control.
+            </p>
+          </div>
+        </section>
         <IntegrationCard
           k="google_calendar" title="Google Calendar" description="Used for per-company job calendars and future two-way sync."
           setting={settings.google_calendar} onSaveSetting={saveIntegrationSetting} onToggle={toggleIntegration}
@@ -173,7 +178,7 @@ export default function Integrations() {
       <section className="card" style={{ marginTop: 14 }}>
         <div className="card-h"><h3>Connection status</h3><span className="sub">Local CRM with optional Google OAuth</span></div>
         <div className="card-b">
-          <p><b>Maps:</b> add a Maps API key for real Google map tiles, geocoding, and directions.</p>
+          <p><b>Maps:</b> OpenStreetMap tiles and Nominatim geocoding are active by default, no setup needed.</p>
           <p><b>Calendar:</b> ICS import/export is active. OAuth enables future live Google Calendar sync.</p>
           <p><b>Drive:</b> folder URL fields are active. OAuth enables future file picker/upload workflows.</p>
           <p><b>Sheets:</b> public/published CSV import is active. OAuth enables future private Sheet reads.</p>

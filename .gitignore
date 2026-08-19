@@ -1,1 +1,5 @@
 .DS_Store
+
+# Real customer data (names/phones/emails) — lives in Supabase only, never in git
+supabase/localstorage.db
+supabase/seed_real_customers_leads.sql

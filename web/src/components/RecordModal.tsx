@@ -2,11 +2,11 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Select from "./Select";
-import { listCustomers, insertCustomer, updateCustomer } from "../data/customers";
+import { listCustomers, insertCustomer, updateCustomer, deleteCustomer } from "../data/customers";
 import { geocodeAddress } from "../data/geocoding";
-import { insertJob, updateJob } from "../data/jobs";
+import { insertJob, updateJob, deleteJob } from "../data/jobs";
 import { upsertClientFromLead } from "../data/leadClientSync";
-import { insertLead, updateLead } from "../data/leads";
+import { insertLead, updateLead, deleteLead } from "../data/leads";
 import { now, uid } from "../domain/format";
 import { titleize } from "../domain/format";
 import { errorMessage } from "../lib/errorMessage";
@@ -73,6 +73,7 @@ function RecordModalContent() {
     notes: r.notes || ""
   }));
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const modalBodyRef = useRef<HTMLDivElement | null>(null);
 
   // The custom Select shows nothing selected when `value` matches no option,
@@ -257,6 +258,31 @@ function RecordModalContent() {
     }
   }
 
+  async function handleDelete() {
+    if (!activeCompanyId || !r.id) return;
+    const label = type === "job" ? "job" : type === "lead" ? "lead" : "client";
+    if (!window.confirm(`Delete this ${label}? This cannot be undone.`)) return;
+    setDeleting(true);
+    try {
+      if (type === "job") {
+        await deleteJob(r.id, activeCompanyId);
+        queryClient.invalidateQueries({ queryKey: ["jobs", activeCompanyId] });
+      } else if (type === "lead") {
+        await deleteLead(r.id, activeCompanyId);
+        queryClient.invalidateQueries({ queryKey: ["leads", activeCompanyId] });
+      } else {
+        await deleteCustomer(r.id, activeCompanyId);
+        queryClient.invalidateQueries({ queryKey: ["customers", activeCompanyId] });
+      }
+      closeModal();
+      toast("Record deleted.");
+    } catch (error) {
+      toast(errorMessage(error, "Could not delete record."));
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   return (
     <div className="modal-bg">
       <section className="modal" onKeyDown={handleModalKeyDown}>
@@ -330,8 +356,18 @@ function RecordModalContent() {
           )}
         </div>
         <div className="modal-f">
-          <button className="btn ghost" onClick={closeModal}>Cancel</button>
-          <button className="btn" onClick={handleSave} disabled={saving}>{saving ? "Saving..." : "Save"}</button>
+          {isEdit && (
+            <button
+              className="btn ghost slim"
+              style={{ marginRight: "auto", color: "var(--red)" }}
+              onClick={handleDelete}
+              disabled={saving || deleting}
+            >
+              {deleting ? "Deleting..." : "Delete"}
+            </button>
+          )}
+          <button className="btn ghost" onClick={closeModal} disabled={deleting}>Cancel</button>
+          <button className="btn" onClick={handleSave} disabled={saving || deleting}>{saving ? "Saving..." : "Save"}</button>
         </div>
       </section>
     </div>

@@ -41,3 +41,8 @@ export async function updateLead(id: string, companyId: string, patch: Partial<L
   if (error) throw error;
   return data as Lead;
 }
+
+export async function deleteLead(id: string, companyId: string): Promise<void> {
+  const { error } = await supabase.from("leads").delete().eq("id", id).eq("company_id", companyId);
+  if (error) throw error;
+}

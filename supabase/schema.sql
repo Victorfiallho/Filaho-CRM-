@@ -198,8 +198,8 @@ create table if not exists integration_settings (
 -- RLS (Phase 2 — enabled now that Supabase Auth + company_members are wired)
 -- ═══════════════════════════════════════════════════════════════════════
 -- Every operational table only exposes rows whose company_id is one the
--- signed-in auth user has a company_members row for. No delete policy —
--- the app has no delete functionality today.
+-- signed-in auth user has a company_members row for. Delete policy added
+-- alongside the Delete action in RecordModal (customers/leads/jobs).
 
 do $$
 declare t text;
@@ -226,6 +226,11 @@ begin
        ) with check (
          company_id in (select company_id from company_members where user_id = auth.uid())
        )', t || '_update', t);
+    execute format('drop policy if exists %I on %I', t || '_delete', t);
+    execute format(
+      'create policy %I on %I for delete using (
+         company_id in (select company_id from company_members where user_id = auth.uid())
+       )', t || '_delete', t);
   end loop;
 end $$;
 

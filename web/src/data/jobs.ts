@@ -35,3 +35,8 @@ export async function updateJob(id: string, companyId: string, patch: Partial<Jo
   if (error) throw error;
   return data as Job;
 }
+
+export async function deleteJob(id: string, companyId: string): Promise<void> {
+  const { error } = await supabase.from("jobs").delete().eq("id", id).eq("company_id", companyId);
+  if (error) throw error;
+}

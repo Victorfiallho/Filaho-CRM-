@@ -41,3 +41,8 @@ export async function updateCustomer(id: string, companyId: string, patch: Parti
   if (error) throw error;
   return data as Customer;
 }
+
+export async function deleteCustomer(id: string, companyId: string): Promise<void> {
+  const { error } = await supabase.from("customers").delete().eq("id", id).eq("company_id", companyId);
+  if (error) throw error;
+}

@@ -15,7 +15,6 @@ export default function Customers() {
     <section className="card">
       <div className="card-h">
         <h3>Client database</h3>
-        <button className="btn slim" onClick={() => openRecordModal("customer")}>Add client</button>
       </div>
       <div className="table-wrap">
         <table>

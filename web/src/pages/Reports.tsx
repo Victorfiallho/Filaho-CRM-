@@ -1,17 +1,18 @@
 import KpiCard from "../components/KpiCard";
 import { useCustomers, useImportsHistory, useJobs, useLeads } from "../data/hooks";
 import { money } from "../domain/format";
+import { isWonStage } from "../domain/pipelineStages";
 import { useCompany } from "../state/CompanyContext";
 
 // Ported verbatim from app.js (metrics, renderReports).
 export default function Reports() {
-  const { activeCompanyId } = useCompany();
+  const { activeCompanyId, stages } = useCompany();
   const { data: customers = [] } = useCustomers(activeCompanyId);
   const { data: leads = [] } = useLeads(activeCompanyId);
   const { data: jobs = [] } = useJobs(activeCompanyId);
   const { data: imports = [] } = useImportsHistory(activeCompanyId);
 
-  const won = leads.filter(l => l.stage_id === "won");
+  const won = leads.filter(l => isWonStage(l.stage_id, stages));
   const jobValue = jobs.reduce((t, j) => t + Number(j.estimated_value || 0), 0);
   const byService: Record<string, number> = {};
   leads.forEach(l => {

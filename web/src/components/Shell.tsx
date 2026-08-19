@@ -3,6 +3,8 @@ import { Navigate, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useCustomers, useImportsHistory, useJobs, useLeads } from "../data/hooks";
 import { COMPANY_ICONS, COMPANY_LOGOS, MODULES } from "../domain/constants";
 import { money } from "../domain/format";
+import { isOpenStage } from "../domain/pipelineStages";
+import type { PipelineStage } from "../domain/types";
 import { useAuth } from "../state/AuthContext";
 import { useCompany } from "../state/CompanyContext";
 import { useModal } from "../state/ModalContext";
@@ -17,7 +19,7 @@ function pageTitle(pathname: string) {
 // A quick, module-relevant stat instead of just repeating the company name
 // (which the sidebar already shows) — makes this header line actually say
 // something instead of sitting there static on every page.
-function useTopbarSubtitle(pathname: string, companyId: string | null, companyName: string): string {
+function useTopbarSubtitle(pathname: string, companyId: string | null, companyName: string, stages: PipelineStage[]): string {
   const { data: customers = [] } = useCustomers(companyId);
   const { data: leads = [] } = useLeads(companyId);
   const { data: jobs = [] } = useJobs(companyId);
@@ -25,7 +27,7 @@ function useTopbarSubtitle(pathname: string, companyId: string | null, companyNa
 
   switch (pathname.replace(/^\//, "")) {
     case "pipeline": {
-      const open = leads.filter(l => l.stage_id !== "won");
+      const open = leads.filter(l => isOpenStage(l.stage_id, stages));
       const value = open.reduce((t, l) => t + Number(l.value || 0), 0);
       return `${open.length} open lead${open.length === 1 ? "" : "s"} · ${money(value)} in pipeline`;
     }
@@ -48,7 +50,7 @@ function useTopbarSubtitle(pathname: string, companyId: string | null, companyNa
 
 export default function Shell() {
   const { session, signOut } = useAuth();
-  const { activeCompany, activeCompanyId, clearCompany } = useCompany();
+  const { activeCompany, activeCompanyId, clearCompany, stages } = useCompany();
   const { searchText, setSearchText } = useSearch();
   const { openRecordModal } = useModal();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -71,7 +73,7 @@ export default function Shell() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname]);
 
-  const topbarSubtitle = useTopbarSubtitle(location.pathname, activeCompanyId, activeCompany?.name || "");
+  const topbarSubtitle = useTopbarSubtitle(location.pathname, activeCompanyId, activeCompany?.name || "", stages);
 
   // Also stamped on <body>, not just the .app-shell div below: RecordModal is
   // portaled to #modal-root, a sibling of #root in index.html — outside

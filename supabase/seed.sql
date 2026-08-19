@@ -12,15 +12,18 @@ insert into companies (id, name, slug, logo, color, accent, industry) values
 on conflict (id) do nothing;
 
 -- Every company starts with the same 5-stage lead pipeline (app.js seedDb()).
+-- `type` is open/won/lost, not the original app.js "lead" tag — it's what
+-- Dashboard/Reports use to compute won deals and open pipeline value, so
+-- renaming a stage's display name later doesn't change what it counts as.
 insert into pipeline_stages (company_id, id, name, "order", color, type)
 select c.id, s.id, s.name, s."order", s.color, s.type
 from companies c
 cross join (values
-  ('new', 'New', 1, '#667085', 'lead'),
-  ('contacted', 'Contacted', 2, '#2f6fed', 'lead'),
-  ('estimate', 'Estimate Sent', 3, '#d89416', 'lead'),
-  ('scheduled', 'Scheduled', 4, '#14a38b', 'lead'),
-  ('won', 'Won', 5, '#1f9d64', 'lead')
+  ('new', 'New', 1, '#667085', 'open'),
+  ('contacted', 'Contacted', 2, '#2f6fed', 'open'),
+  ('estimate', 'Estimate Sent', 3, '#d89416', 'open'),
+  ('scheduled', 'Scheduled', 4, '#14a38b', 'open'),
+  ('won', 'Won', 5, '#1f9d64', 'won')
 ) as s(id, name, "order", color, type)
 on conflict (company_id, id) do nothing;
 

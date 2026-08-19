@@ -1,5 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import StagesEditor from "../components/StagesEditor";
 import { updateLead } from "../data/leads";
 import { useLeads } from "../data/hooks";
 import { filterRowsBySearch } from "../domain/search";
@@ -34,6 +35,7 @@ export default function Pipeline() {
   const leads = filterRowsBySearch(allLeads, searchText);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dragOverStage, setDragOverStage] = useState<string | null>(null);
+  const [editingStages, setEditingStages] = useState(false);
 
   const moveLead = async (leadId: string, stageId: string) => {
     if (!activeCompanyId) return;
@@ -54,7 +56,12 @@ export default function Pipeline() {
   };
 
   return (
-    <div className="pipeline">
+    <>
+      <div className="between" style={{ marginBottom: 12 }}>
+        <span className="sub">{stages.length} stage{stages.length === 1 ? "" : "s"}</span>
+        <button className="btn ghost slim" onClick={() => setEditingStages(true)}>Edit stages</button>
+      </div>
+      <div className="pipeline">
       {stages.map(stage => {
         const stageLeads = leads.filter(l => l.stage_id === stage.id);
         return (
@@ -99,7 +106,11 @@ export default function Pipeline() {
           </section>
         );
       })}
-    </div>
+      </div>
+      {editingStages && activeCompanyId && (
+        <StagesEditor companyId={activeCompanyId} stages={stages} onClose={() => setEditingStages(false)} />
+      )}
+    </>
   );
 }
 

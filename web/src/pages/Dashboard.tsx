@@ -2,6 +2,7 @@ import KpiCard from "../components/KpiCard";
 import { useCustomers, useJobs, useLeads } from "../data/hooks";
 import { INTEGRATION_PLACEHOLDERS } from "../domain/constants";
 import { money, titleize } from "../domain/format";
+import { isOpenStage, isWonStage } from "../domain/pipelineStages";
 import { useCompany } from "../state/CompanyContext";
 
 // Ported verbatim from app.js (metrics, renderDashboard, stageBar).
@@ -11,14 +12,15 @@ export default function Dashboard() {
   const { data: leads = [] } = useLeads(activeCompanyId);
   const { data: jobs = [] } = useJobs(activeCompanyId);
 
-  const won = leads.filter(l => l.stage_id === "won");
-  const pipelineValue = leads.filter(l => l.stage_id !== "won").reduce((t, l) => t + Number(l.value || 0), 0);
+  const won = leads.filter(l => isWonStage(l.stage_id, stages));
+  const openLeads = leads.filter(l => isOpenStage(l.stage_id, stages));
+  const pipelineValue = openLeads.reduce((t, l) => t + Number(l.value || 0), 0);
 
   return (
     <>
       <div className="grid kpis">
         <KpiCard label="Clients" value={customers.length} hint="active company records" />
-        <KpiCard label="Open leads" value={leads.filter(l => l.stage_id !== "won").length} hint={`${won.length} won`} />
+        <KpiCard label="Open leads" value={openLeads.length} hint={`${won.length} won`} />
         <KpiCard label="Jobs/projects" value={jobs.length} hint="scheduled and active" />
         <KpiCard label="Pipeline" value={money(pipelineValue)} hint="estimated value" />
       </div>

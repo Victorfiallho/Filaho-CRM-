@@ -274,6 +274,13 @@ tr.row-clickable{cursor:pointer}
 .pill.status-active{background:var(--success-soft);color:#047857}
 .pill.status-past{background:rgba(100,116,139,.14);color:var(--muted)}
 .pill.status-lost{background:rgba(214,69,69,.12);color:var(--red)}
+.stage-rows{display:grid;gap:8px}
+.stage-row{display:flex;align-items:center;gap:8px}
+.stage-row-order{display:flex;flex-direction:column;gap:2px}
+.stage-row-order .btn{padding:1px 8px;font-size:10px;line-height:1.6}
+.stage-color-input{width:32px;height:32px;padding:2px;border:1px solid var(--line-strong);border-radius:8px;background:#fff;cursor:pointer;flex:0 0 auto}
+.stage-name-input{flex:1 1 auto;min-width:0;border:1px solid rgba(255,255,255,.9);border-radius:var(--radius-sm);background:var(--soft);padding:8px 10px}
+.stage-row .cs{width:120px;flex:0 0 auto}
 .pipeline{display:grid;grid-template-columns:repeat(5,minmax(180px,1fr));gap:14px;overflow:auto;align-items:start}
 .stage{background:rgba(255,255,255,.35);border:1px solid var(--line);border-radius:var(--radius);min-height:250px;max-height:calc(100vh - 260px);display:flex;flex-direction:column;transition:background-color .15s ease,border-color .15s ease}
 .stage.drag-over{background:var(--brand-soft);border-color:var(--brand)}

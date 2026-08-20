@@ -108,16 +108,17 @@ export default function StagesEditor({ companyId, stages, onClose }: { companyId
           <button className="btn ghost slim" onClick={onClose}>Close</button>
         </div>
         <div className="modal-b">
-          <p className="sub" style={{ marginBottom: 14 }}>
-            Type controls what counts where: <b>won</b> leads show up as closed deals on Dashboard/Reports,
-            <b> lost</b> leads drop out of open pipeline value, everything else is treated as open.
-          </p>
+          <div className="stage-legend">
+            <span><span className="pill type-open">open</span> stays in pipeline value</span>
+            <span><span className="pill type-won">won</span> counts as a closed deal</span>
+            <span><span className="pill type-lost">lost</span> drops out of pipeline value</span>
+          </div>
           <div className="stage-rows">
             {sorted.map((s, i) => (
               <div className="stage-row" key={s.id}>
                 <div className="stage-row-order">
-                  <button className="btn ghost slim" onClick={() => move(s.id, -1)} disabled={i === 0}>▲</button>
-                  <button className="btn ghost slim" onClick={() => move(s.id, 1)} disabled={i === sorted.length - 1}>▼</button>
+                  <button className="btn ghost slim" onClick={() => move(s.id, -1)} disabled={i === 0} aria-label="Move up">▲</button>
+                  <button className="btn ghost slim" onClick={() => move(s.id, 1)} disabled={i === sorted.length - 1} aria-label="Move down">▼</button>
                 </div>
                 <input
                   type="color"
@@ -132,16 +133,18 @@ export default function StagesEditor({ companyId, stages, onClose }: { companyId
                   className="stage-name-input"
                   placeholder="Stage name"
                 />
-                <Select
-                  value={s.type || "open"}
-                  onChange={v => updateRow(s.id, { type: v as StageType })}
-                  options={STAGE_TYPES.map(t => ({ value: t, label: t }))}
-                />
-                <button className="btn ghost slim" onClick={() => removeStage(s.id)}>Remove</button>
+                <div className={`stage-type type-${s.type || "open"}`}>
+                  <Select
+                    value={s.type || "open"}
+                    onChange={v => updateRow(s.id, { type: v as StageType })}
+                    options={STAGE_TYPES.map(t => ({ value: t, label: t }))}
+                  />
+                </div>
+                <button className="btn ghost slim danger" onClick={() => removeStage(s.id)}>Remove</button>
               </div>
             ))}
           </div>
-          <button className="btn ghost slim" style={{ marginTop: 12 }} onClick={addStage}>Add stage</button>
+          <button className="btn stage-add-btn" onClick={addStage}>+ Add stage</button>
         </div>
         <div className="modal-f">
           <button className="btn ghost" onClick={onClose} disabled={saving}>Cancel</button>

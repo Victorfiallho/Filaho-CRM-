@@ -7,6 +7,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Select from "../components/Select";
 import { useCustomers, useInvalidateCompanyData, useJobs, useLeads } from "../data/hooks";
 import { geocodeRecords } from "../data/geocoding";
+import { fetchDrivingRoute } from "../data/routing";
 import { groupBy, titleize, unique } from "../domain/format";
 import { buildGoogleMapsRouteUrl, clusterByProximity, nearestNeighborRoute, type LatLng } from "../domain/geo";
 import { DEFAULT_MAP_FILTERS, matchesMapFilters } from "../domain/mapUtils";
@@ -338,6 +339,7 @@ function LeafletMapCanvas({ records, routeStops, onPinClick }: { records: MapRec
     if (!map || !clusterGroup || !routeLayer) return;
     clusterGroup.clearLayers();
     routeLayer.clearLayers();
+    let cancelled = false;
 
     if (routeStops && routeStops.length) {
       routeStops.forEach((record, index) => {
@@ -346,7 +348,11 @@ function LeafletMapCanvas({ records, routeStops, onPinClick }: { records: MapRec
         marker.on("click", () => onPinClickRef.current(record));
         marker.addTo(routeLayer);
       });
-      L.polyline(routeStops.map(r => [r.lat, r.lng] as [number, number]), { color: "#f97316", weight: 3, dashArray: "6 8" }).addTo(routeLayer);
+      const straightLine = routeStops.map(r => [r.lat, r.lng] as [number, number]);
+      // Dashed straight line is the instant, always-available preview;
+      // fetchDrivingRoute() below swaps it for the real road-following path
+      // once (if) the free routing service responds.
+      const routeLine = L.polyline(straightLine, { color: "#f97316", weight: 3, dashArray: "6 8" }).addTo(routeLayer);
       // A single-stop (or all-but-identical-point) route gives fitBounds a
       // zero-area box, which zooms in to the map's max zoom — a street-level
       // close-up with no surrounding context. setView with a fixed zoom for
@@ -354,28 +360,33 @@ function LeafletMapCanvas({ records, routeStops, onPinClick }: { records: MapRec
       if (routeStops.length === 1) {
         map.setView([routeStops[0].lat, routeStops[0].lng], 14);
       } else {
-        const bounds = L.latLngBounds(routeStops.map(r => [r.lat, r.lng] as [number, number]));
-        map.fitBounds(bounds, { padding: [24, 24], maxZoom: 15 });
+        map.fitBounds(L.latLngBounds(straightLine), { padding: [24, 24], maxZoom: 15 });
+        fetchDrivingRoute(routeStops.map(r => ({ lat: r.lat, lng: r.lng }))).then(line => {
+          if (cancelled || !line) return;
+          routeLine.setLatLngs(line.map(p => [p.lat, p.lng] as [number, number]));
+          routeLine.setStyle({ dashArray: undefined });
+        });
       }
-      return;
+    } else {
+      withCoords.forEach(record => {
+        const marker = L.circleMarker([Number(record.lat), Number(record.lng)], {
+          radius: 9, color: "#fff", weight: 2, fillColor: PIN_COLOR[record.kind], fillOpacity: 1
+        });
+        marker.bindTooltip(record.name || (record as any).title || record.kind);
+        marker.on("click", () => onPinClickRef.current(record));
+        clusterGroup.addLayer(marker);
+      });
+      if (!hasFitRef.current && withCoords.length) {
+        hasFitRef.current = true;
+        if (withCoords.length > 1) {
+          map.fitBounds(L.latLngBounds(withCoords.map(r => [Number(r.lat), Number(r.lng)] as [number, number])), { padding: [24, 24], maxZoom: 15 });
+        } else {
+          map.setView([Number(withCoords[0].lat), Number(withCoords[0].lng)], 12);
+        }
+      }
     }
 
-    withCoords.forEach(record => {
-      const marker = L.circleMarker([Number(record.lat), Number(record.lng)], {
-        radius: 9, color: "#fff", weight: 2, fillColor: PIN_COLOR[record.kind], fillOpacity: 1
-      });
-      marker.bindTooltip(record.name || (record as any).title || record.kind);
-      marker.on("click", () => onPinClickRef.current(record));
-      clusterGroup.addLayer(marker);
-    });
-    if (!hasFitRef.current && withCoords.length) {
-      hasFitRef.current = true;
-      if (withCoords.length > 1) {
-        map.fitBounds(L.latLngBounds(withCoords.map(r => [Number(r.lat), Number(r.lng)] as [number, number])), { padding: [24, 24], maxZoom: 15 });
-      } else {
-        map.setView([Number(withCoords[0].lat), Number(withCoords[0].lng)], 12);
-      }
-    }
+    return () => { cancelled = true; };
   }, [withCoords, routeStops]);
 
   return (

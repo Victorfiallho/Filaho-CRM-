@@ -3,10 +3,13 @@
 // on every render.
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { listCustomers } from "./customers";
+import { listFiles } from "./files";
 import { getIntegrationSettings } from "./integrationSettings";
 import { listImports } from "./imports";
 import { listJobs } from "./jobs";
 import { listLeads } from "./leads";
+import { listNotes } from "./notes";
+import { getCurrentAppUser, listUsers } from "./users";
 
 export function useCustomers(companyId: string | null) {
   return useQuery({
@@ -45,6 +48,32 @@ export function useIntegrationSettings() {
     queryKey: ["integration_settings"],
     queryFn: getIntegrationSettings
   });
+}
+
+export function useNotes(companyId: string | null, entityType: string, entityId: string | null) {
+  return useQuery({
+    queryKey: ["notes", companyId, entityType, entityId],
+    queryFn: () => listNotes(companyId!, entityType, entityId!),
+    enabled: Boolean(companyId && entityId)
+  });
+}
+
+export function useFiles(companyId: string | null, entityType: string, entityId: string | null) {
+  return useQuery({
+    queryKey: ["files", companyId, entityType, entityId],
+    queryFn: () => listFiles(companyId!, entityType, entityId!),
+    enabled: Boolean(companyId && entityId)
+  });
+}
+
+// Small, rarely-changing lookup — long staleTime avoids refetching it every
+// time a RecordModal opens.
+export function useUsers() {
+  return useQuery({ queryKey: ["users"], queryFn: listUsers, staleTime: 5 * 60 * 1000 });
+}
+
+export function useCurrentAppUser() {
+  return useQuery({ queryKey: ["current-app-user"], queryFn: getCurrentAppUser, staleTime: 5 * 60 * 1000 });
 }
 
 export function useInvalidateCompanyData(companyId: string | null) {

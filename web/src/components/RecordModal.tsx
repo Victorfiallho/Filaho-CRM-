@@ -3,10 +3,13 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Select from "./Select";
 import { listCustomers, insertCustomer, updateCustomer, deleteCustomer } from "../data/customers";
+import { deleteFile, insertFile } from "../data/files";
 import { geocodeAddress } from "../data/geocoding";
+import { useCurrentAppUser, useFiles, useNotes, useUsers } from "../data/hooks";
 import { insertJob, updateJob, deleteJob } from "../data/jobs";
 import { upsertClientFromLead } from "../data/leadClientSync";
 import { insertLead, updateLead, deleteLead } from "../data/leads";
+import { deleteNote, insertNote } from "../data/notes";
 import { now, uid } from "../domain/format";
 import { titleize } from "../domain/format";
 import { errorMessage } from "../lib/errorMessage";
@@ -42,6 +45,22 @@ function RecordModalContent() {
     queryFn: () => listCustomers(activeCompanyId!),
     enabled: (type === "job" || type === "lead") && Boolean(activeCompanyId)
   });
+
+  // Notes/files attach to an already-saved record via entity_id, so a
+  // not-yet-created record (isEdit false, or no r.id yet) simply queries with
+  // a null entityId — useNotes/useFiles are disabled in that case and return [].
+  const notesEntityId = isEdit && r.id ? r.id : null;
+  const { data: notes = [] } = useNotes(activeCompanyId, type, notesEntityId);
+  const { data: files = [] } = useFiles(activeCompanyId, type, notesEntityId);
+  const { data: users = [] } = useUsers();
+  const { data: currentAppUser } = useCurrentAppUser();
+  const userNameById = new Map(users.map(u => [u.id, u.name]));
+
+  const [newNoteBody, setNewNoteBody] = useState("");
+  const [addingNote, setAddingNote] = useState(false);
+  const [newFileName, setNewFileName] = useState("");
+  const [newFileUrl, setNewFileUrl] = useState("");
+  const [addingFile, setAddingFile] = useState(false);
 
   // Lets a new lead be linked to an existing client by picking them from a
   // list, instead of only relying on the fuzzy dedupe match (phone/email/
@@ -283,6 +302,55 @@ function RecordModalContent() {
     }
   }
 
+  async function handleAddNote() {
+    if (!activeCompanyId || !r.id || !newNoteBody.trim()) return;
+    setAddingNote(true);
+    try {
+      await insertNote({ company_id: activeCompanyId, entity_type: type, entity_id: r.id, body: newNoteBody.trim(), user_id: currentAppUser?.id || null });
+      setNewNoteBody("");
+      queryClient.invalidateQueries({ queryKey: ["notes", activeCompanyId, type, r.id] });
+    } catch (error) {
+      toast(errorMessage(error, "Could not add note."));
+    } finally {
+      setAddingNote(false);
+    }
+  }
+
+  async function handleDeleteNote(id: string) {
+    if (!activeCompanyId) return;
+    try {
+      await deleteNote(id, activeCompanyId);
+      queryClient.invalidateQueries({ queryKey: ["notes", activeCompanyId, type, r.id] });
+    } catch (error) {
+      toast(errorMessage(error, "Could not delete note."));
+    }
+  }
+
+  async function handleAddFile() {
+    if (!activeCompanyId || !r.id || !newFileName.trim() || !newFileUrl.trim()) return;
+    setAddingFile(true);
+    try {
+      await insertFile({ company_id: activeCompanyId, entity_type: type, entity_id: r.id, name: newFileName.trim(), url: newFileUrl.trim() });
+      setNewFileName("");
+      setNewFileUrl("");
+      queryClient.invalidateQueries({ queryKey: ["files", activeCompanyId, type, r.id] });
+    } catch (error) {
+      toast(errorMessage(error, "Could not add file link."));
+    } finally {
+      setAddingFile(false);
+    }
+  }
+
+  async function handleDeleteFile(id: string) {
+    if (!activeCompanyId) return;
+    try {
+      await deleteFile(id, activeCompanyId);
+      queryClient.invalidateQueries({ queryKey: ["files", activeCompanyId, type, r.id] });
+    } catch (error) {
+      toast(errorMessage(error, "Could not remove file link."));
+    }
+  }
+
   return (
     <div className="modal-bg">
       <section className="modal" onKeyDown={handleModalKeyDown}>
@@ -353,6 +421,50 @@ function RecordModalContent() {
                 <textarea rows={3} value={form.notes} onChange={e => set("notes", e.target.value)} />
               </div>
             </>
+          )}
+          {isEdit && r.id && (
+            <div className="record-activity">
+              <div className="grid two">
+                <div className="field">
+                  <label>Activity notes</label>
+                  <div className="record-note-list">
+                    {notes.length === 0 && <p className="sub">No notes yet.</p>}
+                    {notes.map(n => (
+                      <div className="record-note" key={n.id}>
+                        <p>{n.body}</p>
+                        <div className="record-note-meta">
+                          <span className="sub">{userNameById.get(n.user_id || "") || "Someone"} · {new Date(n.created_at).toLocaleString()}</span>
+                          <button className="btn ghost slim" onClick={() => handleDeleteNote(n.id)}>Remove</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <textarea rows={2} placeholder="Add a note..." value={newNoteBody} onChange={e => setNewNoteBody(e.target.value)} />
+                  <button className="btn ghost slim" onClick={handleAddNote} disabled={addingNote || !newNoteBody.trim()}>
+                    {addingNote ? "Adding..." : "Add note"}
+                  </button>
+                </div>
+                <div className="field">
+                  <label>Files</label>
+                  <div className="record-note-list">
+                    {files.length === 0 && <p className="sub">No files linked yet.</p>}
+                    {files.map(f => (
+                      <div className="record-note" key={f.id}>
+                        <div className="record-note-meta">
+                          <a href={f.url} target="_blank" rel="noreferrer">{f.name}</a>
+                          <button className="btn ghost slim" onClick={() => handleDeleteFile(f.id)}>Remove</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <input placeholder="File name" value={newFileName} onChange={e => setNewFileName(e.target.value)} />
+                  <input placeholder="Link URL (Google Drive, etc.)" value={newFileUrl} onChange={e => setNewFileUrl(e.target.value)} />
+                  <button className="btn ghost slim" onClick={handleAddFile} disabled={addingFile || !newFileName.trim() || !newFileUrl.trim()}>
+                    {addingFile ? "Adding..." : "Add file link"}
+                  </button>
+                </div>
+              </div>
+            </div>
           )}
         </div>
         <div className="modal-f">

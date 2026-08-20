@@ -117,6 +117,32 @@ export interface IntegrationSettings {
   google_drive: { enabled: boolean; folder_ids: Record<string, string>; folder_urls: Record<string, string>; notes: string };
 }
 
+export interface RecordNote {
+  id: string;
+  company_id: string;
+  entity_type: string;
+  entity_id: string;
+  body: string;
+  created_at: string;
+  user_id: string | null;
+}
+
+export interface RecordFile {
+  id: string;
+  company_id: string;
+  entity_type: string;
+  entity_id: string;
+  name: string;
+  url: string;
+  provider: string | null;
+  created_at: string;
+}
+
+export interface AppUser {
+  id: string;
+  name: string;
+}
+
 export type MapKind = "customer" | "lead" | "job";
 
 export interface MapRecord {

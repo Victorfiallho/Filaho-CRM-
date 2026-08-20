@@ -407,6 +407,12 @@ input[type="checkbox"]:focus-visible{outline:none;box-shadow:0 0 0 3px var(--bra
 .modal-h h3{font-size:16px}
 .modal-b{padding:20px}
 .modal-f{display:flex;justify-content:flex-end;gap:10px;border-top:1px solid var(--line);padding:16px 20px;background:rgba(255,255,255,.3);border-radius:0 0 var(--radius-canvas) var(--radius-canvas)}
+.record-activity{margin-top:18px;border-top:1px solid var(--line);padding-top:16px}
+.record-activity .field textarea,.record-activity .field input{margin-bottom:8px}
+.record-note-list{display:flex;flex-direction:column;gap:8px;margin:8px 0 10px}
+.record-note{background:rgba(255,255,255,.5);border:1px solid var(--line);border-radius:var(--radius-sm);padding:8px 10px}
+.record-note p{margin:0 0 4px;white-space:pre-wrap;font-size:13.5px}
+.record-note-meta{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .toast{position:fixed;left:50%;bottom:22px;transform:translate(-50%,80px);opacity:0;background:var(--ink);color:#fff;border-radius:var(--radius-sm);padding:11px 18px;font-weight:600;box-shadow:var(--shadow-md);transition:.2s;z-index:30}
 .toast.show{transform:translate(-50%,0);opacity:1}
 .muted{color:var(--muted)}

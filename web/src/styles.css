@@ -347,9 +347,16 @@ tr.row-clickable{cursor:pointer}
 }
 .leaflet-map-canvas .leaflet-control-zoom a:first-child{border-bottom:1px solid var(--glass-border)}
 .leaflet-map-canvas .leaflet-control-zoom a:hover{background:#fff;color:var(--brand)}
+.route-legend{display:flex;gap:14px}
+.route-legend span{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
+.route-legend-dot{display:inline-block;width:9px;height:9px;border-radius:999px;border:1.5px solid #fff;box-shadow:0 0 0 1px rgba(15,23,42,.12)}
 .route-order-list{display:grid;gap:6px}
 .route-order-row{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.5);border:1px solid var(--line);border-radius:var(--radius-sm);padding:8px 10px}
-.route-order-num{flex:0 0 auto;width:22px;height:22px;border-radius:999px;background:var(--brand);color:#fff;display:grid;place-items:center;font-weight:700;font-size:11px}
+.route-order-num{
+  flex:0 0 auto;width:24px;height:24px;border-radius:999px;color:#fff;
+  display:grid;place-items:center;font-weight:700;font-size:11px;
+  border:2px solid #fff;box-shadow:var(--shadow-xs);
+}
 .route-order-name{flex:1 1 auto;font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .route-pin span{width:26px;height:26px;border-radius:999px;display:grid;place-items:center;color:#fff;font-weight:800;font-size:12px;border:2px solid #fff;box-shadow:var(--shadow-sm)}
 input[type="checkbox"]{

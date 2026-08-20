@@ -181,24 +181,6 @@ export default function MapRoutes() {
         <div className="card-b">
           <MapFilterBar zips={zips} cities={cities} services={services} stages={stages} filters={mapFilters} onChange={setMapFilters} />
           <LeafletMapCanvas records={filtered} routeStops={routeStops} onPinClick={openMapRecord} />
-          <div className="inline-actions" style={{ marginTop: 10 }}>
-            <span className="sub" style={{ fontWeight: 600 }}>Start from</span>
-            <Select
-              value={startMode}
-              onChange={v => setStartMode(v as StartMode)}
-              options={[
-                { value: "geolocation", label: "My current location" },
-                { value: "first", label: "First stop in list" },
-                { value: "custom", label: "Custom coordinates" }
-              ]}
-            />
-            {startMode === "custom" && (
-              <>
-                <input placeholder="Latitude" value={customStartLat} onChange={e => setCustomStartLat(e.target.value)} style={{ flex: "0 0 110px" }} />
-                <input placeholder="Longitude" value={customStartLng} onChange={e => setCustomStartLng(e.target.value)} style={{ flex: "0 0 110px" }} />
-              </>
-            )}
-          </div>
           <div className="between" style={{ marginTop: 10, flexWrap: "wrap", gap: 8 }}>
             <span className="sub">
               {missingCoords ? `${missingCoords} of ${filtered.length} visible records still need coordinates.` : "All visible records have coordinates."}
@@ -207,6 +189,22 @@ export default function MapRoutes() {
               <button className="btn ghost slim" onClick={geocodeVisible} disabled={geocoding}>{geocoding ? "Geocoding..." : "Geocode visible records"}</button>
               {selectedIds.size > 0 && (
                 <button className="btn ghost slim" onClick={() => setSelectedIds(new Set())}>Clear selection ({selectedIds.size})</button>
+              )}
+              <span className="sub" style={{ fontWeight: 600 }}>Start from</span>
+              <Select
+                value={startMode}
+                onChange={v => setStartMode(v as StartMode)}
+                options={[
+                  { value: "geolocation", label: "My current location" },
+                  { value: "first", label: "First stop in list" },
+                  { value: "custom", label: "Custom coordinates" }
+                ]}
+              />
+              {startMode === "custom" && (
+                <>
+                  <input placeholder="Latitude" value={customStartLat} onChange={e => setCustomStartLat(e.target.value)} style={{ flex: "0 0 100px" }} />
+                  <input placeholder="Longitude" value={customStartLng} onChange={e => setCustomStartLng(e.target.value)} style={{ flex: "0 0 100px" }} />
+                </>
               )}
               <button className="btn ghost slim" onClick={optimizeRoute} disabled={routing || !routeCandidates.length}>
                 {routing ? (startMode === "geolocation" ? "Finding your location..." : "Optimizing...") : selectedIds.size ? `Optimize route (${selectedIds.size} selected)` : "Optimize route (all visible)"}
@@ -221,13 +219,20 @@ export default function MapRoutes() {
           </div>
           {routeStops && (
             <div style={{ marginTop: 10 }}>
-              <span className="sub" style={{ display: "block", marginBottom: 6 }}>
-                Route order ({routeStops.length} stop{routeStops.length === 1 ? "" : "s"}) — use the arrows to reorder manually
-              </span>
+              <div className="between" style={{ marginBottom: 8 }}>
+                <span className="sub">
+                  Route order ({routeStops.length} stop{routeStops.length === 1 ? "" : "s"}) — use the arrows to reorder manually
+                </span>
+                <div className="route-legend">
+                  <span><span className="route-legend-dot" style={{ background: PIN_COLOR.lead }} />Lead</span>
+                  <span><span className="route-legend-dot" style={{ background: PIN_COLOR.customer }} />Client</span>
+                  <span><span className="route-legend-dot" style={{ background: PIN_COLOR.job }} />Job</span>
+                </div>
+              </div>
               <div className="route-order-list">
                 {routeStops.map((s, i) => (
                   <div className="route-order-row" key={s.id}>
-                    <span className="route-order-num">{i + 1}</span>
+                    <span className="route-order-num" style={{ background: PIN_COLOR[s.kind] }}>{i + 1}</span>
                     <span className="route-order-name">{s.name || (s as any).title}</span>
                     <div className="stage-row-order">
                       <button className="btn ghost slim" onClick={() => moveRouteStop(i, -1)} disabled={i === 0} aria-label="Move earlier">▲</button>

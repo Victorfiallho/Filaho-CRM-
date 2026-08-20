@@ -4,13 +4,16 @@
 // instead of being hardcoded here, since that's the whole point of the migration —
 // these constants are the parts that were never data, just UI/config.
 
-// Real per-company logos (web/public/logos/*.png). COMPANY_ICONS below stays
+// Real per-company logos (web/public/logos/*). COMPANY_ICONS below stays
 // as the fallback for any company id that doesn't have a logo file.
+// wish_cabinets/arca_cabinets are vector (.svg) — swapped in 2026-08-20 for
+// the sharper-at-any-size, smaller-file-size versions; the others are still
+// the original raster logos.
 export const COMPANY_LOGOS: Record<string, string> = {
   peach_fresh: "/logos/peach_fresh.png",
-  wish_cabinets: "/logos/wish_cabinets.png",
+  wish_cabinets: "/logos/wish_cabinets.svg",
   peach_state_flooring: "/logos/peach_state_flooring.png",
-  arca_cabinets: "/logos/arca_cabinets.png"
+  arca_cabinets: "/logos/arca_cabinets.svg"
 };
 
 export const COMPANY_ICONS: Record<string, string> = {

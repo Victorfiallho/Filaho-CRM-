@@ -5,6 +5,10 @@ import { useCompany } from "../state/CompanyContext";
 import { useModal } from "../state/ModalContext";
 import { useSearch } from "../state/SearchContext";
 
+function dash(value: string): string {
+  return value.trim() ? value : "—";
+}
+
 export default function Jobs() {
   const { activeCompanyId } = useCompany();
   const { data: allRows = [], isLoading } = useJobs(activeCompanyId);
@@ -23,30 +27,30 @@ export default function Jobs() {
       </div>
       <div className="table-wrap">
         <table>
-          <thead><tr><th>Job</th><th>Status</th><th>Client</th><th>Date</th><th>Value</th><th>Drive</th><th></th></tr></thead>
+          <thead><tr><th>Job</th><th>Status</th><th>Client</th><th>Date</th><th>Value</th><th>Drive</th></tr></thead>
           <tbody>
             {rows.map(j => {
               const cust = customers.find(c => c.id === j.customer_id);
+              const status = j.status || "planned";
               return (
-                <tr key={j.id}>
+                <tr key={j.id} className="row-clickable" onClick={() => openRecordModal("job", j)}>
                   <td><b>{j.title}</b><div className="sub">{j.service_type || ""}</div></td>
-                  <td><span className="pill">{j.status || "planned"}</span></td>
-                  <td>{cust?.name || ""}</td>
-                  <td>{j.scheduled_date || ""}</td>
+                  <td><span className={`pill status-${status.replace(/\s+/g, "-")}`}>{status}</span></td>
+                  <td>{dash(cust?.name || "")}</td>
+                  <td>{dash(j.scheduled_date || "")}</td>
                   <td>{money(j.estimated_value)}</td>
-                  <td>
+                  <td onClick={e => e.stopPropagation()}>
                     {j.drive_folder_url
                       ? <a href={j.drive_folder_url} target="_blank" rel="noreferrer">Folder</a>
                       : driveRootUrl
                         ? <a href={driveRootUrl} target="_blank" rel="noreferrer">Link root</a>
-                        : <span className="muted">Not linked</span>}
+                        : <span className="muted">—</span>}
                   </td>
-                  <td><button className="btn ghost slim" onClick={() => openRecordModal("job", j)}>Edit</button></td>
                 </tr>
               );
             })}
             {!isLoading && rows.length === 0 && (
-              <tr><td colSpan={7}><div className="empty">No jobs yet</div></td></tr>
+              <tr><td colSpan={6}><div className="empty">No jobs yet</div></td></tr>
             )}
           </tbody>
         </table>

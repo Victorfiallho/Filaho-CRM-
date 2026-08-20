@@ -115,7 +115,7 @@ export default function ImportCenter() {
       })
       .filter(row => row.record.title || row.record.scheduled_date || row.record.address);
     setPreview(previewRows);
-    toast(`${previewRows.length} calendar events ready to preview.`);
+    toast(`${previewRows.length} calendar event${previewRows.length === 1 ? "" : "s"} ready to preview.`);
   }
 
   async function loadImportFile(file: File | null) {
@@ -325,7 +325,7 @@ export default function ImportCenter() {
         </div>
       </section>
       <section className="card">
-        <div className="card-h"><h3>Import history</h3><span className="sub">{history.length} imports</span></div>
+        <div className="card-h"><h3>Import history</h3><span className="sub">{history.length} import{history.length === 1 ? "" : "s"}</span></div>
         <div className="card-b">
           {history.length
             ? history.map(h => (

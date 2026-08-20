@@ -15,6 +15,8 @@ export default function Dashboard() {
   const won = leads.filter(l => isWonStage(l.stage_id, stages));
   const openLeads = leads.filter(l => isOpenStage(l.stage_id, stages));
   const pipelineValue = openLeads.reduce((t, l) => t + Number(l.value || 0), 0);
+  const integrationEntries = Object.entries(INTEGRATION_PLACEHOLDERS);
+  const connectedCount = integrationEntries.filter(([, v]) => v.status === "connected").length;
 
   return (
     <>
@@ -42,10 +44,10 @@ export default function Dashboard() {
           </div>
         </section>
         <section className="card">
-          <div className="card-h"><h3>Sprint 1 integrations</h3><span className="sub">Prepared, not connected</span></div>
+          <div className="card-h"><h3>Integrations status</h3><span className="sub">{connectedCount} of {integrationEntries.length} connected</span></div>
           <div className="card-b">
-            {Object.entries(INTEGRATION_PLACEHOLDERS).map(([k, v]) => (
-              <p key={k}><span className="pill">{v.status}</span> {titleize(k)}</p>
+            {integrationEntries.map(([k, v]) => (
+              <p key={k}><span className={`pill status-${v.status}`}>{v.status}</span> {titleize(k)}</p>
             ))}
           </div>
         </section>

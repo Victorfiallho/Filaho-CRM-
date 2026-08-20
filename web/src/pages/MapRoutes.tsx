@@ -137,7 +137,7 @@ export default function MapRoutes() {
       <section className="card">
         <div className="card-h">
           <div><h3>Company map</h3><span className="sub">OpenStreetMap tiles — no API key needed</span></div>
-          <span className="pill">{filtered.length} records</span>
+          <span className="pill">{filtered.length} record{filtered.length === 1 ? "" : "s"}</span>
         </div>
         <div className="card-b">
           <MapFilterBar zips={zips} cities={cities} services={services} stages={stages} filters={mapFilters} onChange={setMapFilters} />

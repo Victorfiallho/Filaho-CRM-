@@ -29,7 +29,7 @@ export default function Reports() {
         <KpiCard label="Imports" value={imports.length} hint="CSV history" />
       </div>
       <section className="card" style={{ marginTop: 14 }}>
-        <div className="card-h"><h3>Revenue by service</h3><span className="sub">MVP report</span></div>
+        <div className="card-h"><h3>Revenue by service</h3></div>
         <div className="card-b">
           {Object.entries(byService).length
             ? Object.entries(byService).map(([k, v]) => <p key={k}><b>{k}</b> <span className="muted">{money(v)}</span></p>)

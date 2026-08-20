@@ -181,7 +181,7 @@ h1,h2,h3{margin:0;letter-spacing:-.02em;font-weight:700;color:var(--ink)}
 .company-card{border-left:4px solid var(--company-color)}
 .company-card:hover{border-left-color:var(--company-color)}
 .company-card .logo{
-  width:76px;height:76px;border-radius:16px;box-shadow:none;padding:8px;
+  width:104px;height:104px;border-radius:18px;box-shadow:none;padding:6px;
   background:color-mix(in srgb,var(--company-color) 14%,white);color:var(--company-color);
   transition:transform .2s ease;
 }

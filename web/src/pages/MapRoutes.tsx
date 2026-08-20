@@ -347,8 +347,16 @@ function LeafletMapCanvas({ records, routeStops, onPinClick }: { records: MapRec
         marker.addTo(routeLayer);
       });
       L.polyline(routeStops.map(r => [r.lat, r.lng] as [number, number]), { color: "#f97316", weight: 3, dashArray: "6 8" }).addTo(routeLayer);
-      const bounds = L.latLngBounds(routeStops.map(r => [r.lat, r.lng] as [number, number]));
-      map.fitBounds(bounds, { padding: [24, 24] });
+      // A single-stop (or all-but-identical-point) route gives fitBounds a
+      // zero-area box, which zooms in to the map's max zoom — a street-level
+      // close-up with no surrounding context. setView with a fixed zoom for
+      // one stop, and a capped maxZoom otherwise, keeps the view usable.
+      if (routeStops.length === 1) {
+        map.setView([routeStops[0].lat, routeStops[0].lng], 14);
+      } else {
+        const bounds = L.latLngBounds(routeStops.map(r => [r.lat, r.lng] as [number, number]));
+        map.fitBounds(bounds, { padding: [24, 24], maxZoom: 15 });
+      }
       return;
     }
 
@@ -363,7 +371,7 @@ function LeafletMapCanvas({ records, routeStops, onPinClick }: { records: MapRec
     if (!hasFitRef.current && withCoords.length) {
       hasFitRef.current = true;
       if (withCoords.length > 1) {
-        map.fitBounds(L.latLngBounds(withCoords.map(r => [Number(r.lat), Number(r.lng)] as [number, number])), { padding: [24, 24] });
+        map.fitBounds(L.latLngBounds(withCoords.map(r => [Number(r.lat), Number(r.lng)] as [number, number])), { padding: [24, 24], maxZoom: 15 });
       } else {
         map.setView([Number(withCoords[0].lat), Number(withCoords[0].lng)], 12);
       }

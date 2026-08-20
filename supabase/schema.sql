@@ -1,4 +1,4 @@
--- Fialho CRM — Supabase schema
+-- Fialho Home Improvement — Supabase schema
 --
 -- Mirrors Filaho-CRM-/schema.md and the shape FialhoDB used to keep in
 -- localStorage (app.js), now the real backing store for web/. IDs stay `text`

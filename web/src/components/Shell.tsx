@@ -106,7 +106,7 @@ export default function Shell() {
               ? <img src={COMPANY_LOGOS[activeCompany.id]} alt={activeCompany.name} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
               : <span dangerouslySetInnerHTML={{ __html: COMPANY_ICONS[activeCompany.id] || activeCompany.logo || "" }} />}
           </div>
-          <div><b>Fialho CRM</b><span>{activeCompany.name}</span></div>
+          <div><b>Fialho Home Improvement</b><span>{activeCompany.name}</span></div>
         </div>
         <nav className="nav" ref={navRef}>
           <span className="nav-indicator" style={{ transform: `translateY(${indicator.top}px)`, height: indicator.height }} />

@@ -53,6 +53,6 @@ describe("buildCompanyIcsCalendar", () => {
 
   it("produces an empty-but-valid calendar for no jobs", () => {
     const ics = buildCompanyIcsCalendar("Peach Fresh Cleaning", []);
-    expect(ics).toBe("BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Fialho CRM//EN\r\nEND:VCALENDAR");
+    expect(ics).toBe("BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Fialho Home Improvement//EN\r\nEND:VCALENDAR");
   });
 });

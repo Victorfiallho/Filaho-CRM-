@@ -1,4 +1,4 @@
--- Fialho CRM — seed data
+-- Fialho Home Improvement — seed data
 --
 -- Mirrors the hardcoded COMPANIES / seedDb() stage defaults / serviceDefaults()
 -- that used to live in app.js, so a fresh Supabase database starts in the same

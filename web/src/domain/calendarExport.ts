@@ -24,7 +24,7 @@ export function googleCalendarCreateUrl(job: Job, companyName: string): string {
 }
 
 export function buildCompanyIcsCalendar(companyName: string, jobs: Job[]): string {
-  const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Fialho CRM//EN"];
+  const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Fialho Home Improvement//EN"];
   jobs.forEach(job => {
     const start = calendarDateString(job.scheduled_date);
     const endDate = new Date(job.scheduled_date + "T00:00:00");

@@ -31,7 +31,7 @@ export default function Login() {
       <section className="login-card">
         <div className="brand-lockup">
           <FialhoMark size={40} />
-          <h1>Fialho CRM</h1>
+          <h1>Fialho Home Improvement</h1>
         </div>
         <p className="sub">Multi-company CRM operations.</p>
         <form onSubmit={handleSubmit}>

@@ -1,4 +1,4 @@
-// Approximation of the Fialho CRM brand mark (angular orange "F") — not a
+// Approximation of the Fialho Home Improvement brand mark (angular orange "F") — not a
 // pixel-exact reproduction of the official logo file, just a close geometric
 // stand-in until the real asset is dropped into web/public/.
 export default function FialhoMark({ size = 40 }: { size?: number }) {

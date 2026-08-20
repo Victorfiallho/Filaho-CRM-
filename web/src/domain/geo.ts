@@ -43,6 +43,44 @@ export function nearestNeighborRoute<T extends LatLng>(points: T[], start: LatLn
   return ordered;
 }
 
+// 2-opt local search: repeatedly looks for a pair of edges that cross (or
+// just add unnecessary distance) and reverses the segment between them if
+// that shortens the total route. Standard TSP refinement, adapted for an
+// open path (start -> ... -> end, no return leg) rather than a closed tour.
+// Runs on top of nearestNeighborRoute()'s output, not instead of it — NN
+// gives a decent starting order fast, 2-opt cleans up the crossings NN's
+// greedy choices tend to leave behind. Pure, synchronous, no dependencies;
+// bounded by maxIterations so it can't spin forever on a pathological input,
+// though in practice it converges in a handful of passes for the stop counts
+// (a few dozen, capped by MAX_GOOGLE_MAPS_WAYPOINTS elsewhere) this app deals with.
+export function twoOptImprove<T extends LatLng>(route: T[], maxIterations = 200): T[] {
+  if (route.length < 4) return route;
+  const result = [...route];
+  let improved = true;
+  let iterations = 0;
+  while (improved && iterations < maxIterations) {
+    improved = false;
+    iterations++;
+    for (let i = 0; i < result.length - 3; i++) {
+      for (let k = i + 2; k < result.length - 1; k++) {
+        const a = result[i], b = result[i + 1];
+        const c = result[k], d = result[k + 1];
+        const before = haversineDistanceKm(a, b) + haversineDistanceKm(c, d);
+        const after = haversineDistanceKm(a, c) + haversineDistanceKm(b, d);
+        if (after + 1e-9 < before) {
+          let lo = i + 1, hi = k;
+          while (lo < hi) {
+            const tmp = result[lo]; result[lo] = result[hi]; result[hi] = tmp;
+            lo++; hi--;
+          }
+          improved = true;
+        }
+      }
+    }
+  }
+  return result;
+}
+
 // Google Maps' consumer web directions URL accepts an origin, a destination,
 // and up to ~23 waypoints in between. A field-service day rarely has more
 // stops than that, so no extra pagination/splitting is implemented here.

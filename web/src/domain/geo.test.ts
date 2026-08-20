@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildGoogleMapsRouteUrl, clusterByProximity, haversineDistanceKm, nearestNeighborRoute } from "./geo";
+import { buildGoogleMapsRouteUrl, clusterByProximity, haversineDistanceKm, nearestNeighborRoute, twoOptImprove, type LatLng } from "./geo";
 
 describe("haversineDistanceKm", () => {
   it("returns 0 for the same point", () => {
@@ -39,6 +39,45 @@ describe("nearestNeighborRoute", () => {
 
   it("handles an empty list", () => {
     expect(nearestNeighborRoute([], { lat: 0, lng: 0 })).toEqual([]);
+  });
+});
+
+function routeLength(points: LatLng[]): number {
+  return points.slice(1).reduce((sum, p, i) => sum + haversineDistanceKm(points[i], p), 0);
+}
+
+describe("twoOptImprove", () => {
+  it("uncrosses a route with a known crossing (both diagonals of a unit square)", () => {
+    const a = { id: "a", lat: 0, lng: 0 };
+    const b = { id: "b", lat: 1, lng: 1 };
+    const c = { id: "c", lat: 0, lng: 1 };
+    const d = { id: "d", lat: 1, lng: 0 };
+    // a-b and c-d are the two crossing diagonals; a-c-b-d traces the square's
+    // perimeter instead — shorter, and the fix 2-opt should find.
+    const improved = twoOptImprove([a, b, c, d]);
+    expect(improved.map(p => p.id)).toEqual(["a", "c", "b", "d"]);
+  });
+
+  it("never leaves the route longer than it started", () => {
+    const points = [{ lat: 0, lng: 0 }, { lat: 0, lng: 1 }, { lat: 1, lng: 1 }, { lat: 1, lng: 0 }, { lat: 0.5, lng: 0.5 }];
+    const before = routeLength(points);
+    const after = twoOptImprove(points);
+    expect(routeLength(after)).toBeLessThanOrEqual(before + 1e-9);
+  });
+
+  it("keeps the same set of points, just reordered", () => {
+    const points = [
+      { id: "a", lat: 0, lng: 0 }, { id: "b", lat: 5, lng: 5 },
+      { id: "c", lat: 0, lng: 5 }, { id: "d", lat: 5, lng: 0 }, { id: "e", lat: 2, lng: 8 }
+    ];
+    const improved = twoOptImprove(points);
+    expect(improved).toHaveLength(points.length);
+    expect(new Set(improved.map(p => p.id))).toEqual(new Set(points.map(p => p.id)));
+  });
+
+  it("leaves routes shorter than 4 stops unchanged (nothing to uncross)", () => {
+    const points = [{ lat: 0, lng: 0 }, { lat: 1, lng: 1 }, { lat: 2, lng: 2 }];
+    expect(twoOptImprove(points)).toEqual(points);
   });
 });
 

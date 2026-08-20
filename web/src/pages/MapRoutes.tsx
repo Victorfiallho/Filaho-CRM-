@@ -9,7 +9,7 @@ import { useCustomers, useInvalidateCompanyData, useJobs, useLeads } from "../da
 import { geocodeRecords } from "../data/geocoding";
 import { fetchDrivingRoute } from "../data/routing";
 import { groupBy, titleize, unique } from "../domain/format";
-import { buildGoogleMapsRouteUrl, clusterByProximity, nearestNeighborRoute, type LatLng } from "../domain/geo";
+import { buildGoogleMapsRouteUrl, clusterByProximity, nearestNeighborRoute, twoOptImprove, type LatLng } from "../domain/geo";
 import { DEFAULT_MAP_FILTERS, matchesMapFilters } from "../domain/mapUtils";
 import { filterRowsBySearch } from "../domain/search";
 import type { MapRecord } from "../domain/types";
@@ -20,6 +20,7 @@ import { useModal } from "../state/ModalContext";
 import { useSearch } from "../state/SearchContext";
 
 type GeocodedRecord = MapRecord & LatLng;
+type StartMode = "geolocation" | "first" | "custom";
 
 // Ported from app.js (renderMapRoutes, mapRecords, matchesMapFilters, mapPin,
 // geocodeVisibleRecords, openMapRecord), then extended well past the original
@@ -39,6 +40,9 @@ export default function MapRoutes() {
   const [geocoding, setGeocoding] = useState(false);
   const [routeStops, setRouteStops] = useState<GeocodedRecord[] | null>(null);
   const [routing, setRouting] = useState(false);
+  const [startMode, setStartMode] = useState<StartMode>("geolocation");
+  const [customStartLat, setCustomStartLat] = useState("");
+  const [customStartLng, setCustomStartLng] = useState("");
   // Which stops to actually visit today — not every geocoded record needs to
   // be on the route every time. Empty selection = route everyone visible
   // (the original one-click behavior); a non-empty selection narrows it down.
@@ -120,15 +124,49 @@ export default function MapRoutes() {
 
   const routeCandidates = selectedIds.size ? withCoords.filter(r => selectedIds.has(r.id)) : withCoords;
 
+  // Start point: current geolocation (falls back to the first stop if denied/
+  // unavailable — currentLocationOrFirstStop, unchanged), the first stop in
+  // the list outright, or a custom fixed lat/lng (e.g. the shop/office).
+  // Nearest-neighbor gives a fast initial order from that start; 2-opt then
+  // untangles the crossings NN's greedy choices tend to leave behind — see
+  // domain/geo.ts for both.
   const optimizeRoute = async () => {
     if (!routeCandidates.length) { toast("No geocoded records to route yet — geocode some first."); return; }
+    let start: LatLng | null = null;
+    if (startMode === "custom") {
+      const lat = Number(customStartLat), lng = Number(customStartLng);
+      if (!customStartLat.trim() || !customStartLng.trim() || !Number.isFinite(lat) || !Number.isFinite(lng)) {
+        toast("Enter a valid custom start latitude and longitude.");
+        return;
+      }
+      start = { lat, lng };
+    } else if (startMode === "first") {
+      start = routeCandidates[0];
+    }
     setRouting(true);
     try {
-      const start = await currentLocationOrFirstStop(routeCandidates);
-      setRouteStops(nearestNeighborRoute(routeCandidates, start));
+      if (!start) start = await currentLocationOrFirstStop(routeCandidates);
+      const ordered = nearestNeighborRoute(routeCandidates, start);
+      setRouteStops(twoOptImprove(ordered));
     } finally {
       setRouting(false);
     }
+  };
+
+  // Manual reorder (up/down) after a route's been computed — e.g. the person
+  // knows a customer wants to be seen first regardless of distance. Just
+  // updates routeStops; LeafletMapCanvas's effect (keyed on routeStops)
+  // redraws the numbered pins and recomputes both the straight-line preview
+  // and the real OSRM route for the new order automatically.
+  const moveRouteStop = (index: number, dir: -1 | 1) => {
+    setRouteStops(prev => {
+      if (!prev) return prev;
+      const swapIndex = index + dir;
+      if (swapIndex < 0 || swapIndex >= prev.length) return prev;
+      const next = [...prev];
+      [next[index], next[swapIndex]] = [next[swapIndex], next[index]];
+      return next;
+    });
   };
 
   const googleMapsUrl = routeStops ? buildGoogleMapsRouteUrl(routeStops) : "";
@@ -143,6 +181,24 @@ export default function MapRoutes() {
         <div className="card-b">
           <MapFilterBar zips={zips} cities={cities} services={services} stages={stages} filters={mapFilters} onChange={setMapFilters} />
           <LeafletMapCanvas records={filtered} routeStops={routeStops} onPinClick={openMapRecord} />
+          <div className="inline-actions" style={{ marginTop: 10 }}>
+            <span className="sub" style={{ fontWeight: 600 }}>Start from</span>
+            <Select
+              value={startMode}
+              onChange={v => setStartMode(v as StartMode)}
+              options={[
+                { value: "geolocation", label: "My current location" },
+                { value: "first", label: "First stop in list" },
+                { value: "custom", label: "Custom coordinates" }
+              ]}
+            />
+            {startMode === "custom" && (
+              <>
+                <input placeholder="Latitude" value={customStartLat} onChange={e => setCustomStartLat(e.target.value)} style={{ flex: "0 0 110px" }} />
+                <input placeholder="Longitude" value={customStartLng} onChange={e => setCustomStartLng(e.target.value)} style={{ flex: "0 0 110px" }} />
+              </>
+            )}
+          </div>
           <div className="between" style={{ marginTop: 10, flexWrap: "wrap", gap: 8 }}>
             <span className="sub">
               {missingCoords ? `${missingCoords} of ${filtered.length} visible records still need coordinates.` : "All visible records have coordinates."}
@@ -153,7 +209,7 @@ export default function MapRoutes() {
                 <button className="btn ghost slim" onClick={() => setSelectedIds(new Set())}>Clear selection ({selectedIds.size})</button>
               )}
               <button className="btn ghost slim" onClick={optimizeRoute} disabled={routing || !routeCandidates.length}>
-                {routing ? "Finding your location..." : selectedIds.size ? `Optimize route (${selectedIds.size} selected)` : "Optimize route (all visible)"}
+                {routing ? (startMode === "geolocation" ? "Finding your location..." : "Optimizing...") : selectedIds.size ? `Optimize route (${selectedIds.size} selected)` : "Optimize route (all visible)"}
               </button>
               {routeStops && (
                 <>
@@ -164,8 +220,22 @@ export default function MapRoutes() {
             </div>
           </div>
           {routeStops && (
-            <div className="empty" style={{ marginTop: 10, textAlign: "left" }}>
-              <b>Route order ({routeStops.length} stop{routeStops.length === 1 ? "" : "s"}):</b> {routeStops.map((s, i) => `${i + 1}. ${s.name || (s as any).title}`).join("  →  ")}
+            <div style={{ marginTop: 10 }}>
+              <span className="sub" style={{ display: "block", marginBottom: 6 }}>
+                Route order ({routeStops.length} stop{routeStops.length === 1 ? "" : "s"}) — use the arrows to reorder manually
+              </span>
+              <div className="route-order-list">
+                {routeStops.map((s, i) => (
+                  <div className="route-order-row" key={s.id}>
+                    <span className="route-order-num">{i + 1}</span>
+                    <span className="route-order-name">{s.name || (s as any).title}</span>
+                    <div className="stage-row-order">
+                      <button className="btn ghost slim" onClick={() => moveRouteStop(i, -1)} disabled={i === 0} aria-label="Move earlier">▲</button>
+                      <button className="btn ghost slim" onClick={() => moveRouteStop(i, 1)} disabled={i === routeStops.length - 1} aria-label="Move later">▼</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>

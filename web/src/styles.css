@@ -335,6 +335,13 @@ tr.row-clickable{cursor:pointer}
 .map-filters select,.map-filters input{border:1px solid rgba(255,255,255,.9);border-radius:var(--radius-sm);background:var(--soft);padding:9px 11px;min-width:0}
 .map-layout{grid-template-columns:1.4fr .8fr}
 .leaflet-map-canvas{height:520px;border:1px solid var(--glass-border);border-radius:var(--radius);overflow:hidden;background:#eef4f0}
+.leaflet-map-canvas .leaflet-control-zoom{border:1px solid var(--glass-border);border-radius:var(--radius-sm);box-shadow:var(--shadow-sm);overflow:hidden}
+.leaflet-map-canvas .leaflet-control-zoom a{
+  width:30px;height:30px;line-height:30px;background:rgba(255,255,255,.85);color:var(--ink-soft);
+  border:0;font-weight:600;
+}
+.leaflet-map-canvas .leaflet-control-zoom a:first-child{border-bottom:1px solid var(--glass-border)}
+.leaflet-map-canvas .leaflet-control-zoom a:hover{background:#fff;color:var(--brand)}
 .route-pin span{width:26px;height:26px;border-radius:999px;display:grid;place-items:center;color:#fff;font-weight:800;font-size:12px;border:2px solid #fff;box-shadow:var(--shadow-sm)}
 input[type="checkbox"]{
   appearance:none;-webkit-appearance:none;flex-shrink:0;

@@ -164,7 +164,7 @@ export default function MapRoutes() {
           </div>
           {routeStops && (
             <div className="empty" style={{ marginTop: 10, textAlign: "left" }}>
-              <b>Route order ({routeStops.length} stops):</b> {routeStops.map((s, i) => `${i + 1}. ${s.name || (s as any).title}`).join("  →  ")}
+              <b>Route order ({routeStops.length} stop{routeStops.length === 1 ? "" : "s"}):</b> {routeStops.map((s, i) => `${i + 1}. ${s.name || (s as any).title}`).join("  →  ")}
             </div>
           )}
         </div>
@@ -189,7 +189,7 @@ export default function MapRoutes() {
                   />
                   <b>{group.label}</b>
                 </label>
-                <span className="pill">{group.items.length} stops</span>
+                <span className="pill">{group.items.length} stop{group.items.length === 1 ? "" : "s"}</span>
               </div>
               {group.items.map(item => (
                 <label className={`route-stop${selectedIds.has(item.id) ? " selected" : ""}`} key={item.id} style={{ display: "flex", flexDirection: "row", alignItems: "flex-start", gap: 10, cursor: "pointer" }}>
@@ -210,7 +210,7 @@ export default function MapRoutes() {
           })}
           {zipOnlyGroups.map(([region, items]) => (
             <div className="route-block" key={`zip-${region}`}>
-              <div className="between"><b>Region {region}xx</b><span className="pill">{items.length} stops (not geocoded)</span></div>
+              <div className="between"><b>Region {region}xx</b><span className="pill">{items.length} stop{items.length === 1 ? "" : "s"} (not geocoded)</span></div>
               {items.slice(0, 5).map(item => (
                 <div className="route-stop" key={item.id}>
                   <b>{(item as any).name || (item as any).title}</b>

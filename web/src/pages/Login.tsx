@@ -9,6 +9,7 @@ export default function Login() {
   const { session, signIn } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [rememberMe, setRememberMe] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   if (session) return <Navigate to="/companies" replace />;
@@ -17,7 +18,7 @@ export default function Login() {
     e.preventDefault();
     setSubmitting(true);
     try {
-      await signIn(email, password);
+      await signIn(email, password, rememberMe);
     } catch (error) {
       toast(errorMessage(error, "Could not sign in."));
     } finally {
@@ -42,6 +43,10 @@ export default function Login() {
             <label>Password</label>
             <input value={password} onChange={e => setPassword(e.target.value)} type="password" autoComplete="current-password" required />
           </div>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 16, cursor: "pointer" }}>
+            <input type="checkbox" checked={rememberMe} onChange={e => setRememberMe(e.target.checked)} />
+            <span className="sub" style={{ fontWeight: 500 }}>Keep me connected</span>
+          </label>
           <button className="btn" style={{ width: "100%", marginTop: 18 }} type="submit" disabled={submitting}>
             {submitting ? "Signing in..." : "Login"}
           </button>

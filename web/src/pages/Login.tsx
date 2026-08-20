@@ -1,6 +1,5 @@
 import { useState, type FormEvent } from "react";
 import { Navigate } from "react-router-dom";
-import FialhoMark from "../components/FialhoMark";
 import { errorMessage } from "../lib/errorMessage";
 import { toast } from "../lib/toast";
 import { useAuth } from "../state/AuthContext";
@@ -29,10 +28,7 @@ export default function Login() {
   return (
     <main className="login-shell">
       <section className="login-card">
-        <div className="brand-lockup">
-          <FialhoMark size={40} />
-          <h1>Fialho Home Improvement</h1>
-        </div>
+        <img src="/logo.png" alt="Fialho Home Improvement" className="login-logo" />
         <p className="sub">Multi-company CRM operations.</p>
         <form onSubmit={handleSubmit}>
           <div className="field">

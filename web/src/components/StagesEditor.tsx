@@ -1,5 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import Select from "./Select";
 import { countLeadsInStage, deleteStage, insertStage, updateStage } from "../data/stages";
 import { STAGE_TYPES, slugifyStageId, type StageType } from "../domain/pipelineStages";
@@ -94,7 +95,12 @@ export default function StagesEditor({ companyId, stages, onClose }: { companyId
 
   const sorted = [...draft].sort((a, b) => a.order - b.order);
 
-  return (
+  // Portaled to #modal-root (sibling of #root, see index.html), same as
+  // RecordModal — .content carries the page-enter animation's `transform`,
+  // which makes it a containing block for any position:fixed descendant.
+  // Rendered in place, this modal-bg would be confined to .content's box
+  // instead of the viewport, clipping its own header off-screen.
+  return createPortal(
     <div className="modal-bg" onClick={onClose}>
       <section className="modal" style={{ width: "min(640px,100%)" }} onClick={e => e.stopPropagation()}>
         <div className="modal-h">
@@ -142,6 +148,7 @@ export default function StagesEditor({ companyId, stages, onClose }: { companyId
           <button className="btn" onClick={handleSave} disabled={saving}>{saving ? "Saving..." : "Save changes"}</button>
         </div>
       </section>
-    </div>
+    </div>,
+    document.getElementById("modal-root")!
   );
 }

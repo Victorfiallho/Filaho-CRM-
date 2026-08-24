@@ -143,7 +143,6 @@ async function syncCompany(clientId, tokenRow) {
       await supabase(`jobs?id=eq.${job.id}`, { method: "PATCH", body: JSON.stringify({ google_event_id: event.id }) });
       created++;
     } else if (eventChanged(existing, desired)) {
-      console.log("DEBUG diff", job.id, JSON.stringify({ existingSummary: existing.summary, desiredSummary: desired.summary, existingLocation: existing.location, desiredLocation: desired.location, existingStart: existing.start, desiredStart: desired.start, existingEnd: existing.end, desiredEnd: desired.end }));
       await calendarRequest(accessToken, calendarId, `/events/${existing.id}`, { method: "PATCH", body: JSON.stringify(desired) });
       updated++;
     }

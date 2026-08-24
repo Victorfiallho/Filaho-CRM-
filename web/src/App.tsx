@@ -11,11 +11,13 @@ import Login from "./pages/Login";
 import MapRoutes from "./pages/MapRoutes";
 import Pipeline from "./pages/Pipeline";
 import Reports from "./pages/Reports";
+import ResetPassword from "./pages/ResetPassword";
 
 export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/companies" element={<CompanyPicker />} />
       <Route element={<Shell />}>
         <Route path="/dashboard" element={<Dashboard />} />

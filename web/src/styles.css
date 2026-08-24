@@ -90,6 +90,10 @@ button{border:0;cursor:pointer;transition:background-color .15s ease,border-colo
   display:flex;flex-direction:column;justify-content:center;padding:40px;
 }
 .login-card-flat h1{font-size:26px}
+.google-btn{gap:10px;font-weight:600}
+.google-btn:disabled{opacity:.7;cursor:not-allowed}
+.auth-divider{display:flex;align-items:center;gap:12px;margin:18px 0;color:var(--muted-soft);font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.auth-divider::before,.auth-divider::after{content:"";flex:1 1 auto;height:1px;background:var(--line-strong)}
 .input-with-icon{position:relative;display:flex;align-items:center}
 .input-with-icon > svg{position:absolute;left:12px;width:16px;height:16px;color:var(--muted-soft);pointer-events:none}
 /* Specificity must beat .field input's own "padding:10px 12px" shorthand

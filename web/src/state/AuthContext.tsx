@@ -1,12 +1,13 @@
 import type { Session } from "@supabase/supabase-js";
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import { getSession, onAuthStateChange, signIn as signInRequest, signOut as signOutRequest } from "../data/auth";
+import { getSession, onAuthStateChange, signIn as signInRequest, signInWithGoogle as signInWithGoogleRequest, signOut as signOutRequest } from "../data/auth";
 import { setRememberMe } from "../lib/authStorage";
 
 interface AuthContextValue {
   session: Session | null;
   loading: boolean;
   signIn: (email: string, password: string, remember: boolean) => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -32,12 +33,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSession(next);
   };
 
+  const signInWithGoogle = async () => {
+    // No "remember me" checkbox in a one-click OAuth redirect — default to
+    // a persistent session (localStorage), same as ticking the box would.
+    setRememberMe(true);
+    await signInWithGoogleRequest();
+  };
+
   const signOut = async () => {
     await signOutRequest();
     setSession(null);
   };
 
-  return <AuthContext.Provider value={{ session, loading, signIn, signOut }}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={{ session, loading, signIn, signInWithGoogle, signOut }}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {

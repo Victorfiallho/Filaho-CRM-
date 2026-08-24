@@ -183,6 +183,51 @@ create table if not exists files (
 );
 create index if not exists files_company_id_idx on files(company_id);
 
+-- ── supplier_products / supplier_price_history (scraped dealer catalogs) ─
+-- Populated by scripts/scrape-muses.mjs (GitHub Actions, weekly), never by
+-- the app itself — writes go through the service_role key, which bypasses
+-- RLS, so these two tables intentionally get a select-only policy below
+-- instead of joining the customers/leads/... CRUD loop further down.
+create table if not exists supplier_products (
+  id uuid primary key default gen_random_uuid(),
+  company_id text not null references companies(id),
+  supplier text not null,
+  external_id text not null,
+  sku text not null,
+  item_class text,
+  item_category text,
+  cabinet_type text,
+  color text,
+  detail text,
+  description text,
+  width_in numeric,
+  height_in numeric,
+  depth_in numeric,
+  weight numeric,
+  price numeric,
+  stock integer,
+  is_available boolean,
+  is_fixed_price boolean,
+  raw jsonb,
+  scraped_at timestamptz not null default now(),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (company_id, supplier, external_id)
+);
+create index if not exists supplier_products_company_supplier_idx on supplier_products(company_id, supplier);
+
+create table if not exists supplier_price_history (
+  id uuid primary key default gen_random_uuid(),
+  company_id text not null references companies(id),
+  supplier text not null,
+  external_id text not null,
+  sku text not null,
+  price numeric,
+  stock integer,
+  recorded_at timestamptz not null default now()
+);
+create index if not exists supplier_price_history_lookup_idx on supplier_price_history(company_id, supplier, external_id, recorded_at desc);
+
 -- ── integration_settings (single shared blob, not per company) ──────────
 -- Mirrors the single `db.integration_settings` object app.js keeps in
 -- localStorage today — one Google Maps API key / OAuth client / etc. shared
@@ -233,6 +278,20 @@ begin
        )', t || '_delete', t);
   end loop;
 end $$;
+
+-- Read-only for app users; written only by scripts/scrape-muses.mjs via the
+-- service_role key (bypasses RLS), so no insert/update/delete policy here.
+alter table supplier_products enable row level security;
+drop policy if exists supplier_products_select on supplier_products;
+create policy supplier_products_select on supplier_products for select using (
+  company_id in (select company_id from company_members where user_id = auth.uid())
+);
+
+alter table supplier_price_history enable row level security;
+drop policy if exists supplier_price_history_select on supplier_price_history;
+create policy supplier_price_history_select on supplier_price_history for select using (
+  company_id in (select company_id from company_members where user_id = auth.uid())
+);
 
 alter table companies enable row level security;
 drop policy if exists companies_select on companies;

@@ -74,7 +74,7 @@ export default function Calendar() {
           </div>
         </div>
       </section>
-      <section className="card">
+      <section className="card self-start">
         <div className="card-h"><h3>Upcoming jobs</h3><button className="btn slim" onClick={() => openRecordModal("job")}>Add job</button></div>
         <div className="card-b">
           {upcoming.length

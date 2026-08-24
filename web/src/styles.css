@@ -382,6 +382,7 @@ input[type="checkbox"]:focus-visible{outline:none;box-shadow:0 0 0 3px var(--bra
 .route-stop span{color:var(--muted);font-size:12px}
 .route-stop.selected{background:rgba(249,115,22,.1);border-top-color:transparent}
 .two{grid-template-columns:1fr 1fr}
+.self-start{align-self:start}
 .three{grid-template-columns:repeat(3,1fr)}
 .form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .tabs{display:flex;gap:6px;flex-wrap:wrap}

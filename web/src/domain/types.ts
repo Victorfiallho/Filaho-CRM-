@@ -82,6 +82,7 @@ export interface Job {
   source_uid?: string;
   notes?: string;
   customer_name?: string;
+  google_event_id?: string | null;
   lat: number | "" | null;
   lng: number | "" | null;
   created_at: string;

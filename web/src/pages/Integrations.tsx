@@ -1,10 +1,11 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { saveIntegrationSettings } from "../data/integrationSettings";
 import { useIntegrationSettings } from "../data/hooks";
 import { now } from "../domain/format";
 import type { IntegrationSettings } from "../domain/types";
-import { clearGoogleSession, connectGoogleWorkspace, isGoogleSessionConnected, mergeScopes } from "../lib/googleOAuth";
+import { clearGoogleSession, connectGoogleWorkspace, googleCalendarAuthUrl, isGoogleSessionConnected, mergeScopes } from "../lib/googleOAuth";
 import { toast } from "../lib/toast";
 import { useCompany } from "../state/CompanyContext";
 
@@ -16,10 +17,37 @@ export default function Integrations() {
   const { data: settings } = useIntegrationSettings();
   const queryClient = useQueryClient();
   const [connectingService, setConnectingService] = useState<string | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Lands here after web/api/google-oauth-callback.js redirects back from
+  // Google with either ?connected=calendar or ?calendar_error=... — this is
+  // the completion of startCalendarOAuth()'s full-page redirect, not
+  // something that can be handled inline like the popup-based connects below.
+  useEffect(() => {
+    const connected = searchParams.get("connected");
+    const calendarError = searchParams.get("calendar_error");
+    if (connected === "calendar") {
+      patch(s => ({ ...s, google_calendar: { ...s.google_calendar, enabled: true } }));
+      toast("Google Calendar connected — background sync will pick up scheduled jobs.");
+    } else if (calendarError) {
+      toast(`Google Calendar connection failed: ${calendarError}`);
+    }
+    if (connected || calendarError) {
+      searchParams.delete("connected");
+      searchParams.delete("calendar_error");
+      setSearchParams(searchParams, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   if (!settings || !activeCompanyId) return null;
   const activeSettings = settings;
   const companyId = activeCompanyId;
+
+  function startCalendarOAuth() {
+    if (!activeSettings.google_oauth.client_id) { toast("Import the Google OAuth JSON first."); return; }
+    location.href = googleCalendarAuthUrl(activeSettings.google_oauth.client_id, companyId);
+  }
 
   async function patch(updater: (s: IntegrationSettings) => IntegrationSettings) {
     const next = updater(activeSettings);
@@ -139,13 +167,17 @@ export default function Integrations() {
           </div>
         </section>
         <IntegrationCard
-          k="google_calendar" title="Google Calendar" description="Used for per-company job calendars and future two-way sync."
+          k="google_calendar" title="Google Calendar" description="Scheduled jobs sync automatically to this company's Google Calendar, no need to keep the CRM open."
           setting={settings.google_calendar} onSaveSetting={saveIntegrationSetting} onToggle={toggleIntegration}
           extra={
-            <div className="field">
-              <label>Company Google Calendar ID</label>
-              <input value={settings.google_calendar.calendar_ids?.[companyId] || ""} onChange={e => saveCompanyIntegrationValue("google_calendar", "calendar_ids", e.target.value)} />
-            </div>
+            <>
+              <div className="field">
+                <label>Company Google Calendar ID</label>
+                <input value={settings.google_calendar.calendar_ids?.[companyId] || ""} onChange={e => saveCompanyIntegrationValue("google_calendar", "calendar_ids", e.target.value)} placeholder="primary" />
+                <p className="sub">Leave blank to use the connected account's primary calendar.</p>
+              </div>
+              <button className="btn ghost slim" onClick={startCalendarOAuth}>Connect for background sync</button>
+            </>
           }
         />
         <IntegrationCard

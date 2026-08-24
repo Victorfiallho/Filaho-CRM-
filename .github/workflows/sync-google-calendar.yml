@@ -1,0 +1,22 @@
+name: Sync Google Calendar
+
+on:
+  schedule:
+    # Every 30 minutes — cheap (Calendar API reads/writes only, no Muses-style
+    # full-catalog fetch) and keeps newly scheduled jobs showing up promptly.
+    - cron: "*/30 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: node scripts/sync-google-calendar.mjs
+        env:
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}

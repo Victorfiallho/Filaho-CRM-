@@ -49,6 +49,24 @@ export function clearGoogleSession() {
   ["basic", "calendar", "drive", "sheets"].forEach(service => sessionStorage.removeItem(`fialho_google_access_token_${service}`));
 }
 
+// Full-page redirect flow (as opposed to connectGoogleWorkspace's popup
+// token client below) — the only way to get a refresh_token back, which is
+// what web/api/google-oauth-callback.js needs to set up background sync.
+// state carries the company_id through the round trip to Google and back.
+export function googleCalendarAuthUrl(clientId: string, companyId: string): string {
+  const redirectUri = `${location.origin}/api/google-oauth-callback`;
+  const params = new URLSearchParams({
+    client_id: clientId,
+    redirect_uri: redirectUri,
+    response_type: "code",
+    scope: GOOGLE_SCOPE_PRESETS.calendar,
+    access_type: "offline",
+    prompt: "consent",
+    state: companyId
+  });
+  return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
+}
+
 export async function connectGoogleWorkspace(
   clientId: string,
   service: "basic" | "calendar" | "drive" | "sheets"

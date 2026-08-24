@@ -141,6 +141,7 @@ alter table jobs add column if not exists customer_name text default '';
 alter table jobs add column if not exists notes text default '';
 alter table jobs add column if not exists source text default 'Manual';
 alter table jobs add column if not exists source_uid text default '';
+alter table jobs add column if not exists google_event_id text;
 create index if not exists jobs_company_id_idx on jobs(company_id);
 
 -- ── imports (CSV/ICS/Sheets import history) ──────────────────────────────
@@ -228,6 +229,20 @@ create table if not exists supplier_price_history (
 );
 create index if not exists supplier_price_history_lookup_idx on supplier_price_history(company_id, supplier, external_id, recorded_at desc);
 
+-- ── google_oauth_tokens (per-company refresh token for background sync) ──
+-- Populated by web/api/google-oauth-callback.js after the OAuth redirect
+-- flow, consumed by scripts/sync-google-calendar.mjs (GitHub Actions cron).
+-- Deliberately gets ZERO RLS policies below (not even select) — a refresh
+-- token can mint fresh Google access on its own, so it must never be
+-- reachable through the app's anon/authenticated client, only service_role.
+create table if not exists google_oauth_tokens (
+  company_id text primary key references companies(id) on delete cascade,
+  refresh_token text not null,
+  scope text,
+  connected_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 -- ── integration_settings (single shared blob, not per company) ──────────
 -- Mirrors the single `db.integration_settings` object app.js keeps in
 -- localStorage today — one Google Maps API key / OAuth client / etc. shared
@@ -292,6 +307,11 @@ drop policy if exists supplier_price_history_select on supplier_price_history;
 create policy supplier_price_history_select on supplier_price_history for select using (
   company_id in (select company_id from company_members where user_id = auth.uid())
 );
+
+-- No policies created — enabling RLS with zero grants blocks the anon/
+-- authenticated client entirely; only service_role (which bypasses RLS) can
+-- read or write this table.
+alter table google_oauth_tokens enable row level security;
 
 alter table companies enable row level security;
 drop policy if exists companies_select on companies;

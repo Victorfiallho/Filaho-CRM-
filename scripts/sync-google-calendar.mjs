@@ -79,8 +79,11 @@ function jobToEvent(job, companyName) {
 }
 
 function eventChanged(existing, desired) {
+  // Google omits `location`/`description` entirely from the response when
+  // they're empty, rather than returning "" — normalize both sides so a job
+  // with no address doesn't look "changed" on every single run.
   return existing.summary !== desired.summary
-    || existing.location !== desired.location
+    || (existing.location || "") !== desired.location
     || existing.start?.date !== desired.start.date
     || existing.end?.date !== desired.end.date;
 }

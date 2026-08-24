@@ -111,6 +111,16 @@ function chunk(arr, size) {
   return out;
 }
 
+// Muses' pagination isn't strictly disjoint — the same product id can show up
+// on more than one page. A batch upsert with two rows sharing a conflict key
+// fails outright ("ON CONFLICT DO UPDATE command cannot affect row a second
+// time"), so collapse to one row per external_id before upserting.
+function dedupeByExternalId(rows) {
+  const byId = new Map();
+  for (const r of rows) byId.set(r.external_id, r);
+  return [...byId.values()];
+}
+
 async function main() {
   console.log(`Logging in to Muses as ${MUSE_ACCOUNT}...`);
   const accessToken = await login();
@@ -125,7 +135,7 @@ async function main() {
   );
   const existingByExternalId = new Map(existing.map(r => [r.external_id, r]));
 
-  const rows = products.map(toRow);
+  const rows = dedupeByExternalId(products.map(toRow));
   const changed = rows.filter(r => {
     const prev = existingByExternalId.get(r.external_id);
     return !prev || String(prev.price) !== String(r.price) || prev.stock !== r.stock;

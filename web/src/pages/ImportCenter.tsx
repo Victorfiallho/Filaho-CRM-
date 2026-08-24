@@ -1,4 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
+import { CheckCircle2, type LucideIcon, PlusCircle, SkipForward, Upload } from "lucide-react";
 import { useRef, useState } from "react";
 import Select from "../components/Select";
 import { useCustomers, useImportsHistory, useIntegrationSettings, useInvalidateCompanyData } from "../data/hooks";
@@ -320,7 +321,7 @@ export default function ImportCenter() {
               )}
             </>
           ) : (
-            <div className="empty">Upload a CSV, Google Calendar .ics, or .ical.zip file to preview.</div>
+            <div className="empty"><Upload />Upload a CSV, Google Calendar .ics, or .ical.zip file to preview.</div>
           )}
         </div>
       </section>
@@ -334,7 +335,7 @@ export default function ImportCenter() {
                 <span className="sub">{h.source_type} | {h.created_count} created | {h.updated_count} updated | {h.skipped_count} skipped</span>
               </p>
             ))
-            : <div className="empty">No imports yet</div>}
+            : <div className="empty"><Upload />No imports yet</div>}
         </div>
       </section>
     </div>
@@ -363,9 +364,9 @@ function PreviewTable({ preview, isCalendarImport, companies, onAction, onCompan
   return (
     <div style={{ marginTop: 16 }}>
       <div className="grid three">
-        <Kpi label="Create" value={counts.create || 0} hint="new records" />
-        <Kpi label="Update" value={counts.update || 0} hint="matched duplicates" />
-        <Kpi label="Skip" value={counts.skip || 0} hint="ignored rows" />
+        <Kpi icon={PlusCircle} label="Create" value={counts.create || 0} hint="new records" />
+        <Kpi icon={CheckCircle2} label="Update" value={counts.update || 0} hint="matched duplicates" />
+        <Kpi icon={SkipForward} label="Skip" value={counts.skip || 0} hint="ignored rows" />
       </div>
       {isCalendarImport && (
         <div className="empty" style={{ marginTop: 12 }}>
@@ -424,12 +425,15 @@ function PreviewTable({ preview, isCalendarImport, companies, onAction, onCompan
   );
 }
 
-function Kpi({ label, value, hint }: { label: string; value: number; hint: string }) {
+function Kpi({ label, value, hint, icon: Icon }: { label: string; value: number; hint: string; icon: LucideIcon }) {
   return (
     <section className="card kpi">
-      <div className="label">{label}</div>
-      <div className="value">{value}</div>
-      <div className="hint">{hint}</div>
+      <div className="kpi-icon"><Icon /></div>
+      <div>
+        <div className="label">{label}</div>
+        <div className="value">{value}</div>
+        <div className="hint">{hint}</div>
+      </div>
     </section>
   );
 }

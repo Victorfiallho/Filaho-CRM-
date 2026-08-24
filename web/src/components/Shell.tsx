@@ -1,7 +1,8 @@
+import { Plus } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Navigate, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useCustomers, useImportsHistory, useJobs, useLeads } from "../data/hooks";
-import { COMPANY_ICONS, COMPANY_LOGOS, MODULES } from "../domain/constants";
+import { COMPANY_ICONS, COMPANY_LOGOS, MODULE_ICONS, MODULES } from "../domain/constants";
 import { money } from "../domain/format";
 import { isOpenStage } from "../domain/pipelineStages";
 import type { PipelineStage } from "../domain/types";
@@ -110,15 +111,19 @@ export default function Shell() {
         </div>
         <nav className="nav" ref={navRef}>
           <span className="nav-indicator" style={{ transform: `translateY(${indicator.top}px)`, height: indicator.height }} />
-          {MODULES.map(([id, label]) => (
-            <button
-              key={id}
-              className={location.pathname === `/${id}` ? "active" : ""}
-              onClick={() => { navigate(`/${id}`); setSidebarOpen(false); }}
-            >
-              {label}
-            </button>
-          ))}
+          {MODULES.map(([id, label]) => {
+            const Icon = MODULE_ICONS[id];
+            return (
+              <button
+                key={id}
+                className={location.pathname === `/${id}` ? "active" : ""}
+                onClick={() => { navigate(`/${id}`); setSidebarOpen(false); }}
+              >
+                {Icon && <Icon />}
+                {label}
+              </button>
+            );
+          })}
         </nav>
         <div className="side-foot">
           <button className="btn ghost slim" onClick={switchCompany}>Switch company</button>
@@ -136,7 +141,8 @@ export default function Shell() {
             <input placeholder="Search this company..." value={searchText} onChange={e => setSearchText(e.target.value)} />
           </div>
           <button className="btn ghost" data-action="new-lead" onClick={() => openRecordModal("lead")}>New lead</button>
-          <button className="btn" data-action="new-customer" onClick={() => openRecordModal("customer")}>New client</button>
+          <button className="btn ghost" data-action="new-customer" onClick={() => openRecordModal("customer")}>New client</button>
+          <button className="btn" data-action="new-job" onClick={() => openRecordModal("job")}><Plus />New job</button>
         </header>
         <section className="content view-enter" id="view">
           <Outlet />

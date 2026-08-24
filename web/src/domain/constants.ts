@@ -3,6 +3,18 @@
 // and service lists now live in Supabase (companies / pipeline_stages / company_services)
 // instead of being hardcoded here, since that's the whole point of the migration —
 // these constants are the parts that were never data, just UI/config.
+import {
+  BarChart3,
+  Briefcase,
+  Calendar,
+  Download,
+  Filter,
+  LayoutDashboard,
+  MapPin,
+  Puzzle,
+  Users,
+  type LucideIcon
+} from "lucide-react";
 
 // Real per-company logos (web/public/logos/*). COMPANY_ICONS below stays
 // as the fallback for any company id that doesn't have a logo file.
@@ -34,6 +46,18 @@ export const MODULES: [string, string][] = [
   ["integrations", "Integrations"],
   ["reports", "Reports"]
 ];
+
+export const MODULE_ICONS: Record<string, LucideIcon> = {
+  dashboard: LayoutDashboard,
+  pipeline: Filter,
+  customers: Users,
+  jobs: Briefcase,
+  calendar: Calendar,
+  map: MapPin,
+  import: Download,
+  integrations: Puzzle,
+  reports: BarChart3
+};
 
 export const IMPORT_FIELDS: [string, string][] = [
   ["name", "Name"], ["phone", "Phone"], ["email", "Email"], ["address", "Address"],

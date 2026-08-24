@@ -1,3 +1,4 @@
+import { ChevronDown, ChevronUp, Users } from "lucide-react";
 import { useMemo, useState } from "react";
 import Select from "../components/Select";
 import { useCustomers } from "../data/hooks";
@@ -55,7 +56,7 @@ export default function Customers() {
 
   function sortIndicator(key: SortKey) {
     if (sortKey !== key) return null;
-    return <span className="sort-indicator">{sortDir === "asc" ? "▲" : "▼"}</span>;
+    return sortDir === "asc" ? <ChevronUp /> : <ChevronDown />;
   }
 
   return (
@@ -99,7 +100,7 @@ export default function Customers() {
               </tr>
             ))}
             {!isLoading && rows.length === 0 && (
-              <tr><td colSpan={5}><div className="empty">No clients yet</div></td></tr>
+              <tr><td colSpan={5}><div className="empty"><Users />No clients yet</div></td></tr>
             )}
           </tbody>
         </table>

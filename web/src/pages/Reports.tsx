@@ -1,3 +1,4 @@
+import { Award, BarChart3, DollarSign, TrendingUp, Users } from "lucide-react";
 import KpiCard from "../components/KpiCard";
 import { useCustomers, useImportsHistory, useJobs, useLeads } from "../data/hooks";
 import { money } from "../domain/format";
@@ -23,17 +24,17 @@ export default function Reports() {
   return (
     <>
       <div className="grid kpis">
-        <KpiCard label="Estimated job revenue" value={money(jobValue)} hint="from jobs/projects" />
-        <KpiCard label="Won leads" value={won.length} hint="closed pipeline" />
-        <KpiCard label="Client count" value={customers.length} hint="current company" />
-        <KpiCard label="Imports" value={imports.length} hint="CSV history" />
+        <KpiCard icon={DollarSign} label="Estimated job revenue" value={money(jobValue)} hint="from jobs/projects" />
+        <KpiCard icon={Award} label="Won leads" value={won.length} hint="closed pipeline" />
+        <KpiCard icon={Users} label="Client count" value={customers.length} hint="current company" />
+        <KpiCard icon={TrendingUp} label="Imports" value={imports.length} hint="CSV history" />
       </div>
       <section className="card" style={{ marginTop: 14 }}>
         <div className="card-h"><h3>Revenue by service</h3></div>
         <div className="card-b">
           {Object.entries(byService).length
             ? Object.entries(byService).map(([k, v]) => <p key={k}><b>{k}</b> <span className="muted">{money(v)}</span></p>)
-            : <div className="empty">No revenue yet</div>}
+            : <div className="empty"><BarChart3 />No revenue yet</div>}
         </div>
       </section>
     </>

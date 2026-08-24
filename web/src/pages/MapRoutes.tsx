@@ -3,6 +3,7 @@ import "leaflet/dist/leaflet.css";
 import "leaflet.markercluster";
 import "leaflet.markercluster/dist/MarkerCluster.css";
 import "leaflet.markercluster/dist/MarkerCluster.Default.css";
+import { ChevronDown, ChevronUp, MapPinned, Navigation } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Select from "../components/Select";
 import { useCustomers, useInvalidateCompanyData, useJobs, useLeads } from "../data/hooks";
@@ -211,7 +212,7 @@ export default function MapRoutes() {
               </button>
               {routeStops && (
                 <>
-                  <a className="btn slim" href={googleMapsUrl} target="_blank" rel="noreferrer">Open in Google Maps</a>
+                  <a className="btn slim" href={googleMapsUrl} target="_blank" rel="noreferrer"><Navigation />Open in Google Maps</a>
                   <button className="btn ghost slim" onClick={() => setRouteStops(null)}>Clear route</button>
                 </>
               )}
@@ -235,8 +236,8 @@ export default function MapRoutes() {
                     <span className="route-order-num" style={{ background: PIN_COLOR[s.kind] }}>{i + 1}</span>
                     <span className="route-order-name">{s.name || (s as any).title}</span>
                     <div className="stage-row-order">
-                      <button className="btn ghost slim" onClick={() => moveRouteStop(i, -1)} disabled={i === 0} aria-label="Move earlier">▲</button>
-                      <button className="btn ghost slim" onClick={() => moveRouteStop(i, 1)} disabled={i === routeStops.length - 1} aria-label="Move later">▼</button>
+                      <button className="btn ghost slim" onClick={() => moveRouteStop(i, -1)} disabled={i === 0} aria-label="Move earlier"><ChevronUp /></button>
+                      <button className="btn ghost slim" onClick={() => moveRouteStop(i, 1)} disabled={i === routeStops.length - 1} aria-label="Move later"><ChevronDown /></button>
                     </div>
                   </div>
                 ))}
@@ -251,7 +252,7 @@ export default function MapRoutes() {
           <span className="sub">Check stops to route only those</span>
         </div>
         <div className="card-b">
-          {proximityGroups.length === 0 && zipOnlyGroups.length === 0 && <div className="empty">No route groups yet</div>}
+          {proximityGroups.length === 0 && zipOnlyGroups.length === 0 && <div className="empty"><MapPinned />No route groups yet</div>}
           {proximityGroups.map((group, i) => {
             const regionSelected = group.items.every(item => selectedIds.has(item.id));
             return (

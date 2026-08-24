@@ -1,3 +1,4 @@
+import { Briefcase, DollarSign, Target, Users } from "lucide-react";
 import KpiCard from "../components/KpiCard";
 import { useCustomers, useJobs, useLeads } from "../data/hooks";
 import { INTEGRATION_PLACEHOLDERS } from "../domain/constants";
@@ -21,10 +22,10 @@ export default function Dashboard() {
   return (
     <>
       <div className="grid kpis">
-        <KpiCard label="Clients" value={customers.length} hint="active company records" />
-        <KpiCard label="Open leads" value={openLeads.length} hint={`${won.length} won`} />
-        <KpiCard label="Jobs/projects" value={jobs.length} hint="scheduled and active" />
-        <KpiCard label="Pipeline" value={money(pipelineValue)} hint="estimated value" />
+        <KpiCard icon={Users} label="Clients" value={customers.length} hint="active company records" />
+        <KpiCard icon={Target} label="Open leads" value={openLeads.length} hint={`${won.length} won`} />
+        <KpiCard icon={Briefcase} label="Jobs/projects" value={jobs.length} hint="scheduled and active" />
+        <KpiCard icon={DollarSign} label="Pipeline" value={money(pipelineValue)} hint="estimated value" />
       </div>
       <div className="grid two" style={{ marginTop: 14 }}>
         <section className="card">

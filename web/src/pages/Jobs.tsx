@@ -1,3 +1,4 @@
+import { Briefcase, FolderOpen, Plus } from "lucide-react";
 import { useCustomers, useIntegrationSettings, useJobs } from "../data/hooks";
 import { filterRowsBySearch } from "../domain/search";
 import { money } from "../domain/format";
@@ -23,7 +24,7 @@ export default function Jobs() {
     <section className="card">
       <div className="card-h">
         <h3>Jobs/projects</h3>
-        <button className="btn slim" onClick={() => openRecordModal("job")}>Add job</button>
+        <button className="btn slim" onClick={() => openRecordModal("job")}><Plus />Add job</button>
       </div>
       <div className="table-wrap">
         <table>
@@ -41,16 +42,16 @@ export default function Jobs() {
                   <td>{money(j.estimated_value)}</td>
                   <td onClick={e => e.stopPropagation()}>
                     {j.drive_folder_url
-                      ? <a href={j.drive_folder_url} target="_blank" rel="noreferrer">Folder</a>
+                      ? <a href={j.drive_folder_url} target="_blank" rel="noreferrer"><FolderOpen />Folder</a>
                       : driveRootUrl
-                        ? <a href={driveRootUrl} target="_blank" rel="noreferrer">Link root</a>
+                        ? <a href={driveRootUrl} target="_blank" rel="noreferrer"><FolderOpen />Link root</a>
                         : <span className="muted">—</span>}
                   </td>
                 </tr>
               );
             })}
             {!isLoading && rows.length === 0 && (
-              <tr><td colSpan={6}><div className="empty">No jobs yet</div></td></tr>
+              <tr><td colSpan={6}><div className="empty"><Briefcase />No jobs yet</div></td></tr>
             )}
           </tbody>
         </table>

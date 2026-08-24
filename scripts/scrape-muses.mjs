@@ -102,7 +102,8 @@ async function supabaseRequest(path, init) {
     }
   });
   if (!res.ok) throw new Error(`Supabase ${init.method || "GET"} ${path} failed: ${res.status} ${await res.text()}`);
-  return res.status === 204 ? null : res.json();
+  const text = await res.text();
+  return text ? JSON.parse(text) : null; // PostgREST returns an empty body on some 200/201s, not just 204
 }
 
 function chunk(arr, size) {

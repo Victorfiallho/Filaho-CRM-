@@ -1,4 +1,5 @@
 import { Calendar as CalendarIcon, CheckCircle, Clock, MapPin, Navigation } from "lucide-react";
+import PageSkeleton from "../components/PageSkeleton";
 import { buildCompanyIcsCalendar, googleCalendarCreateUrl } from "../domain/calendarExport";
 import { useJobs } from "../data/hooks";
 import { downloadText } from "../lib/downloadText";
@@ -39,7 +40,7 @@ function mapsSearchUrl(job: Job) {
 // downloadCompanyIcs).
 export default function Calendar() {
   const { activeCompanyId, activeCompany } = useCompany();
-  const { data: jobs = [] } = useJobs(activeCompanyId);
+  const { data: jobs = [], isLoading } = useJobs(activeCompanyId);
   const { calendarDate, setCalendarDate } = useCalendar();
   const { openRecordModal } = useModal();
 
@@ -75,6 +76,8 @@ export default function Calendar() {
   const scheduledCount = monthJobs.length;
   const pendingCount = monthJobs.filter(j => (j.status || "planned") === "planned").length;
   const completedCount = monthJobs.filter(j => j.status === "complete").length;
+
+  if (isLoading) return <PageSkeleton cards={2} />;
 
   return (
     <div className="grid two">

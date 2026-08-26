@@ -118,6 +118,11 @@ export default function Shell() {
 
   return (
     <div className="app-shell" style={{ ["--company-color" as any]: activeCompany.color || undefined, ["--sidebar-w" as any]: collapsed ? "96px" : "264px" }}>
+      {/* Always in the DOM (unlike the visible "Fialho Home Improvement" brand
+          text below, which the sidebar hides while collapsed) so the app has
+          exactly one h1 on every render — screen-reader heading navigation
+          otherwise jumped straight from nothing to the topbar's h2. */}
+      <h1 className="sr-only">Fialho Home Improvement</h1>
       <aside className={`sidebar${sidebarOpen ? " open" : ""}${collapsed ? " collapsed" : ""}`} id="sidebar">
         <div className="brand">
           <div className="logo" data-company={activeCompany.id}>

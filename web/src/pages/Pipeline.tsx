@@ -2,6 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Award, Clock, Inbox, MapPin, Plus, Settings, Target, Wallet } from "lucide-react";
 import { useMemo, useState } from "react";
 import KpiCard from "../components/KpiCard";
+import PageSkeleton from "../components/PageSkeleton";
 import Select from "../components/Select";
 import StagesEditor from "../components/StagesEditor";
 import { updateLead } from "../data/leads";
@@ -32,7 +33,7 @@ const STAGE_RENDER_CAP = 50;
 
 export default function Pipeline() {
   const { activeCompanyId, stages } = useCompany();
-  const { data: allLeads = [] } = useLeads(activeCompanyId);
+  const { data: allLeads = [], isLoading } = useLeads(activeCompanyId);
   const { searchText } = useSearch();
   const { openRecordModal } = useModal();
   const queryClient = useQueryClient();
@@ -67,6 +68,8 @@ export default function Pipeline() {
       queryClient.invalidateQueries({ queryKey: ["leads", activeCompanyId] });
     }
   };
+
+  if (isLoading) return <PageSkeleton kpis={4} cards={0} />;
 
   return (
     <>

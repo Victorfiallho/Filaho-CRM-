@@ -1,5 +1,6 @@
 import { Award, BarChart3, DollarSign, Megaphone, TrendingUp, Users } from "lucide-react";
 import KpiCard from "../components/KpiCard";
+import PageSkeleton from "../components/PageSkeleton";
 import { useCustomers, useImportsHistory, useIntegrationSettings, useJobs, useLeads, useMetaAdsInsights } from "../data/hooks";
 import { money } from "../domain/format";
 import { isWonStage } from "../domain/pipelineStages";
@@ -11,12 +12,14 @@ import { useCompany } from "../state/CompanyContext";
 // no lead creation, matching what was actually asked for.
 export default function Reports() {
   const { activeCompanyId, stages } = useCompany();
-  const { data: customers = [] } = useCustomers(activeCompanyId);
-  const { data: leads = [] } = useLeads(activeCompanyId);
-  const { data: jobs = [] } = useJobs(activeCompanyId);
-  const { data: imports = [] } = useImportsHistory(activeCompanyId);
+  const { data: customers = [], isLoading: customersLoading } = useCustomers(activeCompanyId);
+  const { data: leads = [], isLoading: leadsLoading } = useLeads(activeCompanyId);
+  const { data: jobs = [], isLoading: jobsLoading } = useJobs(activeCompanyId);
+  const { data: imports = [], isLoading: importsLoading } = useImportsHistory(activeCompanyId);
   const { data: settings } = useIntegrationSettings();
   const { data: adInsights = [] } = useMetaAdsInsights(activeCompanyId);
+
+  if (customersLoading || leadsLoading || jobsLoading || importsLoading) return <PageSkeleton kpis={4} cards={2} />;
 
   const won = leads.filter(l => isWonStage(l.stage_id, stages));
   const jobValue = jobs.reduce((t, j) => t + Number(j.estimated_value || 0), 0);

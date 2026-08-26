@@ -1,6 +1,7 @@
 import { AlertCircle, Briefcase, Calendar, DollarSign, Target, Users } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import KpiCard from "../components/KpiCard";
+import PageSkeleton from "../components/PageSkeleton";
 import { useCustomers, useIntegrationSettings, useJobs, useLeads } from "../data/hooks";
 import { money } from "../domain/format";
 import { isOpenStage, isWonStage } from "../domain/pipelineStages";
@@ -24,11 +25,13 @@ function activityWhen(iso: string): string {
 // substitute for something the schema can't actually answer yet.
 export default function Dashboard() {
   const { activeCompanyId, stages } = useCompany();
-  const { data: customers = [] } = useCustomers(activeCompanyId);
-  const { data: leads = [] } = useLeads(activeCompanyId);
-  const { data: jobs = [] } = useJobs(activeCompanyId);
+  const { data: customers = [], isLoading: customersLoading } = useCustomers(activeCompanyId);
+  const { data: leads = [], isLoading: leadsLoading } = useLeads(activeCompanyId);
+  const { data: jobs = [], isLoading: jobsLoading } = useJobs(activeCompanyId);
   const { data: settings } = useIntegrationSettings();
   const navigate = useNavigate();
+
+  if (customersLoading || leadsLoading || jobsLoading) return <PageSkeleton kpis={4} cards={4} />;
 
   const won = leads.filter(l => isWonStage(l.stage_id, stages));
   const openLeads = leads.filter(l => isOpenStage(l.stage_id, stages));

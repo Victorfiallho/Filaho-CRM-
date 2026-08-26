@@ -1,8 +1,9 @@
 import { LogOut, PanelLeftClose, PanelLeftOpen, Plus, RefreshCw } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Navigate, Outlet, useLocation, useNavigate } from "react-router-dom";
+import CompanyLogo from "./CompanyLogo";
 import { useCustomers, useImportsHistory, useJobs, useLeads } from "../data/hooks";
-import { COMPANY_ICONS, COMPANY_LOGOS, MODULE_ICONS, MODULES } from "../domain/constants";
+import { MODULE_ICONS, MODULES } from "../domain/constants";
 import { money } from "../domain/format";
 import { isOpenStage } from "../domain/pipelineStages";
 import type { PipelineStage } from "../domain/types";
@@ -125,11 +126,7 @@ export default function Shell() {
       <h1 className="sr-only">Fialho Home Improvement</h1>
       <aside className={`sidebar${sidebarOpen ? " open" : ""}${collapsed ? " collapsed" : ""}`} id="sidebar">
         <div className="brand">
-          <div className="logo" data-company={activeCompany.id}>
-            {COMPANY_LOGOS[activeCompany.id]
-              ? <img src={COMPANY_LOGOS[activeCompany.id]} alt={activeCompany.name} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
-              : <span dangerouslySetInnerHTML={{ __html: COMPANY_ICONS[activeCompany.id] || activeCompany.logo || "" }} />}
-          </div>
+          <div className="logo" data-company={activeCompany.id}><CompanyLogo company={activeCompany} /></div>
           {!collapsed && <div><b>Fialho Home Improvement</b><span>{activeCompany.name}</span></div>}
         </div>
         <button className="sidebar-toggle" onClick={toggleCollapsed} aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"} title={collapsed ? "Expand sidebar" : "Collapse sidebar"}>

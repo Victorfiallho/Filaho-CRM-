@@ -1,5 +1,5 @@
 import { Navigate, useNavigate } from "react-router-dom";
-import { COMPANY_ICONS, COMPANY_LOGOS } from "../domain/constants";
+import CompanyLogo from "../components/CompanyLogo";
 import { useAuth } from "../state/AuthContext";
 import { useCompany } from "../state/CompanyContext";
 
@@ -38,11 +38,7 @@ export default function CompanyPicker() {
               style={{ ["--company-color" as any]: c.color || undefined }}
               onClick={() => pick(c.id)}
             >
-              <div className="logo">
-                {COMPANY_LOGOS[c.id]
-                  ? <img src={COMPANY_LOGOS[c.id]} alt={c.name} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
-                  : <span dangerouslySetInnerHTML={{ __html: COMPANY_ICONS[c.id] || c.logo || "" }} />}
-              </div>
+              <div className="logo"><CompanyLogo company={c} /></div>
               <h3 style={{ marginTop: 14 }}>{c.name}</h3>
               <p className="sub">{c.industry} workspace</p>
             </button>

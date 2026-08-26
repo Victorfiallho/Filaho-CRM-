@@ -228,6 +228,12 @@ h1,h2,h3{margin:0;letter-spacing:-.02em;font-weight:700;color:var(--ink)}
 .company-card:hover::after{opacity:1;transform:translateX(0);color:var(--brand)}
 .company-card h3{font-weight:700;font-size:16px;color:var(--ink)}
 .logo{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;line-height:1;background:linear-gradient(135deg,var(--company-color),color-mix(in srgb,var(--company-color) 65%,#000));color:#fff;font-weight:800;letter-spacing:.01em;box-shadow:var(--shadow-xs)}
+/* Fourth tier of CompanyLogo's fallback chain (real logo file -> hardcoded
+   icon SVG -> company.logo raw markup -> this): plain initials, so a
+   company with none of the above renders a normal colored avatar instead of
+   an empty tinted box. Font-size is hand-tuned per .logo size context below,
+   same as this codebase already does for radius/padding at each size. */
+.logo-initials{user-select:none;font-size:15px}
 
 /* Company-select icon badges: soft tint container + Lucide-style SVG icon, per sector.
    Sized bigger than the sidebar's .brand .logo so a real logo image (with its own
@@ -245,6 +251,7 @@ h1,h2,h3{margin:0;letter-spacing:-.02em;font-weight:700;color:var(--ink)}
 }
 .company-card .logo svg{display:block}
 .company-card .logo img{display:block}
+.company-card .logo .logo-initials{font-size:34px}
 .company-card:hover .logo{transform:scale(1.05)}
 .app-shell{
   margin:18px;
@@ -268,6 +275,7 @@ h1,h2,h3{margin:0;letter-spacing:-.02em;font-weight:700;color:var(--ink)}
 .brand .logo{width:56px;height:56px;border-radius:16px;background:color-mix(in srgb,var(--company-color) 14%,white);color:var(--company-color);box-shadow:var(--shadow-xs);padding:6px}
 .brand .logo svg{display:block}
 .brand .logo img{display:block}
+.brand .logo .logo-initials{font-size:19px}
 .brand b{display:block;color:var(--ink);font-weight:700;font-size:16px;letter-spacing:-.015em}
 .brand span{display:block;margin-top:2px;font-size:12.5px;font-weight:500;color:var(--muted)}
 .sidebar.collapsed .brand{justify-content:center}
@@ -718,6 +726,7 @@ td a svg{width:14px;height:14px}
   .stage{max-height:60vh}
   .pipeline{grid-auto-columns:78vw}
   .brand .logo{width:48px;height:48px}
+  .brand .logo .logo-initials{font-size:17px}
   .side-foot{flex-direction:column}
   .stat-tiles{grid-template-columns:1fr}
   /* Comfortable touch targets (~44px) for standalone icon controls that get

@@ -1,4 +1,5 @@
 import { Award, BarChart3, DollarSign, Megaphone, TrendingUp, Users } from "lucide-react";
+import BarRow from "../components/BarRow";
 import KpiCard from "../components/KpiCard";
 import PageSkeleton from "../components/PageSkeleton";
 import { useCustomers, useImportsHistory, useIntegrationSettings, useJobs, useLeads, useMetaAdsInsights } from "../data/hooks";
@@ -28,6 +29,8 @@ export default function Reports() {
     const key = l.service_type || "Unassigned";
     byService[key] = (byService[key] || 0) + Number(l.value || 0);
   });
+  const serviceEntries = Object.entries(byService);
+  const maxServiceRevenue = Math.max(1, ...serviceEntries.map(([, v]) => v));
 
   const adSpend = adInsights.reduce((t, r) => t + Number(r.spend || 0), 0);
   const adImpressions = adInsights.reduce((t, r) => t + Number(r.impressions || 0), 0);
@@ -42,6 +45,11 @@ export default function Reports() {
     entry.impressions += Number(r.impressions || 0);
     byCampaign[key] = entry;
   });
+  const campaignEntries = Object.entries(byCampaign);
+  // Spend is the one metric driving bar width — clicks/impressions ride
+  // along as plain text in valueLabel instead of a second bar/axis, since a
+  // campaign's spend and click count live on entirely different scales.
+  const maxCampaignSpend = Math.max(1, ...campaignEntries.map(([, v]) => v.spend));
 
   return (
     <div className="view-enter">
@@ -54,8 +62,10 @@ export default function Reports() {
       <section className="card" style={{ marginTop: 14 }}>
         <div className="card-h"><h3>Revenue by service</h3></div>
         <div className="card-b">
-          {Object.entries(byService).length
-            ? Object.entries(byService).map(([k, v]) => <p key={k}><b>{k}</b> <span className="muted">{money(v)}</span></p>)
+          {serviceEntries.length
+            ? serviceEntries.map(([k, v]) => (
+              <BarRow key={k} label={k} magnitude={v} max={maxServiceRevenue} valueLabel={<span className="muted">{money(v)}</span>} />
+            ))
             : <div className="empty"><BarChart3 />No revenue yet</div>}
         </div>
       </section>
@@ -73,8 +83,14 @@ export default function Reports() {
                 <KpiCard icon={TrendingUp} label="Clicks" value={adClicks} hint={`${adImpressions.toLocaleString()} impressions`} />
                 <KpiCard icon={Megaphone} label="Avg. CPC" value={money(adCpc)} hint="cost per click" />
               </div>
-              {Object.entries(byCampaign).map(([name, v]) => (
-                <p key={name}><b>{name}</b> <span className="muted">{money(v.spend)} · {v.clicks} clicks · {v.impressions.toLocaleString()} impressions</span></p>
+              {campaignEntries.map(([name, v]) => (
+                <BarRow
+                  key={name}
+                  label={name}
+                  magnitude={v.spend}
+                  max={maxCampaignSpend}
+                  valueLabel={<span className="muted">{money(v.spend)} · {v.clicks} clicks · {v.impressions.toLocaleString()} impressions</span>}
+                />
               ))}
             </>
           )}

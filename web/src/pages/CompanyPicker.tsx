@@ -1,7 +1,15 @@
+import { ArrowRight, Star } from "lucide-react";
 import { Navigate, useNavigate } from "react-router-dom";
 import CompanyLogo from "../components/CompanyLogo";
 import { useAuth } from "../state/AuthContext";
 import { useCompany } from "../state/CompanyContext";
+
+// Separate from CompanyContext's own "active company" localStorage key,
+// which selectCompany()/clearCompany() manage as session-scoped state and
+// which gets *removed* by clearCompany() — exactly when the user lands back
+// here via "Switch company". This one is never cleared, purely a UX memory
+// of what to highlight next time.
+const LAST_COMPANY_KEY = "fialho_last_company_id";
 
 export default function CompanyPicker() {
   const { session, signOut } = useAuth();
@@ -10,7 +18,11 @@ export default function CompanyPicker() {
 
   if (!session) return <Navigate to="/login" replace />;
 
+  let lastCompanyId: string | null = null;
+  try { lastCompanyId = localStorage.getItem(LAST_COMPANY_KEY); } catch { /* private mode etc — just skip the highlight */ }
+
   const pick = (id: string) => {
+    try { localStorage.setItem(LAST_COMPANY_KEY, id); } catch { /* private mode etc */ }
     selectCompany(id);
     navigate("/dashboard");
   };
@@ -21,7 +33,7 @@ export default function CompanyPicker() {
         <div className="between">
           <div>
             <h1>Select company</h1>
-            <p className="sub">All records, imports, dashboards, and jobs stay separated by company.</p>
+            <p className="sub">Choose a workspace to continue. Your data stays separated by company.</p>
           </div>
           <button className="btn ghost" onClick={() => signOut()}>Logout</button>
         </div>
@@ -33,14 +45,20 @@ export default function CompanyPicker() {
           {companies.map(c => (
             <button
               key={c.id}
-              className="company-card"
+              className={`company-card${c.id === lastCompanyId ? " last-opened" : ""}`}
               data-company={c.id}
               style={{ ["--company-color" as any]: c.color || undefined }}
               onClick={() => pick(c.id)}
             >
-              <div className="logo"><CompanyLogo company={c} /></div>
-              <h3 style={{ marginTop: 14 }}>{c.name}</h3>
-              <p className="sub">{c.industry} workspace</p>
+              {c.id === lastCompanyId && <span className="company-card-badge"><Star />Last opened</span>}
+              <div className="company-card-row">
+                <div className="logo"><CompanyLogo company={c} /></div>
+                <div className="company-card-body">
+                  <h3>{c.name}</h3>
+                  {c.industry && <span className="pill">{c.industry}</span>}
+                </div>
+                <span className="company-card-arrow"><ArrowRight /></span>
+              </div>
             </button>
           ))}
         </div>

@@ -1,5 +1,6 @@
 import { AlertCircle, Briefcase, Calendar, DollarSign, Target, Users } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import BarRow from "../components/BarRow";
 import KpiCard from "../components/KpiCard";
 import PageSkeleton from "../components/PageSkeleton";
 import { useCustomers, useIntegrationSettings, useJobs, useLeads } from "../data/hooks";
@@ -31,7 +32,11 @@ export default function Dashboard() {
   const { data: settings } = useIntegrationSettings();
   const navigate = useNavigate();
 
-  if (customersLoading || leadsLoading || jobsLoading) return <PageSkeleton kpis={4} cards={4} />;
+  // Row counts approximate each real card's height (Upcoming jobs' table,
+  // Needs attention's short alert list, Pipeline by stage's one row per
+  // stage, Recent activity's up to 5 rows) so the page doesn't visibly jump
+  // in size the instant these queries resolve.
+  if (customersLoading || leadsLoading || jobsLoading) return <PageSkeleton kpis={4} rows={[5, 3, stages.length || 5, 5]} />;
 
   const won = leads.filter(l => isWonStage(l.stage_id, stages));
   const openLeads = leads.filter(l => isOpenStage(l.stage_id, stages));
@@ -62,6 +67,13 @@ export default function Dashboard() {
     ...jobs.map((j: Job) => ({ id: `job_${j.id}`, text: `Job updated: ${j.title}`, at: j.updated_at })),
     ...customers.map((c: Customer) => ({ id: `cust_${c.id}`, text: `Client updated: ${c.name}`, at: c.updated_at }))
   ].sort((a, b) => b.at.localeCompare(a.at)).slice(0, 5);
+
+  // Bar width scaled to the largest stage, not a fixed count*18 multiplier —
+  // that fixed factor hit its 100% cap at just 6 leads, so any stage with 6
+  // vs. 40 leads rendered as the same full bar, hiding the actual
+  // distribution the chart exists to show.
+  const stageCounts = stages.map(stage => ({ stage, count: leads.filter(l => l.stage_id === stage.id).length }));
+  const maxStageCount = Math.max(1, ...stageCounts.map(s => s.count));
 
   // Same 6 integrations app.js originally hardcoded as "planned" placeholders
   // (map_geocoding, google_calendar, google_sheets, google_drive, email_sms,
@@ -133,17 +145,16 @@ export default function Dashboard() {
             <button className="link-btn" onClick={() => navigate("/pipeline")}>View pipeline</button>
           </div>
           <div className="card-b">
-            {stages.map(stage => {
-              const count = leads.filter(l => l.stage_id === stage.id).length;
-              return (
-                <div key={stage.id} style={{ marginBottom: 12 }}>
-                  <div className="between"><b>{stage.name}</b><span className="pill">{count}</span></div>
-                  <div style={{ height: 8, background: "var(--soft)", borderRadius: 999, marginTop: 7 }}>
-                    <div style={{ width: `${Math.min(100, count * 18)}%`, height: 8, background: stage.color || "var(--brand)", borderRadius: 999 }} />
-                  </div>
-                </div>
-              );
-            })}
+            {stageCounts.map(({ stage, count }) => (
+              <BarRow
+                key={stage.id}
+                label={stage.name}
+                magnitude={count}
+                max={maxStageCount}
+                color={stage.color || undefined}
+                valueLabel={<span className="pill">{count}</span>}
+              />
+            ))}
           </div>
         </section>
         <section className="card">

@@ -208,10 +208,11 @@ h1,h2,h3{margin:0;letter-spacing:-.02em;font-weight:700;color:var(--ink)}
 .company-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-top:32px}
 .company-card{
   position:relative;
+  display:flex;flex-direction:column;gap:10px;
   background:var(--surface);
   border:1px solid var(--line-strong);
   border-radius:var(--radius);
-  padding:20px;text-align:left;box-shadow:var(--shadow-xs);
+  padding:18px 20px;text-align:left;box-shadow:var(--shadow-xs);
   transition:box-shadow .2s ease,border-color .2s ease,transform .2s ease,background .2s ease;
 }
 .company-card:hover{
@@ -220,13 +221,33 @@ h1,h2,h3{margin:0;letter-spacing:-.02em;font-weight:700;color:var(--ink)}
   box-shadow:0 16px 32px -12px rgba(249,115,22,.16),var(--shadow-sm);
   transform:translateY(-2px);
 }
-.company-card::after{
-  content:"\2192";position:absolute;top:20px;right:20px;
-  color:#cbd5e1;font-size:16px;opacity:0;
-  transition:opacity .2s ease,transform .2s ease,color .2s ease;transform:translateX(-4px);
-}
-.company-card:hover::after{opacity:1;transform:translateX(0);color:var(--brand)}
+.company-card-row{display:flex;align-items:center;gap:16px}
+.company-card-body{flex:1 1 auto;min-width:0}
+.company-card-body .pill{margin-top:6px}
 .company-card h3{font-weight:700;font-size:16px;color:var(--ink)}
+.company-card-arrow{
+  flex:0 0 auto;width:36px;height:36px;border-radius:999px;
+  display:grid;place-items:center;color:var(--muted);
+  border:1px solid var(--line-strong);background:#fff;
+  transition:color .2s ease,border-color .2s ease,background .2s ease,transform .2s ease;
+}
+.company-card-arrow svg{width:15px;height:15px}
+.company-card:hover .company-card-arrow{color:var(--brand);border-color:var(--brand-ring);background:var(--brand-soft);transform:translateX(2px)}
+/* Highlights whichever card the user actually opened last (tracked in
+   localStorage, separate from the *active* company id — that one gets
+   cleared on "Switch company", which is exactly when this screen is
+   visible and needs to remember it). Uses the fixed app orange, not the
+   per-company --company-color: this is a cross-cutting "you were just
+   here" affordance, not a per-company signal. */
+.company-card-badge{
+  display:inline-flex;align-items:center;gap:5px;align-self:flex-start;
+  padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;
+  background:var(--brand-soft);color:var(--brand-2);
+}
+.company-card-badge svg{width:11px;height:11px;fill:currentColor}
+.company-card.last-opened{background:var(--brand-soft);border-color:rgba(251,146,60,.5)}
+.company-card.last-opened:hover{background:var(--brand-soft)}
+.company-card.last-opened .company-card-arrow{color:var(--brand);border-color:var(--brand-ring);background:#fff}
 .logo{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;line-height:1;background:linear-gradient(135deg,var(--company-color),color-mix(in srgb,var(--company-color) 65%,#000));color:#fff;font-weight:800;letter-spacing:.01em;box-shadow:var(--shadow-xs)}
 /* Fourth tier of CompanyLogo's fallback chain (real logo file -> hardcoded
    icon SVG -> company.logo raw markup -> this): plain initials, so a
@@ -236,22 +257,21 @@ h1,h2,h3{margin:0;letter-spacing:-.02em;font-weight:700;color:var(--ink)}
 .logo-initials{user-select:none;font-size:15px}
 
 /* Company-select icon badges: soft tint container + Lucide-style SVG icon, per sector.
-   Sized bigger than the sidebar's .brand .logo so a real logo image (with its own
-   wordmark/detail) stays legible instead of shrinking to an illegible speck.
    The tint and card accent are derived from each company's own `color` field
    (--company-color, set per-card from the DB) instead of one-off hardcoded
    hex values per company id — so it's correct for any company, not just the
    four seeded ones, and it's the actual signal for "which company is this". */
 .company-card{border-left:4px solid var(--company-color)}
 .company-card:hover{border-left-color:var(--company-color)}
+.company-card.last-opened{border-left-color:var(--brand)}
 .company-card .logo{
-  width:104px;height:104px;border-radius:18px;box-shadow:none;padding:6px;
+  width:72px;height:72px;border-radius:16px;box-shadow:none;padding:6px;flex:0 0 auto;
   background:color-mix(in srgb,var(--company-color) 14%,white);color:var(--company-color);
   transition:transform .2s ease;
 }
 .company-card .logo svg{display:block}
 .company-card .logo img{display:block}
-.company-card .logo .logo-initials{font-size:34px}
+.company-card .logo .logo-initials{font-size:24px}
 .company-card:hover .logo{transform:scale(1.05)}
 .app-shell{
   margin:18px;

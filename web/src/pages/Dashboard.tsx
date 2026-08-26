@@ -153,6 +153,7 @@ export default function Dashboard() {
                 max={maxStageCount}
                 color={stage.color || undefined}
                 valueLabel={<span className="pill">{count}</span>}
+                title={`${stage.name}: ${count} lead${count === 1 ? "" : "s"}`}
               />
             ))}
           </div>

@@ -6,19 +6,28 @@ import type { ReactNode } from "react";
 // "Pipeline by stage" and Reports' "Revenue by service"/"Ad performance"
 // campaign rows, which all had their own slightly-different, in one case
 // wrongly-scaled, copy of this same bar before.
-export default function BarRow({ label, magnitude, max, color, valueLabel }: {
+//
+// The fill is rounded only on its trailing (data) edge, flat at the origin —
+// a fully-rounded pill on both ends makes two close bar lengths harder to
+// compare against each other. `title` is a plain-string tooltip (each caller
+// already has the exact formatted value on hand); .bar-row's hover state
+// gives the bar itself some visual feedback, since a hover-only interaction
+// with no visible response otherwise reads as broken, not as "there's a
+// tooltip here."
+export default function BarRow({ label, magnitude, max, color, valueLabel, title }: {
   label: string;
   magnitude: number;
   max: number;
   color?: string;
   valueLabel: ReactNode;
+  title?: string;
 }) {
   const pct = max > 0 ? Math.max(0, Math.min(100, (magnitude / max) * 100)) : 0;
   return (
-    <div style={{ marginBottom: 12 }}>
+    <div className="bar-row" style={{ marginBottom: 12 }} title={title}>
       <div className="between"><b>{label}</b>{valueLabel}</div>
-      <div style={{ height: 8, background: "var(--soft)", borderRadius: 999, marginTop: 7 }}>
-        <div style={{ width: `${pct}%`, height: 8, background: color || "var(--brand)", borderRadius: 999 }} />
+      <div className="bar-row-track" style={{ marginTop: 7 }}>
+        <div className="bar-row-fill" style={{ width: `${pct}%`, background: color || "var(--brand)" }} />
       </div>
     </div>
   );

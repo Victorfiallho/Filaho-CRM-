@@ -391,6 +391,9 @@ h1,h2,h3{margin:0;letter-spacing:-.02em;font-weight:700;color:var(--ink)}
 .kpi .label{font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.06em}
 .kpi .value{font-size:26px;font-weight:800;margin-top:5px;letter-spacing:-.01em;color:var(--ink)}
 .kpi .hint{font-size:12px;color:var(--muted);margin-top:4px}
+.bar-row-track{height:8px;background:var(--soft);border-radius:999px;overflow:hidden}
+.bar-row-fill{height:8px;border-radius:0 999px 999px 0;transition:filter .15s ease}
+.bar-row:hover .bar-row-fill{filter:brightness(1.1)}
 .table-filters{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding-bottom:14px}
 .table-filters .cs{min-width:160px}
 .table-filters .cs .cs-trigger,.table-filters .search-field input{min-height:38px}

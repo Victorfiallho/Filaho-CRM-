@@ -64,7 +64,7 @@ export default function Reports() {
         <div className="card-b">
           {serviceEntries.length
             ? serviceEntries.map(([k, v]) => (
-              <BarRow key={k} label={k} magnitude={v} max={maxServiceRevenue} valueLabel={<span className="muted">{money(v)}</span>} />
+              <BarRow key={k} label={k} magnitude={v} max={maxServiceRevenue} valueLabel={<span className="muted">{money(v)}</span>} title={`${k}: ${money(v)}`} />
             ))
             : <div className="empty"><BarChart3 />No revenue yet</div>}
         </div>
@@ -90,6 +90,7 @@ export default function Reports() {
                   magnitude={v.spend}
                   max={maxCampaignSpend}
                   valueLabel={<span className="muted">{money(v.spend)} · {v.clicks} clicks · {v.impressions.toLocaleString()} impressions</span>}
+                  title={`${name}: ${money(v.spend)} spend, ${v.clicks} clicks, ${v.impressions.toLocaleString()} impressions`}
                 />
               ))}
             </>

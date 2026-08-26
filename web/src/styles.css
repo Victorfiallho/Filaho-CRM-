@@ -33,6 +33,14 @@
   --radius-sm:10px;
 }
 *{box-sizing:border-box}
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{
+    animation-duration:.01ms!important;
+    animation-iteration-count:1!important;
+    transition-duration:.01ms!important;
+    scroll-behavior:auto!important;
+  }
+}
 body{
   /* Once inside a company workspace, Shell.tsx stamps --company-color here
      (not just on .app-shell — see the comment in Shell.tsx on why body, not
@@ -92,7 +100,7 @@ button{border:0;cursor:pointer;transition:background-color .15s ease,border-colo
 .login-card-flat h1{font-size:26px}
 .google-btn{gap:10px;font-weight:600}
 .google-btn:disabled{opacity:.7;cursor:not-allowed}
-.auth-divider{display:flex;align-items:center;gap:12px;margin:18px 0;color:var(--muted-soft);font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.auth-divider{display:flex;align-items:center;gap:12px;margin:18px 0;color:var(--muted);font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
 .auth-divider::before,.auth-divider::after{content:"";flex:1 1 auto;height:1px;background:var(--line-strong)}
 .input-with-icon{position:relative;display:flex;align-items:center}
 .input-with-icon > svg{position:absolute;left:12px;width:16px;height:16px;color:var(--muted-soft);pointer-events:none}
@@ -106,7 +114,7 @@ button{border:0;cursor:pointer;transition:background-color .15s ease,border-colo
 .input-icon-btn{position:absolute;right:8px;background:transparent;color:var(--muted-soft);padding:6px}
 .input-icon-btn:hover{color:var(--ink-soft)}
 .input-icon-btn svg{width:16px;height:16px}
-.login-secure-note{display:flex;align-items:center;justify-content:center;gap:6px;color:var(--muted-soft);font-size:12px;font-weight:600;margin-top:20px}
+.login-secure-note{display:flex;align-items:center;justify-content:center;gap:6px;color:var(--muted);font-size:12px;font-weight:600;margin-top:20px}
 .login-secure-note svg{width:14px;height:14px}
 @media(max-width:900px){
   .login-split{grid-template-columns:1fr}
@@ -132,7 +140,7 @@ h1,h2,h3{margin:0;letter-spacing:-.02em;font-weight:700;color:var(--ink)}
 .login-card h1{font-size:29px;font-weight:800;letter-spacing:-.03em}
 .sub{color:var(--muted);font-size:13px;letter-spacing:.005em;font-weight:500}
 .login-card .field{text-align:left}
-.login-card .sub:last-of-type{font-size:11px;color:var(--muted-soft);font-weight:400;margin-top:14px}
+.login-card .sub:last-of-type{font-size:11px;color:var(--muted);font-weight:400;margin-top:14px}
 .field{display:grid;gap:6px;margin-top:16px}
 .field label{font-weight:600;font-size:12px;color:var(--ink-soft)}
 .field input,.field select,.field textarea,.cs-trigger{width:100%;border:1px solid var(--line-strong);border-radius:var(--radius-sm);background:var(--soft);padding:10px 12px;outline:none;color:var(--ink)}
@@ -287,7 +295,7 @@ h1,h2,h3{margin:0;letter-spacing:-.02em;font-weight:700;color:var(--ink)}
 .nav button:hover{background:color-mix(in srgb,var(--company-color) 8%,transparent);color:var(--ink)}
 .nav button.active{background:transparent;color:var(--company-color);font-weight:700}
 .sidebar.collapsed .nav button{justify-content:center}
-.side-foot{padding:4px 10px 14px;font-size:12px;color:var(--muted-soft);display:flex;gap:8px;border-top:1px solid var(--line-strong);margin-top:auto;padding-top:12px}
+.side-foot{padding:4px 10px 14px;font-size:12px;color:var(--muted);display:flex;gap:8px;border-top:1px solid var(--line-strong);margin-top:auto;padding-top:12px}
 .side-foot .btn{flex:1 1 0;justify-content:center;padding:8px 10px;font-size:12.5px}
 .sidebar.collapsed .side-foot{flex-direction:column}
 .main{min-width:0}
@@ -329,7 +337,7 @@ h1,h2,h3{margin:0;letter-spacing:-.02em;font-weight:700;color:var(--ink)}
 .kpi-icon svg{width:19px;height:19px}
 .kpi .label{font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.06em}
 .kpi .value{font-size:26px;font-weight:800;margin-top:5px;letter-spacing:-.01em;color:var(--ink)}
-.kpi .hint{font-size:12px;color:var(--muted-soft);margin-top:4px}
+.kpi .hint{font-size:12px;color:var(--muted);margin-top:4px}
 .table-filters{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding-bottom:14px}
 .table-filters .cs{min-width:160px}
 .table-filters .cs .cs-trigger,.table-filters .search-field input{min-height:38px}
@@ -398,7 +406,7 @@ tr.row-clickable{cursor:pointer}
 .stage-row.dragging{opacity:.4}
 .stage-drag-handle{
   flex:0 0 auto;display:flex;align-items:center;justify-content:center;
-  width:20px;height:28px;color:var(--muted-soft);background:transparent;cursor:grab;
+  width:24px;height:28px;color:var(--muted-soft);background:transparent;cursor:grab;
 }
 .stage-drag-handle:hover{color:var(--ink-soft)}
 .stage-drag-handle:active{cursor:grabbing}
@@ -486,7 +494,7 @@ tr.row-clickable{cursor:pointer}
 }
 .cal-job{font-size:11px;border-radius:6px;padding:4px 5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:flex;align-items:center;gap:5px}
 .cal-job-dot{width:6px;height:6px;border-radius:999px;flex:0 0 auto}
-.cal-more{font-size:11px;color:var(--muted-soft)}
+.cal-more{font-size:11px;color:var(--muted)}
 .map-filters{display:grid;grid-template-columns:repeat(4,minmax(140px,1fr));gap:10px;margin-bottom:14px}
 .map-filters select,.map-filters input{border:1px solid var(--line-strong);border-radius:var(--radius-sm);background:var(--soft);padding:9px 11px;min-width:0}
 .map-layout{grid-template-columns:1.4fr .8fr}
@@ -585,7 +593,7 @@ input[type="checkbox"]:focus-visible{outline:none;box-shadow:0 0 0 3px var(--bra
 .toast{position:fixed;left:50%;bottom:22px;transform:translate(-50%,80px);opacity:0;background:var(--ink);color:#fff;border-radius:var(--radius-sm);padding:11px 18px;font-weight:600;box-shadow:var(--shadow-md);transition:.2s;z-index:30}
 .toast.show{transform:translate(-50%,0);opacity:1}
 .muted{color:var(--muted)}
-.empty{text-align:center;color:var(--muted-soft);padding:32px;display:flex;flex-direction:column;align-items:center;gap:10px}
+.empty{text-align:center;color:var(--muted);padding:32px;display:flex;flex-direction:column;align-items:center;gap:10px}
 .empty svg{width:28px;height:28px;color:var(--muted-soft)}
 td a{display:inline-flex;align-items:center;gap:4px}
 td a svg{width:14px;height:14px}
@@ -629,7 +637,7 @@ td a svg{width:14px;height:14px}
 .upcoming-sub{color:var(--muted);font-size:12.5px;margin-top:2px}
 .upcoming-meta{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:12px;margin-top:8px}
 .upcoming-meta svg{width:13px;height:13px;flex:0 0 auto}
-.upcoming-actions{flex:0 0 auto;display:flex;gap:6px}
+.upcoming-actions{flex:0 0 auto;display:flex;gap:8px}
 .icon-btn{
   display:inline-flex;align-items:center;justify-content:center;
   width:32px;height:32px;border-radius:9px;background:#fff;border:1px solid var(--line-strong);color:var(--muted);
@@ -686,4 +694,11 @@ td a svg{width:14px;height:14px}
   .brand .logo{width:48px;height:48px}
   .side-foot{flex-direction:column}
   .stat-tiles{grid-template-columns:1fr}
+  /* Comfortable touch targets (~44px) for standalone icon controls that get
+     tapped with a finger on mobile, without bloating the dense desktop UI
+     where these are clicked with a mouse. */
+  .icon-btn,.row-menu-trigger{width:44px;height:44px}
+  .pager button{min-height:44px}
+  .hamburger{padding:12px}
+  .input-icon-btn{padding:10px}
 }

@@ -138,8 +138,8 @@ export default function Calendar() {
                       {job.address && <div className="upcoming-meta"><MapPin />{[job.address, job.city, job.zip].filter(Boolean).join(", ")}</div>}
                     </div>
                     <div className="upcoming-actions">
-                      <a className="icon-btn" href={mapsSearchUrl(job)} target="_blank" rel="noreferrer" title="Open in Google Maps"><Navigation /></a>
-                      <a className="icon-btn" href={googleCalendarCreateUrl(job, activeCompany?.name || "")} target="_blank" rel="noreferrer" title="Open in Google Calendar"><CalendarIcon /></a>
+                      <a className="icon-btn" href={mapsSearchUrl(job)} target="_blank" rel="noreferrer" title="Open in Google Maps" aria-label="Open in Google Maps"><Navigation /></a>
+                      <a className="icon-btn" href={googleCalendarCreateUrl(job, activeCompany?.name || "")} target="_blank" rel="noreferrer" title="Open in Google Calendar" aria-label="Open in Google Calendar"><CalendarIcon /></a>
                     </div>
                   </div>
                 );

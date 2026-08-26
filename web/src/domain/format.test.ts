@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { groupBy, money, normAddress, normEmail, normKey, normName, normPhone, normZip, titleize, unique } from "./format";
+import { groupBy, initials, money, normAddress, normEmail, normKey, normName, normPhone, normZip, relativeDate, titleize, unique } from "./format";
 
 describe("money", () => {
   it("formats and rounds", () => {
@@ -65,5 +65,30 @@ describe("groupBy", () => {
   it("groups rows by key", () => {
     const rows = [{ zip: "303" }, { zip: "303" }, { zip: "404" }];
     expect(groupBy(rows, r => r.zip)).toEqual({ "303": [rows[0], rows[1]], "404": [rows[2]] });
+  });
+});
+
+describe("initials", () => {
+  it("takes the first letter of the first two words, uppercased", () => {
+    expect(initials("Jonathan Mah")).toBe("JM");
+    expect(initials("  arri a ")).toBe("AA");
+  });
+  it("falls back to a single letter or ? when there's not enough to work with", () => {
+    expect(initials("Kevin")).toBe("K");
+    expect(initials("")).toBe("?");
+  });
+});
+
+describe("relativeDate", () => {
+  const now = new Date("2026-08-24T15:00:00");
+  it("labels same-day and previous-day timestamps", () => {
+    expect(relativeDate("2026-08-24T09:00:00", now)).toBe("Today");
+    expect(relativeDate("2026-08-23T23:00:00", now)).toBe("Yesterday");
+  });
+  it("falls back to a short date further back", () => {
+    expect(relativeDate("2026-08-19T09:00:00", now)).toBe("Aug 19");
+  });
+  it("returns empty string for no timestamp", () => {
+    expect(relativeDate("", now)).toBe("");
   });
 });

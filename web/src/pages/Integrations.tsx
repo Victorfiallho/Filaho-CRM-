@@ -5,8 +5,10 @@ import { saveIntegrationSettings } from "../data/integrationSettings";
 import { useIntegrationSettings } from "../data/hooks";
 import { now } from "../domain/format";
 import type { IntegrationSettings } from "../domain/types";
-import { clearGoogleSession, connectGoogleWorkspace, googleCalendarAuthUrl, isGoogleSessionConnected, mergeScopes } from "../lib/googleOAuth";
+import { errorMessage } from "../lib/errorMessage";
+import { clearGoogleSession, connectGoogleWorkspace, isGoogleSessionConnected, mergeScopes, startGoogleCalendarAuth } from "../lib/googleOAuth";
 import { toast } from "../lib/toast";
+import { useAuth } from "../state/AuthContext";
 import { useCompany } from "../state/CompanyContext";
 
 // Ported verbatim from app.js (renderIntegrations, oauthCard, integrationCard,
@@ -14,6 +16,7 @@ import { useCompany } from "../state/CompanyContext";
 // loadGoogleOAuthJson, saveOAuthField, connectGoogleWorkspace, clearGoogleSession).
 export default function Integrations() {
   const { activeCompanyId, activeCompany } = useCompany();
+  const { session } = useAuth();
   const { data: settings } = useIntegrationSettings();
   const queryClient = useQueryClient();
   const [connectingService, setConnectingService] = useState<string | null>(null);
@@ -44,9 +47,15 @@ export default function Integrations() {
   const activeSettings = settings;
   const companyId = activeCompanyId;
 
-  function startCalendarOAuth() {
+  async function startCalendarOAuth() {
     if (!activeSettings.google_oauth.client_id) { toast("Import the Google OAuth JSON first."); return; }
-    location.href = googleCalendarAuthUrl(activeSettings.google_oauth.client_id, companyId);
+    if (!session?.access_token) { toast("Your session expired — sign in again."); return; }
+    try {
+      const url = await startGoogleCalendarAuth(session.access_token, companyId);
+      location.href = url;
+    } catch (err) {
+      toast(errorMessage(err, "Could not start the Google connection."));
+    }
   }
 
   async function patch(updater: (s: IntegrationSettings) => IntegrationSettings) {
@@ -64,6 +73,21 @@ export default function Integrations() {
       ? { ...s, google_maps: { ...s.google_maps, api_key: value } }
       : { ...s, [key]: { ...(s[key] as any), notes: value } });
     toast("Integration setting saved.");
+  }
+
+  function savePickerApiKey(value: string) {
+    patch(s => ({ ...s, google_drive: { ...s.google_drive, picker_api_key: value } }));
+    toast("Drive Picker API key saved.");
+  }
+
+  function saveEmailSmsField(field: "from_email" | "from_phone", value: string) {
+    patch(s => ({ ...s, email_sms: { ...s.email_sms, [field]: value } }));
+    toast("Email/SMS setting saved.");
+  }
+
+  function saveMetaAdAccountId(value: string) {
+    patch(s => ({ ...s, meta_ads: { ...s.meta_ads, ad_account_ids: { ...s.meta_ads.ad_account_ids, [companyId]: value } } }));
+    toast("Meta Ads account id saved.");
   }
 
   function saveCompanyIntegrationValue(key: "google_sheets" | "google_drive" | "google_calendar", field: string, value: string) {
@@ -156,16 +180,17 @@ export default function Integrations() {
         </div>
       </section>
 
-      <div className="grid two">
-        <section className="card">
-          <div className="card-h"><h3>Map &amp; Geocoding</h3><span className="pill">OpenStreetMap</span></div>
-          <div className="card-b">
+      <div className="grid three">
+        <IntegrationCard
+          k="google_maps" title="Map & Geocoding" description="Powers the Company map, address geocoding, and route optimization/directions on Map & Routes."
+          setting={settings.google_maps} onSaveSetting={saveIntegrationSetting} onToggle={toggleIntegration}
+          extra={
             <p className="sub">
-              Map & Routes now runs on OpenStreetMap (Leaflet tiles + Nominatim geocoding) — no API key needed,
-              no cost, nothing to configure here. This replaces the Google Maps API this card used to control.
+              Needs Maps JavaScript API, Geocoding API, and Directions API enabled (with billing) on an
+              HTTP-referrer-restricted key in Google Cloud Console.
             </p>
-          </div>
-        </section>
+          }
+        />
         <IntegrationCard
           k="google_calendar" title="Google Calendar" description="Scheduled jobs sync automatically to this company's Google Calendar, no need to keep the CRM open."
           setting={settings.google_calendar} onSaveSetting={saveIntegrationSetting} onToggle={toggleIntegration}
@@ -202,18 +227,47 @@ export default function Integrations() {
               {settings.google_drive.folder_urls?.[companyId] && (
                 <a className="btn ghost slim" target="_blank" rel="noreferrer" href={settings.google_drive.folder_urls[companyId]}>Open Drive folder</a>
               )}
+              <div className="field">
+                <label>Google Picker API key</label>
+                <input value={settings.google_drive.picker_api_key || ""} onChange={e => savePickerApiKey(e.target.value)} placeholder="Enables the 'Attach from Drive' file picker" />
+                <p className="sub">Enable the Google Picker API on the same Cloud project as your OAuth client, then paste its API key here.</p>
+              </div>
             </>
           }
         />
+        <section className="card">
+          <div className="card-h"><h3>Email &amp; SMS</h3><span className="pill">{settings.email_sms.enabled ? "enabled" : "planned"}</span></div>
+          <div className="card-b">
+            <p className="sub">Sends a reminder (SMS if the client has a phone on file, else email) the day before a scheduled job, plus a manual "Send reminder now" button on jobs.</p>
+            <div className="field"><label>From email (Resend)</label><input value={settings.email_sms.from_email} onChange={e => saveEmailSmsField("from_email", e.target.value)} placeholder="notifications@yourdomain.com" /></div>
+            <div className="field"><label>From phone (Twilio)</label><input value={settings.email_sms.from_phone} onChange={e => saveEmailSmsField("from_phone", e.target.value)} placeholder="+15555550123" /></div>
+            <p className="sub">Real API keys (Resend, Twilio) are set as Vercel/GitHub Actions secrets, not here — ask Victor if those aren't set up yet.</p>
+            <button className="btn ghost slim" onClick={() => toggleIntegration("email_sms")}>{settings.email_sms.enabled ? "Mark planned" : "Mark ready"}</button>
+          </div>
+        </section>
+        <section className="card">
+          <div className="card-h"><h3>Meta Ads</h3><span className="pill">{settings.meta_ads.enabled ? "enabled" : "planned"}</span></div>
+          <div className="card-b">
+            <p className="sub">Daily ad spend/impressions/clicks sync from Meta Ads Manager into Reports.</p>
+            <div className="field">
+              <label>Ad account ID for {activeCompany?.name}</label>
+              <input value={settings.meta_ads.ad_account_ids?.[companyId] || ""} onChange={e => saveMetaAdAccountId(e.target.value)} placeholder="act_1234567890" />
+            </div>
+            <p className="sub">The Marketing API access token is a GitHub Actions secret, set up by Victor separately.</p>
+            <button className="btn ghost slim" onClick={() => toggleIntegration("meta_ads")}>{settings.meta_ads.enabled ? "Mark planned" : "Mark ready"}</button>
+          </div>
+        </section>
       </div>
 
       <section className="card" style={{ marginTop: 14 }}>
         <div className="card-h"><h3>Connection status</h3><span className="sub">Local CRM with optional Google OAuth</span></div>
         <div className="card-b">
-          <p><b>Maps:</b> OpenStreetMap tiles and Nominatim geocoding are active by default, no setup needed.</p>
-          <p><b>Calendar:</b> ICS import/export is active. OAuth enables future live Google Calendar sync.</p>
-          <p><b>Drive:</b> folder URL fields are active. OAuth enables future file picker/upload workflows.</p>
-          <p><b>Sheets:</b> public/published CSV import is active. OAuth enables future private Sheet reads.</p>
+          <p><b>Maps:</b> {settings.google_maps.enabled ? "Google Maps API key configured." : "Add a Google Maps API key above to enable the map, geocoding, and route optimization."}</p>
+          <p><b>Calendar:</b> ICS import/export plus background OAuth sync to Google Calendar are active.</p>
+          <p><b>Drive:</b> folder URL fields are active; "Attach from Drive" opens a real file picker once a Picker API key is set above.</p>
+          <p><b>Sheets:</b> public/published CSV import is active; "Connect Google & load private sheet" (Import Center) reads private sheets directly via OAuth.</p>
+          <p><b>Email/SMS:</b> {settings.email_sms.enabled ? "Enabled — reminders send via Resend/Twilio once their API keys are set as server secrets." : "Not enabled yet."}</p>
+          <p><b>Meta Ads:</b> {settings.meta_ads.enabled ? "Enabled — daily ad performance sync runs once the Marketing API token secret is set." : "Not enabled yet."}</p>
         </div>
       </section>
     </>

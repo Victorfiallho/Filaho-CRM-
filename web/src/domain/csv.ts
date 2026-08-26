@@ -19,3 +19,10 @@ export function parseCSV(text: string): string[][] {
   if (row.some(v => v.trim())) rows.push(row);
   return rows;
 }
+
+// Inverse of parseCSV — quotes a cell only when it actually needs it (holds
+// a comma, quote, or newline), matching how most spreadsheet apps write CSV.
+export function toCSV(headers: string[], rows: string[][]): string {
+  const escapeCell = (v: string) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
+  return [headers, ...rows].map(row => row.map(escapeCell).join(",")).join("\r\n");
+}

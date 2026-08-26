@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseCSV } from "./csv";
+import { parseCSV, toCSV } from "./csv";
 
 describe("parseCSV", () => {
   it("parses a simple header + rows", () => {
@@ -43,5 +43,21 @@ describe("parseCSV", () => {
       ["1", "2"],
       ["3", "4"]
     ]);
+  });
+});
+
+describe("toCSV", () => {
+  it("joins headers and rows with commas, no quoting when not needed", () => {
+    expect(toCSV(["name", "phone"], [["Jane", "555-1234"]])).toBe("name,phone\r\nJane,555-1234");
+  });
+
+  it("quotes cells that contain a comma, quote, or newline", () => {
+    expect(toCSV(["name", "address"], [["Jane", "123 Main St, Apt 4"]])).toBe('name,address\r\nJane,"123 Main St, Apt 4"');
+    expect(toCSV(["name", "note"], [["Jane", 'She said "hi"']])).toBe('name,note\r\nJane,"She said ""hi"""');
+  });
+
+  it("round-trips through parseCSV", () => {
+    const rows = [["Jane", "123 Main St, Apt 4"], ["John", "no comma here"]];
+    expect(parseCSV(toCSV(["name", "address"], rows))).toEqual([["name", "address"], ...rows]);
   });
 });

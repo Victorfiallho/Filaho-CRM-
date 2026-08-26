@@ -490,14 +490,7 @@ tr.row-clickable{cursor:pointer}
 .map-filters{display:grid;grid-template-columns:repeat(4,minmax(140px,1fr));gap:10px;margin-bottom:14px}
 .map-filters select,.map-filters input{border:1px solid var(--line-strong);border-radius:var(--radius-sm);background:var(--soft);padding:9px 11px;min-width:0}
 .map-layout{grid-template-columns:1.4fr .8fr}
-.leaflet-map-canvas{height:520px;border:1px solid var(--line-strong);border-radius:var(--radius);overflow:hidden;background:#eef4f0}
-.leaflet-map-canvas .leaflet-control-zoom{border:1px solid var(--line-strong);border-radius:var(--radius-sm);box-shadow:var(--shadow-sm);overflow:hidden}
-.leaflet-map-canvas .leaflet-control-zoom a{
-  width:30px;height:30px;line-height:30px;background:#fff;color:var(--ink-soft);
-  border:0;font-weight:600;
-}
-.leaflet-map-canvas .leaflet-control-zoom a:first-child{border-bottom:1px solid var(--line-strong)}
-.leaflet-map-canvas .leaflet-control-zoom a:hover{background:var(--soft);color:var(--brand)}
+.map-canvas{height:520px;border:1px solid var(--line-strong);border-radius:var(--radius);overflow:hidden;background:#eef4f0}
 .route-legend{display:flex;gap:14px}
 .route-legend span{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
 .route-legend-dot{display:inline-block;width:9px;height:9px;border-radius:999px;border:1.5px solid #fff;box-shadow:0 0 0 1px rgba(15,23,42,.12)}
@@ -509,7 +502,6 @@ tr.row-clickable{cursor:pointer}
   border:2px solid #fff;box-shadow:var(--shadow-xs);
 }
 .route-order-name{flex:1 1 auto;font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.route-pin span{width:26px;height:26px;border-radius:999px;display:grid;place-items:center;color:#fff;font-weight:800;font-size:12px;border:2px solid #fff;box-shadow:var(--shadow-sm)}
 input[type="checkbox"]{
   appearance:none;-webkit-appearance:none;flex-shrink:0;
   width:18px;height:18px;margin:0;
@@ -527,7 +519,7 @@ input[type="checkbox"]:checked::after{
 input[type="checkbox"]:focus-visible{outline:none;box-shadow:0 0 0 3px var(--brand-ring)}
 .map-empty{position:absolute;inset:0;display:grid;place-items:center;color:var(--muted);font-weight:600;text-align:center;padding:24px;background:rgba(238,244,240,.9);pointer-events:none}
 .map-fit-btn{
-  position:absolute;top:80px;left:10px;z-index:400;
+  position:absolute;top:10px;left:10px;z-index:400;
   display:flex;align-items:center;gap:6px;
   background:#fff;border:1px solid var(--line-strong);border-radius:var(--radius-sm);
   padding:7px 10px;font-size:12px;font-weight:600;color:var(--ink-soft);box-shadow:var(--shadow-sm);
@@ -686,7 +678,7 @@ td a svg{width:14px;height:14px}
   .cal-cell{min-height:88px}
   .map-filters{grid-template-columns:1fr}
   .map-layout{grid-template-columns:1fr}
-  .leaflet-map-canvas{height:420px}
+  .map-canvas{height:420px}
   .inline-actions{flex-direction:column;align-items:stretch}
   .mobile-company{display:block}
   .stage{max-height:60vh}

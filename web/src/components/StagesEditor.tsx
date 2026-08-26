@@ -1,4 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
+import { Check, ChevronDown, ChevronUp, GripVertical, Plus, Shield, Trash2, X } from "lucide-react";
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import Select from "./Select";
@@ -13,6 +14,7 @@ interface DraftStage extends PipelineStage {
 }
 
 const DEFAULT_COLOR = "#667085";
+const TYPE_DESCRIPTION: Record<StageType, string> = { open: "Active stage", won: "Completed deal", lost: "Lost deal" };
 
 // Local draft + explicit Save, rather than saving each keystroke: reordering
 // touches several rows at once, and stage `type` feeds Dashboard/Reports
@@ -22,6 +24,7 @@ const DEFAULT_COLOR = "#667085";
 export default function StagesEditor({ companyId, stages, onClose }: { companyId: string; stages: PipelineStage[]; onClose: () => void }) {
   const [draft, setDraft] = useState<DraftStage[]>(() => [...stages].sort((a, b) => a.order - b.order).map(s => ({ ...s })));
   const [saving, setSaving] = useState(false);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
   function updateRow(id: string, patch: Partial<DraftStage>) {
@@ -43,6 +46,24 @@ export default function StagesEditor({ companyId, stages, onClose }: { companyId
       if (idx < 0 || swapIdx < 0 || swapIdx >= sorted.length) return d;
       const a = sorted[idx], b = sorted[swapIdx];
       return d.map(s => (s.id === a.id ? { ...s, order: b.order } : s.id === b.id ? { ...s, order: a.order } : s));
+    });
+  }
+
+  // Drag-and-drop reordering, alongside the up/down buttons (buttons stay
+  // for keyboard/no-mouse access) — reassigns clean sequential `order`
+  // values for the whole list rather than swapping two, so repeated
+  // reordering never accumulates gaps or duplicate order numbers.
+  function reorderStage(draggedId: string, targetId: string) {
+    if (draggedId === targetId) return;
+    setDraft(d => {
+      const sorted = [...d].sort((a, b) => a.order - b.order);
+      const fromIdx = sorted.findIndex(s => s.id === draggedId);
+      const toIdx = sorted.findIndex(s => s.id === targetId);
+      if (fromIdx < 0 || toIdx < 0) return d;
+      const [moved] = sorted.splice(fromIdx, 1);
+      sorted.splice(toIdx, 0, moved);
+      const orderById = new Map(sorted.map((s, i) => [s.id, i]));
+      return d.map(s => ({ ...s, order: orderById.get(s.id) ?? s.order }));
     });
   }
 
@@ -102,53 +123,86 @@ export default function StagesEditor({ companyId, stages, onClose }: { companyId
   // instead of the viewport, clipping its own header off-screen.
   return createPortal(
     <div className="modal-bg" onClick={onClose}>
-      <section className="modal" style={{ width: "min(640px,100%)" }} onClick={e => e.stopPropagation()}>
+      <section className="modal" style={{ width: "min(720px,100%)" }} onClick={e => e.stopPropagation()}>
         <div className="modal-h">
-          <h3>Edit pipeline stages</h3>
-          <button className="btn ghost slim" onClick={onClose}>Close</button>
+          <div>
+            <h3>Customize your pipeline</h3>
+            <span className="sub">Set up the steps your leads follow from first contact to a completed job.</span>
+          </div>
+          <button className="icon-btn" onClick={onClose} aria-label="Close"><X /></button>
         </div>
         <div className="modal-b">
-          <div className="stage-legend">
-            <span><span className="pill type-open">open</span> stays in pipeline value</span>
-            <span><span className="pill type-won">won</span> counts as a closed deal</span>
-            <span><span className="pill type-lost">lost</span> drops out of pipeline value</span>
-          </div>
+          <div className="stage-drag-hint"><GripVertical />Drag and drop to change the order.</div>
           <div className="stage-rows">
-            {sorted.map((s, i) => (
-              <div className="stage-row" key={s.id}>
-                <div className="stage-row-order">
-                  <button className="btn ghost slim" onClick={() => move(s.id, -1)} disabled={i === 0} aria-label="Move up">▲</button>
-                  <button className="btn ghost slim" onClick={() => move(s.id, 1)} disabled={i === sorted.length - 1} aria-label="Move down">▼</button>
-                </div>
-                <input
-                  type="color"
-                  value={s.color || DEFAULT_COLOR}
-                  onChange={e => updateRow(s.id, { color: e.target.value })}
-                  className="stage-color-input"
-                  aria-label="Stage color"
-                />
-                <input
-                  value={s.name}
-                  onChange={e => updateRow(s.id, { name: e.target.value })}
-                  className="stage-name-input"
-                  placeholder="Stage name"
-                />
-                <div className={`stage-type type-${s.type || "open"}`}>
-                  <Select
-                    value={s.type || "open"}
-                    onChange={v => updateRow(s.id, { type: v as StageType })}
-                    options={STAGE_TYPES.map(t => ({ value: t, label: t }))}
+            {sorted.map((s, i) => {
+              const type = (s.type || "open") as StageType;
+              return (
+                <div
+                  className={`stage-row${draggingId === s.id ? " dragging" : ""}`}
+                  key={s.id}
+                  onDragOver={e => e.preventDefault()}
+                  onDrop={e => { e.preventDefault(); const draggedId = e.dataTransfer.getData("text/plain"); if (draggedId) reorderStage(draggedId, s.id); }}
+                >
+                  <button
+                    className="stage-drag-handle"
+                    draggable
+                    onDragStart={e => { e.dataTransfer.setData("text/plain", s.id); e.dataTransfer.effectAllowed = "move"; setDraggingId(s.id); }}
+                    onDragEnd={() => setDraggingId(null)}
+                    aria-label="Drag to reorder"
+                  >
+                    <GripVertical />
+                  </button>
+                  <div className="stage-row-order">
+                    <button className="btn ghost slim" onClick={() => move(s.id, -1)} disabled={i === 0} aria-label="Move up"><ChevronUp /></button>
+                    <button className="btn ghost slim" onClick={() => move(s.id, 1)} disabled={i === sorted.length - 1} aria-label="Move down"><ChevronDown /></button>
+                  </div>
+                  <span className={`stage-badge type-${type}`}>
+                    {type === "won" ? <Check /> : type === "lost" ? <X /> : i + 1}
+                  </span>
+                  <input
+                    type="color"
+                    value={s.color || DEFAULT_COLOR}
+                    onChange={e => updateRow(s.id, { color: e.target.value })}
+                    className="stage-color-input"
+                    aria-label="Board color"
+                    title="Board color (used on the kanban and dashboard)"
                   />
+                  <div className="stage-row-main">
+                    <input
+                      value={s.name}
+                      onChange={e => updateRow(s.id, { name: e.target.value })}
+                      className="stage-name-input"
+                      placeholder="Stage name"
+                    />
+                    <span className="sub">{TYPE_DESCRIPTION[type]}</span>
+                  </div>
+                  <div className={`stage-type type-${type}`}>
+                    <Select
+                      value={type}
+                      onChange={v => updateRow(s.id, { type: v as StageType })}
+                      options={STAGE_TYPES.map(t => ({ value: t, label: t.charAt(0).toUpperCase() + t.slice(1) }))}
+                    />
+                  </div>
+                  <button className="icon-btn" onClick={() => removeStage(s.id)} aria-label="Remove stage" title="Remove stage"><Trash2 /></button>
                 </div>
-                <button className="btn ghost slim danger" onClick={() => removeStage(s.id)}>Remove</button>
-              </div>
-            ))}
+              );
+            })}
           </div>
-          <button className="btn stage-add-btn" onClick={addStage}>+ Add stage</button>
+          <button className="btn ghost stage-add-btn" onClick={addStage}><Plus />Add another stage</button>
+          <div className="stage-info-banner">
+            <Shield />
+            <div>
+              <b>Open</b> stages count toward your pipeline. <b>Won</b> stages are counted as completed deals, <b>Lost</b> stages drop out of pipeline value.
+              <div className="sub" style={{ marginTop: 2 }}>If you remove a stage that still has leads in it, you'll be asked to move them first.</div>
+            </div>
+          </div>
         </div>
-        <div className="modal-f">
-          <button className="btn ghost" onClick={onClose} disabled={saving}>Cancel</button>
-          <button className="btn" onClick={handleSave} disabled={saving}>{saving ? "Saving..." : "Save changes"}</button>
+        <div className="modal-f between">
+          <span className="sub"><Shield />Changes apply to this company only.</span>
+          <div className="inline-actions">
+            <button className="btn ghost" onClick={onClose} disabled={saving}>Cancel</button>
+            <button className="btn" onClick={handleSave} disabled={saving}>{saving ? "Saving..." : "Save changes"}</button>
+          </div>
         </div>
       </section>
     </div>,

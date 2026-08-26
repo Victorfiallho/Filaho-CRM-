@@ -2,6 +2,7 @@ import type { Session } from "@supabase/supabase-js";
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { getSession, onAuthStateChange, signIn as signInRequest, signInWithGoogle as signInWithGoogleRequest, signOut as signOutRequest } from "../data/auth";
 import { setRememberMe } from "../lib/authStorage";
+import { clearGoogleSession } from "../lib/googleOAuth";
 
 interface AuthContextValue {
   session: Session | null;
@@ -42,6 +43,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = async () => {
     await signOutRequest();
+    // Also revoke locally-held Google Workspace access tokens (Calendar/
+    // Drive/Sheets) — previously only cleared by a manual "Disconnect"
+    // button on Integrations, so they'd outlive a CRM logout on a shared
+    // browser (2026-08-26 security fix).
+    clearGoogleSession();
     setSession(null);
   };
 

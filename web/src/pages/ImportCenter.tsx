@@ -14,7 +14,8 @@ import { parseCSV } from "../domain/csv";
 import { IMPORT_FIELDS, IMPORT_PRESETS, type ImportSourceType } from "../domain/constants";
 import { findDuplicate, findDuplicateJob, type DuplicateMatch } from "../domain/dedupe";
 import { now, uid } from "../domain/format";
-import { toGoogleSheetCsvUrl } from "../domain/googleSheets";
+import { extractSpreadsheetId, toGoogleSheetCsvUrl } from "../domain/googleSheets";
+import { fetchPrivateSheetValues } from "../data/googleSheetsApi";
 import {
   classifyCalendarEvent, extractFirstIcsFromZip, jobFromIcsEvent, parseICS
 } from "../domain/ics";
@@ -22,6 +23,7 @@ import { autoMapHeaders, mappedRecord } from "../domain/importMapping";
 import { cleanCustomer, cleanJob, leadFromCustomer } from "../domain/records";
 import type { Customer, Job } from "../domain/types";
 import { errorMessage } from "../lib/errorMessage";
+import { connectGoogleWorkspace, googleAccessTokenFor } from "../lib/googleOAuth";
 import { toast } from "../lib/toast";
 import { useCompany } from "../state/CompanyContext";
 
@@ -63,6 +65,7 @@ export default function ImportCenter() {
   const [preview, setPreview] = useState<PreviewRow[]>([]);
   const [sheetUrl, setSheetUrl] = useState(() => (activeCompanyId && settings?.google_sheets.source_urls?.[activeCompanyId]) || "");
   const [committing, setCommitting] = useState(false);
+  const [connectingSheet, setConnectingSheet] = useState(false);
   const jobsMapCache = useRef<Record<string, Job[]>>({});
   const servicesMapCache = useRef<Record<string, string[]>>({});
 
@@ -161,6 +164,41 @@ export default function ImportCenter() {
       toast("Google Sheet loaded. Review mapping.");
     } catch {
       toast("Could not load Sheet. Publish it as CSV or share it publicly first.");
+    }
+  }
+
+  // Reads a private (not published-to-web) Google Sheet directly via the
+  // Sheets API, using the same per-service OAuth token connectGoogleWorkspace
+  // already mints for Calendar/Drive — no "publish to web" step needed, but
+  // does need the Google OAuth client configured on Integrations first.
+  async function loadPrivateGoogleSheet() {
+    if (!sheetUrl.trim() || !activeCompanyId || !settings) { toast("Paste a Google Sheet URL first."); return; }
+    const spreadsheetId = extractSpreadsheetId(sheetUrl.trim());
+    if (!spreadsheetId) { toast("Could not read that Google Sheet URL."); return; }
+    if (!settings.google_oauth.client_id) { toast("Import the Google OAuth JSON in Integrations first."); return; }
+    setConnectingSheet(true);
+    try {
+      let token = googleAccessTokenFor("sheets");
+      if (!token) {
+        const result = await connectGoogleWorkspace(settings.google_oauth.client_id, "sheets");
+        token = result.accessToken;
+      }
+      const values = await fetchPrivateSheetValues(token, spreadsheetId);
+      const nextSettings = { ...settings, google_sheets: { ...settings.google_sheets, source_urls: { ...settings.google_sheets.source_urls, [activeCompanyId]: sheetUrl.trim() } } };
+      await saveIntegrationSettings(nextSettings);
+      queryClient.invalidateQueries({ queryKey: ["integration_settings"] });
+      const nextHeaders = (values[0] || []).map(h => h.trim());
+      setType("sheets");
+      setFileName("Google Sheet import (private)");
+      setHeaders(nextHeaders);
+      setRows(values.slice(1));
+      setMapping(autoMapHeaders(nextHeaders, "sheets"));
+      setPreview([]);
+      toast("Private Google Sheet loaded. Review mapping.");
+    } catch (error) {
+      toast(errorMessage(error, "Could not load that private Sheet."));
+    } finally {
+      setConnectingSheet(false);
     }
   }
 
@@ -284,10 +322,13 @@ export default function ImportCenter() {
             </div>
           </div>
           <div className="field">
-            <label>Google Sheets CSV URL</label>
+            <label>Google Sheets URL</label>
             <div className="inline-actions">
               <input value={sheetUrl} onChange={e => setSheetUrl(e.target.value)} placeholder="Paste Google Sheet URL or published CSV link" />
-              <button className="btn ghost" onClick={loadGoogleSheetCsv}>Load Sheet</button>
+              <button className="btn ghost" onClick={loadGoogleSheetCsv}>Load published CSV</button>
+              <button className="btn ghost" onClick={loadPrivateGoogleSheet} disabled={connectingSheet}>
+                {connectingSheet ? "Connecting..." : "Connect Google & load private sheet"}
+              </button>
             </div>
           </div>
 

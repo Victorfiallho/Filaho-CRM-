@@ -8,6 +8,7 @@ import { getIntegrationSettings } from "./integrationSettings";
 import { listImports } from "./imports";
 import { listJobs } from "./jobs";
 import { listLeads } from "./leads";
+import { listMetaAdsInsights } from "./metaAds";
 import { listNotes } from "./notes";
 import { getCurrentAppUser, listUsers } from "./users";
 
@@ -47,6 +48,14 @@ export function useIntegrationSettings() {
   return useQuery({
     queryKey: ["integration_settings"],
     queryFn: getIntegrationSettings
+  });
+}
+
+export function useMetaAdsInsights(companyId: string | null) {
+  return useQuery({
+    queryKey: ["meta_ads_insights", companyId],
+    queryFn: () => listMetaAdsInsights(companyId!),
+    enabled: Boolean(companyId)
   });
 }
 

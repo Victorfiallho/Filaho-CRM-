@@ -41,6 +41,14 @@ export function googleAccessToken(): string {
   return sessionStorage.getItem("fialho_google_access_token_basic") || "";
 }
 
+// Per-service token lookup — googleAccessToken() above only ever reads the
+// "basic" slot, but connectGoogleWorkspace() stores a separate token per
+// service (drive/sheets/calendar), so callers that need the Sheets or Drive
+// token specifically (googleSheetsApi.ts, googleDrivePicker.ts) need this.
+export function googleAccessTokenFor(service: "basic" | "calendar" | "drive" | "sheets"): string {
+  return sessionStorage.getItem(`fialho_google_access_token_${service}`) || "";
+}
+
 export function isGoogleSessionConnected(): boolean {
   return ["basic", "calendar", "drive", "sheets"].some(service => sessionStorage.getItem(`fialho_google_access_token_${service}`));
 }
@@ -52,19 +60,25 @@ export function clearGoogleSession() {
 // Full-page redirect flow (as opposed to connectGoogleWorkspace's popup
 // token client below) — the only way to get a refresh_token back, which is
 // what web/api/google-oauth-callback.js needs to set up background sync.
-// state carries the company_id through the round trip to Google and back.
-export function googleCalendarAuthUrl(clientId: string, companyId: string): string {
-  const redirectUri = `${location.origin}/api/google-oauth-callback`;
-  const params = new URLSearchParams({
-    client_id: clientId,
-    redirect_uri: redirectUri,
-    response_type: "code",
-    scope: GOOGLE_SCOPE_PRESETS.calendar,
-    access_type: "offline",
-    prompt: "consent",
-    state: companyId
+//
+// SECURITY (2026-08-26 fix): this used to build the Google authorize URL
+// entirely client-side with `state` set to the plain, unsigned company_id —
+// which let anyone craft their own `state=<victim_company_id>` and hijack
+// another company's Calendar connection (see web/api/google-oauth-callback.js's
+// comment). URL construction now happens server-side in
+// web/api/google-oauth-start.js, which verifies the caller's session and
+// company membership before minting an HMAC-signed `state` the callback can
+// trust. Call that endpoint (with the current Supabase session's access
+// token) instead of building the URL here.
+export async function startGoogleCalendarAuth(accessToken: string, companyId: string): Promise<string> {
+  const res = await fetch("/api/google-oauth-start", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}`, "content-type": "application/json" },
+    body: JSON.stringify({ company_id: companyId })
   });
-  return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
+  const body = await res.json();
+  if (!res.ok) throw new Error(body.error || "Could not start the Google connection.");
+  return body.url;
 }
 
 export async function connectGoogleWorkspace(

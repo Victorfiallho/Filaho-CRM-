@@ -2,9 +2,12 @@ import type { AppUser } from "../domain/types";
 import { supabase } from "../lib/supabaseClient";
 
 // The `users` app-profile table (separate from Supabase Auth — see
-// schema.sql) is a small, non-sensitive lookup: just id/name/role for
-// whoever has a company_members row. Used here only to show "who wrote this
-// note", not for anything access-control related.
+// schema.sql) also carries a unique email and a permissions array, so it's
+// not the "non-sensitive" lookup an earlier version of this comment claimed
+// (a 2026-08-26 security audit found the table had no RLS at all, in part
+// because of that mischaracterization — see schema.sql's users_select
+// policy). This function only selects id/name for "who wrote this note",
+// but that's a UI-code choice, not something enforced by the database.
 export async function listUsers(): Promise<AppUser[]> {
   const { data, error } = await supabase.from("users").select("id, name");
   if (error) throw error;

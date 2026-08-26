@@ -5,7 +5,7 @@ import Select from "./Select";
 import { listCustomers, insertCustomer, updateCustomer, deleteCustomer } from "../data/customers";
 import { deleteFile, insertFile } from "../data/files";
 import { geocodeAddress } from "../data/geocoding";
-import { useCurrentAppUser, useFiles, useNotes, useUsers } from "../data/hooks";
+import { useCurrentAppUser, useFiles, useIntegrationSettings, useNotes, useUsers } from "../data/hooks";
 import { insertJob, updateJob, deleteJob } from "../data/jobs";
 import { upsertClientFromLead } from "../data/leadClientSync";
 import { insertLead, updateLead, deleteLead } from "../data/leads";
@@ -13,7 +13,10 @@ import { deleteNote, insertNote } from "../data/notes";
 import { now, uid } from "../domain/format";
 import { titleize } from "../domain/format";
 import { errorMessage } from "../lib/errorMessage";
+import { openDrivePicker } from "../lib/googleDrivePicker";
+import { connectGoogleWorkspace, googleAccessTokenFor } from "../lib/googleOAuth";
 import { toast } from "../lib/toast";
+import { useAuth } from "../state/AuthContext";
 import { useCompany } from "../state/CompanyContext";
 import { useModal } from "../state/ModalContext";
 
@@ -34,6 +37,7 @@ function RecordModalContent() {
   // not an early return, and the actual `return null` happens after all hooks.
   const { modal, closeModal } = useModal();
   const { activeCompanyId, services, stages } = useCompany();
+  const { session } = useAuth();
   const queryClient = useQueryClient();
   const type = modal?.type ?? "customer";
   const record = modal?.record;
@@ -54,6 +58,7 @@ function RecordModalContent() {
   const { data: files = [] } = useFiles(activeCompanyId, type, notesEntityId);
   const { data: users = [] } = useUsers();
   const { data: currentAppUser } = useCurrentAppUser();
+  const { data: integrationSettings } = useIntegrationSettings();
   const userNameById = new Map(users.map(u => [u.id, u.name]));
 
   const [newNoteBody, setNewNoteBody] = useState("");
@@ -136,8 +141,10 @@ function RecordModalContent() {
     if (!activeCompanyId) return;
     if (Number(data.lat) && Number(data.lng)) return;
     if (!data.address && !data.city && !data.zip) return;
+    const apiKey = integrationSettings?.google_maps.api_key || "";
+    if (!apiKey) return;
     try {
-      const loc = await geocodeAddress(activeCompanyId, data.address || "", data.city || "", data.state || "", data.zip || "");
+      const loc = await geocodeAddress(activeCompanyId, data.address || "", data.city || "", data.state || "", data.zip || "", apiKey);
       if (loc) {
         data.lat = loc.lat;
         data.lng = loc.lng;
@@ -351,6 +358,65 @@ function RecordModalContent() {
     }
   }
 
+  // Manual counterpart to scripts/send-reminders.mjs's daily automated
+  // reminder cron — same web/api/send-notification.js endpoint, triggered
+  // on demand instead of by a schedule. Prefers SMS when the client has a
+  // phone on file (matches the automated job's preference), falls back to
+  // email.
+  async function handleSendReminderNow() {
+    const customer = customers.find(c => c.id === form.customer_id);
+    const to = customer?.phone || customer?.email;
+    if (!to) { toast("This client has no phone or email on file."); return; }
+    if (!session?.access_token) { toast("Your session expired — sign in again."); return; }
+    const body = `Reminder: ${form.title || "your appointment"} is scheduled for ${form.scheduled_date || "soon"}.`;
+    try {
+      const res = await fetch("/api/send-notification", {
+        method: "POST",
+        headers: { "content-type": "application/json", Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({
+          type: customer?.phone ? "sms" : "email",
+          to,
+          subject: "Appointment reminder",
+          body,
+          from_email: integrationSettings?.email_sms.from_email,
+          from_phone: integrationSettings?.email_sms.from_phone
+        })
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => null))?.error || "Failed to send.");
+      toast("Reminder sent.");
+    } catch (error) {
+      toast(errorMessage(error, "Could not send reminder."));
+    }
+  }
+
+  // Real Drive file picker, next to the plain "paste a link" flow above —
+  // reuses the same Drive OAuth token connectGoogleWorkspace mints for the
+  // Integrations page's "Allow Drive" button, prompting for it here too if
+  // this browser session doesn't have one yet.
+  async function handleAttachFromDrive() {
+    if (!activeCompanyId || !r.id) return;
+    const clientId = integrationSettings?.google_oauth.client_id;
+    const pickerApiKey = integrationSettings?.google_drive.picker_api_key;
+    if (!clientId) { toast("Import the Google OAuth JSON in Integrations first."); return; }
+    if (!pickerApiKey) { toast("Add a Google Picker API key in Integrations first."); return; }
+    setAddingFile(true);
+    try {
+      let token = googleAccessTokenFor("drive");
+      if (!token) {
+        const result = await connectGoogleWorkspace(clientId, "drive");
+        token = result.accessToken;
+      }
+      const picked = await openDrivePicker(token, pickerApiKey);
+      if (!picked) return;
+      await insertFile({ company_id: activeCompanyId, entity_type: type, entity_id: r.id, name: picked.name, url: picked.url, provider: "google_drive" });
+      queryClient.invalidateQueries({ queryKey: ["files", activeCompanyId, type, r.id] });
+    } catch (error) {
+      toast(errorMessage(error, "Could not attach that Drive file."));
+    } finally {
+      setAddingFile(false);
+    }
+  }
+
   return (
     <div className="modal-bg">
       <section className="modal" onKeyDown={handleModalKeyDown}>
@@ -377,6 +443,9 @@ function RecordModalContent() {
               <Field label="Google Drive folder URL" value={form.drive_folder_url} onChange={v => set("drive_folder_url", v)} />
               <Field label="Latitude" value={String(form.lat)} onChange={v => set("lat", v)} type="number" />
               <Field label="Longitude" value={String(form.lng)} onChange={v => set("lng", v)} type="number" />
+              {isEdit && (
+                <button className="btn ghost slim" onClick={handleSendReminderNow} type="button">Send reminder now</button>
+              )}
             </div>
           ) : (
             <>
@@ -459,9 +528,12 @@ function RecordModalContent() {
                   </div>
                   <input placeholder="File name" value={newFileName} onChange={e => setNewFileName(e.target.value)} />
                   <input placeholder="Link URL (Google Drive, etc.)" value={newFileUrl} onChange={e => setNewFileUrl(e.target.value)} />
-                  <button className="btn ghost slim" onClick={handleAddFile} disabled={addingFile || !newFileName.trim() || !newFileUrl.trim()}>
-                    {addingFile ? "Adding..." : "Add file link"}
-                  </button>
+                  <div className="inline-actions">
+                    <button className="btn ghost slim" onClick={handleAddFile} disabled={addingFile || !newFileName.trim() || !newFileUrl.trim()}>
+                      {addingFile ? "Adding..." : "Add file link"}
+                    </button>
+                    <button className="btn ghost slim" onClick={handleAttachFromDrive} disabled={addingFile}>Attach from Drive</button>
+                  </div>
                 </div>
               </div>
             </div>

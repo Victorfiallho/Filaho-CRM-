@@ -115,7 +115,14 @@ export interface IntegrationSettings {
   google_maps: { enabled: boolean; api_key: string; notes: string };
   google_calendar: { enabled: boolean; calendar_ids: Record<string, string>; notes: string };
   google_sheets: { enabled: boolean; spreadsheet_ids: Record<string, string>; notes: string; source_urls: Record<string, string> };
-  google_drive: { enabled: boolean; folder_ids: Record<string, string>; folder_urls: Record<string, string>; notes: string };
+  google_drive: { enabled: boolean; folder_ids: Record<string, string>; folder_urls: Record<string, string>; picker_api_key: string; notes: string };
+  // Real secrets (Resend/Twilio API keys) live only as Vercel/GitHub Actions
+  // env vars (web/api/send-notification.js, scripts/send-reminders.mjs) —
+  // never here, since integration_settings is readable by any authenticated
+  // user (see google_oauth_tokens' zero-RLS-policy table for the pattern this
+  // follows for anything actually secret).
+  email_sms: { enabled: boolean; from_email: string; from_phone: string; notes: string };
+  meta_ads: { enabled: boolean; ad_account_ids: Record<string, string>; notes: string };
 }
 
 export interface RecordNote {

@@ -229,6 +229,26 @@ create table if not exists supplier_price_history (
 );
 create index if not exists supplier_price_history_lookup_idx on supplier_price_history(company_id, supplier, external_id, recorded_at desc);
 
+-- ── meta_ads_insights (daily ad performance, one row per company/campaign/day) ─
+-- Populated by scripts/sync-meta-ads.mjs (GitHub Actions, daily), never by
+-- the app itself — same service_role-writes/select-only-RLS shape as
+-- supplier_products above. Read by Reports.tsx via data/metaAds.ts.
+create table if not exists meta_ads_insights (
+  id uuid primary key default gen_random_uuid(),
+  company_id text not null references companies(id),
+  date date not null,
+  campaign_id text not null,
+  campaign_name text,
+  spend numeric,
+  impressions integer,
+  clicks integer,
+  ctr numeric,
+  cpc numeric,
+  synced_at timestamptz not null default now(),
+  unique (company_id, campaign_id, date)
+);
+create index if not exists meta_ads_insights_company_date_idx on meta_ads_insights(company_id, date desc);
+
 -- ── google_oauth_tokens (per-company refresh token for background sync) ──
 -- Populated by web/api/google-oauth-callback.js after the OAuth redirect
 -- flow, consumed by scripts/sync-google-calendar.mjs (GitHub Actions cron).
@@ -308,6 +328,12 @@ create policy supplier_price_history_select on supplier_price_history for select
   company_id in (select company_id from company_members where user_id = auth.uid())
 );
 
+alter table meta_ads_insights enable row level security;
+drop policy if exists meta_ads_insights_select on meta_ads_insights;
+create policy meta_ads_insights_select on meta_ads_insights for select using (
+  company_id in (select company_id from company_members where user_id = auth.uid())
+);
+
 -- No policies created — enabling RLS with zero grants blocks the anon/
 -- authenticated client entirely; only service_role (which bypasses RLS) can
 -- read or write this table.
@@ -323,6 +349,29 @@ alter table company_members enable row level security;
 drop policy if exists company_members_select on company_members;
 create policy company_members_select on company_members for select using (
   user_id = auth.uid()
+);
+
+-- `users` was the one table in this schema that never got RLS enabled (found
+-- during a 2026-08-26 security audit — every other table has a policy below
+-- or above this line, this one never did). Without it, any authenticated
+-- user could select every row via a direct PostgREST call regardless of the
+-- app's own narrow `select("id, name")` usage, exposing every user's email/
+-- role/permissions across every company. Scope: a user can see their own
+-- row, or any user who shares at least one company with them (covers the
+-- app's actual need — mapping a note's/file's user_id to a name within a
+-- company both users belong to). No insert/update/delete policy: user
+-- provisioning stays service_role-only, same as company_members.
+alter table users enable row level security;
+drop policy if exists users_select on users;
+create policy users_select on users for select using (
+  auth_user_id = auth.uid()
+  or exists (
+    select 1
+    from company_members cm_self
+    join company_members cm_other on cm_other.company_id = cm_self.company_id
+    where cm_self.user_id = auth.uid()
+      and cm_other.user_id = users.auth_user_id
+  )
 );
 
 -- integration_settings isn't company-scoped (see table comment above), so its
@@ -343,3 +392,126 @@ create policy integration_settings_update on integration_settings for update usi
 ) with check (
   exists (select 1 from company_members where user_id = auth.uid())
 );
+
+-- Two guards added 2026-08-26 (security audit) on top of the intentionally
+-- broad "any company member" policy above. The policy still lets any member
+-- of ANY company pass the RLS check for this shared row (that part is
+-- unchanged, by design) -- these close the two things that were actually
+-- wrong: a member of company A could previously READ every other company's
+-- nested Drive/Calendar/Meta Ads config (not just their own), and could
+-- WRITE over another company's nested keys with a crafted full-object
+-- upsert. Neither the app's TypeScript types nor any existing call site
+-- needs to change: reads go through get_my_integration_settings() (same
+-- shape back), and writes still succeed exactly as before as long as they
+-- only touch the caller's own company's keys -- which is all the app's UI
+-- ever legitimately does.
+
+-- Read guard: returns the shared row with every per-company nested dict
+-- filtered down to only the keys (company ids) the caller actually belongs
+-- to. Shared, non-tenant-specific fields (google_oauth, google_maps,
+-- google_drive.picker_api_key, email_sms, meta_ads.enabled/notes) pass
+-- through unfiltered, matching this table's documented "shared blob" intent.
+create or replace function get_my_integration_settings()
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  raw jsonb;
+  my_companies text[];
+  filtered jsonb;
+  scoped_paths text[][] := array[
+    array['google_calendar', 'calendar_ids'],
+    array['google_sheets', 'spreadsheet_ids'],
+    array['google_sheets', 'source_urls'],
+    array['google_drive', 'folder_ids'],
+    array['google_drive', 'folder_urls'],
+    array['meta_ads', 'ad_account_ids']
+  ];
+  path text[];
+  raw_dict jsonb;
+  filtered_dict jsonb;
+  k text;
+begin
+  select settings into raw from integration_settings where id = 'default';
+  if raw is null then return '{}'::jsonb; end if;
+
+  select coalesce(array_agg(company_id), array[]::text[]) into my_companies
+  from company_members where user_id = auth.uid();
+
+  filtered := raw;
+  foreach path slice 1 in array scoped_paths loop
+    raw_dict := coalesce(raw #> path, '{}'::jsonb);
+    filtered_dict := '{}'::jsonb;
+    for k in select jsonb_object_keys(raw_dict) loop
+      if k = any(my_companies) then
+        filtered_dict := filtered_dict || jsonb_build_object(k, raw_dict -> k);
+      end if;
+    end loop;
+    filtered := jsonb_set(filtered, path, filtered_dict);
+  end loop;
+
+  return filtered;
+end;
+$$;
+grant execute on function get_my_integration_settings() to authenticated;
+
+-- Write guard: a BEFORE UPDATE trigger (not a `with check`, since expressing
+-- "only these specific nested keys may differ" per-key isn't possible in a
+-- plain RLS check clause) that rejects any update touching a per-company
+-- nested key the caller doesn't belong to, whether from a malicious crafted
+-- payload or a concurrent-edit lost-update race between two companies.
+create or replace function enforce_integration_settings_scope()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  my_companies text[];
+  scoped_paths text[][] := array[
+    array['google_calendar', 'calendar_ids'],
+    array['google_sheets', 'spreadsheet_ids'],
+    array['google_sheets', 'source_urls'],
+    array['google_drive', 'folder_ids'],
+    array['google_drive', 'folder_urls'],
+    array['meta_ads', 'ad_account_ids']
+  ];
+  path text[];
+  old_dict jsonb;
+  new_dict jsonb;
+  k text;
+begin
+  -- service_role connections (background scripts, if any are ever added for
+  -- this table) carry no end-user JWT, so auth.uid() is null here — RLS
+  -- already lets service_role bypass everything, so this trigger should too
+  -- rather than treating "no companies" as "no changes are ever allowed."
+  if auth.uid() is null then
+    return new;
+  end if;
+
+  select coalesce(array_agg(company_id), array[]::text[]) into my_companies
+  from company_members where user_id = auth.uid();
+
+  foreach path slice 1 in array scoped_paths loop
+    old_dict := coalesce(old.settings #> path, '{}'::jsonb);
+    new_dict := coalesce(new.settings #> path, '{}'::jsonb);
+    for k in
+      select jsonb_object_keys(old_dict)
+      union
+      select jsonb_object_keys(new_dict)
+    loop
+      if (old_dict -> k) is distinct from (new_dict -> k) and not (k = any(my_companies)) then
+        raise exception 'not authorized to modify integration settings for company %', k;
+      end if;
+    end loop;
+  end loop;
+  return new;
+end;
+$$;
+
+drop trigger if exists integration_settings_scope_guard on integration_settings;
+create trigger integration_settings_scope_guard
+  before update on integration_settings
+  for each row execute function enforce_integration_settings_scope();

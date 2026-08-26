@@ -1,4 +1,4 @@
-import { Plus } from "lucide-react";
+import { LogOut, PanelLeftClose, PanelLeftOpen, Plus, RefreshCw } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Navigate, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useCustomers, useImportsHistory, useJobs, useLeads } from "../data/hooks";
@@ -44,6 +44,10 @@ function useTopbarSubtitle(pathname: string, companyId: string | null, companyNa
     }
     case "import":
       return imports.length ? `${imports.length} import${imports.length === 1 ? "" : "s"} so far` : "No imports yet";
+    case "map": {
+      const withLocation = [...customers, ...leads, ...jobs].filter((r: any) => r.address || r.city || r.zip).length;
+      return `${withLocation} location${withLocation === 1 ? "" : "s"} on the map`;
+    }
     default:
       return companyName;
   }
@@ -55,6 +59,20 @@ export default function Shell() {
   const { searchText, setSearchText } = useSearch();
   const { openRecordModal } = useModal();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  // Desktop-only collapse to an icon rail (separate from sidebarOpen above,
+  // which is the mobile slide-in/out toggle) — persisted so it survives a
+  // reload instead of resetting every time.
+  const [collapsed, setCollapsed] = useState(() => {
+    try {
+      const stored = localStorage.getItem("fialho_sidebar_collapsed");
+      return stored === null ? true : stored === "1"; // collapsed by default until the user opens it once
+    } catch { return true; }
+  });
+  const toggleCollapsed = () => setCollapsed(prev => {
+    const next = !prev;
+    try { localStorage.setItem("fialho_sidebar_collapsed", next ? "1" : "0"); } catch { /* private mode etc — not persisting is fine */ }
+    return next;
+  });
   const location = useLocation();
   const navigate = useNavigate();
   const navRef = useRef<HTMLElement | null>(null);
@@ -99,16 +117,19 @@ export default function Shell() {
   };
 
   return (
-    <div className="app-shell" style={{ ["--company-color" as any]: activeCompany.color || undefined }}>
-      <aside className={`sidebar${sidebarOpen ? " open" : ""}`} id="sidebar">
+    <div className="app-shell" style={{ ["--company-color" as any]: activeCompany.color || undefined, ["--sidebar-w" as any]: collapsed ? "96px" : "264px" }}>
+      <aside className={`sidebar${sidebarOpen ? " open" : ""}${collapsed ? " collapsed" : ""}`} id="sidebar">
         <div className="brand">
           <div className="logo" data-company={activeCompany.id}>
             {COMPANY_LOGOS[activeCompany.id]
               ? <img src={COMPANY_LOGOS[activeCompany.id]} alt={activeCompany.name} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
               : <span dangerouslySetInnerHTML={{ __html: COMPANY_ICONS[activeCompany.id] || activeCompany.logo || "" }} />}
           </div>
-          <div><b>Fialho Home Improvement</b><span>{activeCompany.name}</span></div>
+          {!collapsed && <div><b>Fialho Home Improvement</b><span>{activeCompany.name}</span></div>}
         </div>
+        <button className="sidebar-toggle" onClick={toggleCollapsed} aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"} title={collapsed ? "Expand sidebar" : "Collapse sidebar"}>
+          {collapsed ? <PanelLeftOpen /> : <PanelLeftClose />}
+        </button>
         <nav className="nav" ref={navRef}>
           <span className="nav-indicator" style={{ transform: `translateY(${indicator.top}px)`, height: indicator.height }} />
           {MODULES.map(([id, label]) => {
@@ -118,16 +139,21 @@ export default function Shell() {
                 key={id}
                 className={location.pathname === `/${id}` ? "active" : ""}
                 onClick={() => { navigate(`/${id}`); setSidebarOpen(false); }}
+                title={collapsed ? label : undefined}
               >
                 {Icon && <Icon />}
-                {label}
+                {!collapsed && label}
               </button>
             );
           })}
         </nav>
         <div className="side-foot">
-          <button className="btn ghost slim" onClick={switchCompany}>Switch company</button>
-          <button className="btn ghost slim" onClick={() => signOut()}>Logout</button>
+          <button className="btn ghost slim" onClick={switchCompany} title={collapsed ? "Switch company" : undefined}>
+            <RefreshCw />{!collapsed && "Switch company"}
+          </button>
+          <button className="btn ghost slim" onClick={() => signOut()} title={collapsed ? "Logout" : undefined}>
+            <LogOut />{!collapsed && "Logout"}
+          </button>
         </div>
       </aside>
       <main className="main">

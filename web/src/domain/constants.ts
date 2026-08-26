@@ -76,22 +76,6 @@ export const IMPORT_PRESETS: Record<ImportSourceType, { label: string; aliases: 
   manual: { label: "Manual list", aliases: {} }
 };
 
-// Ported verbatim from app.js seedDb() — static status labels shown on the
-// Dashboard's "Sprint 1 integrations" card. Only `.status` is ever read, so
-// that's all that's kept (the original also carried unused required_fields/
-// templates metadata per key).
-export const INTEGRATION_PLACEHOLDERS: Record<string, { status: string }> = {
-  // Swapped from Google Maps to Leaflet + OpenStreetMap/Nominatim (see
-  // pages/MapRoutes.tsx and data/geocoding.ts) — actually live, no API key
-  // or setup needed, so this is no longer just a "planned" placeholder.
-  map_geocoding: { status: "connected" },
-  google_calendar: { status: "planned" },
-  google_sheets: { status: "planned" },
-  google_drive: { status: "planned" },
-  email_sms: { status: "planned" },
-  meta_ads: { status: "planned" }
-};
-
 export const GOOGLE_SCOPE_PRESETS: Record<string, string> = {
   basic: "openid email profile",
   calendar: "https://www.googleapis.com/auth/calendar.events",

@@ -9,3 +9,10 @@ export function toGoogleSheetCsvUrl(url: string): string {
   }
   return url;
 }
+
+// Factored out of toGoogleSheetCsvUrl's id-matching above — used by the
+// private-sheet OAuth import path (data/googleSheetsApi.ts), which needs the
+// bare spreadsheet id for the Sheets API v4 URL instead of a CSV export link.
+export function extractSpreadsheetId(url: string): string | null {
+  return url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/)?.[1] || null;
+}

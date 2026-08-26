@@ -1,0 +1,22 @@
+name: Sync Meta Ads Insights
+
+on:
+  schedule:
+    # Once a day, well after midnight in most US timezones, so "yesterday"
+    # in the Marketing API's date_preset has fully settled.
+    - cron: "0 8 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: node scripts/sync-meta-ads.mjs
+        env:
+          META_ACCESS_TOKEN: ${{ secrets.META_ACCESS_TOKEN }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}

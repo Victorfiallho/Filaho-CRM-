@@ -9,22 +9,23 @@ import type { ReactNode } from "react";
 //
 // The fill is rounded only on its trailing (data) edge, flat at the origin —
 // a fully-rounded pill on both ends makes two close bar lengths harder to
-// compare against each other. `title` is a plain-string tooltip (each caller
-// already has the exact formatted value on hand); .bar-row's hover state
-// gives the bar itself some visual feedback, since a hover-only interaction
-// with no visible response otherwise reads as broken, not as "there's a
-// tooltip here."
-export default function BarRow({ label, magnitude, max, color, valueLabel, title }: {
+// compare against each other. .bar-row's hover brightens the fill a touch,
+// purely decorative: every value this bar can show is already visible in
+// valueLabel, so there's nothing gated behind hover for a mouse-only
+// affordance to hide from keyboard/touch/screen-reader users. (An earlier
+// version of this component added a `title` tooltip duplicating valueLabel's
+// text — redundant information, invisible to everyone but mouse users, and
+// a second hand-formatted copy of each value to keep in sync. Removed.)
+export default function BarRow({ label, magnitude, max, color, valueLabel }: {
   label: string;
   magnitude: number;
   max: number;
   color?: string;
   valueLabel: ReactNode;
-  title?: string;
 }) {
   const pct = max > 0 ? Math.max(0, Math.min(100, (magnitude / max) * 100)) : 0;
   return (
-    <div className="bar-row" style={{ marginBottom: 12 }} title={title}>
+    <div className="bar-row" style={{ marginBottom: 12 }}>
       <div className="between"><b>{label}</b>{valueLabel}</div>
       <div className="bar-row-track" style={{ marginTop: 7 }}>
         <div className="bar-row-fill" style={{ width: `${pct}%`, background: color || "var(--brand)" }} />

@@ -17,7 +17,7 @@ export default function CompanyPicker() {
 
   return (
     <main className="company-pick">
-      <section className="company-panel">
+      <section className="company-panel view-enter">
         <div className="between">
           <div>
             <h1>Select company</h1>

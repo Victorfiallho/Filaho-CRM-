@@ -314,6 +314,43 @@ begin
   end loop;
 end $$;
 
+-- Pin company_id as immutable after creation (found during a 2026-08-26
+-- follow-up security audit). The UPDATE policy above checks company
+-- membership independently on the row's old and new company_id -- never that
+-- they're the SAME company -- so a user who legitimately belongs to two
+-- companies (a normal, supported account state: see CompanyPicker.tsx) could
+-- move a record from one tenant's dataset into the other's via a direct
+-- PostgREST PATCH, e.g. `{"company_id": "<other company>"}`, bypassing the
+-- app UI (which never does this) entirely. RLS alone can't express "old and
+-- new must match" in a `with check` clause, so this needs a trigger.
+create or replace function pin_company_id()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if new.company_id is distinct from old.company_id then
+    raise exception 'company_id cannot be changed after creation';
+  end if;
+  return new;
+end;
+$$;
+
+do $$
+declare t text;
+begin
+  foreach t in array array[
+    'customers','leads','jobs','imports','notes','files',
+    'pipeline_stages','company_services'
+  ] loop
+    execute format('drop trigger if exists %I on %I', t || '_pin_company', t);
+    execute format(
+      'create trigger %I before update on %I for each row execute function pin_company_id()',
+      t || '_pin_company', t);
+  end loop;
+end $$;
+
 -- Read-only for app users; written only by scripts/scrape-muses.mjs via the
 -- service_role key (bypasses RLS), so no insert/update/delete policy here.
 alter table supplier_products enable row level security;
@@ -378,10 +415,23 @@ create policy users_select on users for select using (
 -- policy just checks the user belongs to at least one company rather than
 -- checking a specific company_id.
 alter table integration_settings enable row level security;
+-- Direct SELECT on the base table is intentionally NOT granted (found during
+-- a 2026-08-26 follow-up security audit): a prior fix added
+-- get_my_integration_settings() below to filter per-company nested keys down
+-- to only the caller's own companies, but RLS operates at row granularity,
+-- not JSONB-key granularity -- an "any company member" SELECT policy on the
+-- row would still let any authenticated user bypass the filtering RPC by
+-- calling GET /rest/v1/integration_settings directly and reading every
+-- tenant's nested config. The RPC itself is SECURITY DEFINER, so revoking
+-- the base table's grant does not affect it -- it runs as the function
+-- owner, not the caller's `authenticated` role.
 drop policy if exists integration_settings_select on integration_settings;
-create policy integration_settings_select on integration_settings for select using (
-  exists (select 1 from company_members where user_id = auth.uid())
-);
+revoke select on integration_settings from authenticated;
+-- The app's saveIntegrationSettings() does a plain .upsert({id:"default",...}),
+-- which Postgres executes as INSERT ... ON CONFLICT (id) DO UPDATE and needs
+-- SELECT on the conflict-target column to detect the existing row -- grant
+-- that one column back (not `settings`) so writes keep working.
+grant select (id) on integration_settings to authenticated;
 drop policy if exists integration_settings_insert on integration_settings;
 create policy integration_settings_insert on integration_settings for insert with check (
   exists (select 1 from company_members where user_id = auth.uid())
@@ -481,6 +531,7 @@ declare
   path text[];
   old_dict jsonb;
   new_dict jsonb;
+  merged_dict jsonb;
   k text;
 begin
   -- service_role connections (background scripts, if any are ever added for
@@ -494,18 +545,31 @@ begin
   select coalesce(array_agg(company_id), array[]::text[]) into my_companies
   from company_members where user_id = auth.uid();
 
+  -- Fixed 2026-08-26 (follow-up audit): the caller's `new.settings` was
+  -- always built from get_my_integration_settings()'s read, which already
+  -- filters every OTHER company's keys out before the client ever sees them
+  -- -- so those keys are structurally *absent* from new_dict, not merely
+  -- unchanged. The original version of this loop treated "absent from
+  -- new_dict" the same as "explicitly deleted," which raised a false
+  -- "not authorized" exception on every save by any company other than
+  -- whichever one happened to populate a shared key first. This version
+  -- only raises when the caller's payload explicitly supplies a *different*
+  -- value for a key outside their own companies (genuine tampering), and
+  -- otherwise carries the old value forward into what actually gets written,
+  -- so a company's data is never silently dropped by someone else's save.
   foreach path slice 1 in array scoped_paths loop
     old_dict := coalesce(old.settings #> path, '{}'::jsonb);
     new_dict := coalesce(new.settings #> path, '{}'::jsonb);
-    for k in
-      select jsonb_object_keys(old_dict)
-      union
-      select jsonb_object_keys(new_dict)
-    loop
-      if (old_dict -> k) is distinct from (new_dict -> k) and not (k = any(my_companies)) then
-        raise exception 'not authorized to modify integration settings for company %', k;
+    merged_dict := new_dict;
+    for k in select jsonb_object_keys(old_dict) loop
+      if not (k = any(my_companies)) then
+        if (new_dict ? k) and (old_dict -> k) is distinct from (new_dict -> k) then
+          raise exception 'not authorized to modify integration settings for company %', k;
+        end if;
+        merged_dict := jsonb_set(merged_dict, array[k], old_dict -> k);
       end if;
     end loop;
+    new.settings := jsonb_set(new.settings, path, merged_dict);
   end loop;
   return new;
 end;

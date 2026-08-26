@@ -14,6 +14,18 @@
 // `to` that matches a real customer or lead contact in a company the caller
 // is a member of.
 //
+// SECURITY (2026-08-26 follow-up fix): that "known contact" check alone was
+// still satisfiable by the caller themselves — insertLead()/insertCustomer()
+// accept an arbitrary, unvalidated email/phone with no confirmation step, so
+// an authenticated member of any single company could create a lead with a
+// victim's real address seconds before calling this endpoint, turning it
+// into a relay against arbitrary third parties. Now also requires the
+// matched contact row to be older than MIN_CONTACT_AGE_MS, which the
+// legitimate "remind an existing customer/lead about their job" flow always
+// satisfies (the contact was created well before anyone reminds them of
+// anything) but a same-session manufactured contact cannot.
+const MIN_CONTACT_AGE_MS = 5 * 60 * 1000;
+//
 // Needs RESEND_API_KEY (email) and/or TWILIO_ACCOUNT_SID/TWILIO_AUTH_TOKEN/
 // TWILIO_FROM_NUMBER (SMS) set in the Vercel project — not VITE_-prefixed, so
 // they never ship to the client bundle, same convention as
@@ -89,15 +101,18 @@ export default async function handler(req, res) {
     }
 
     // Only send to a `to` that matches a real contact in a company the
-    // caller belongs to — closes the open-relay abuse path while still
+    // caller belongs to, and one that's existed for a while — closes both
+    // the original open-relay abuse path and the "create a lead with the
+    // victim's info, then immediately message it" bypass, while still
     // allowing the legitimate "remind this job's customer" flow.
     const matchColumn = type === "sms" ? "phone" : "email";
+    const cutoff = new Date(Date.now() - MIN_CONTACT_AGE_MS).toISOString();
     const [{ data: customerMatch }, { data: leadMatch }] = await Promise.all([
-      supabase.from("customers").select("id").in("company_id", companyIds).eq(matchColumn, to).limit(1),
-      supabase.from("leads").select("id").in("company_id", companyIds).eq(matchColumn, to).limit(1)
+      supabase.from("customers").select("id").in("company_id", companyIds).eq(matchColumn, to).lt("created_at", cutoff).limit(1),
+      supabase.from("leads").select("id").in("company_id", companyIds).eq(matchColumn, to).lt("created_at", cutoff).limit(1)
     ]);
     if (!customerMatch?.length && !leadMatch?.length) {
-      res.status(403).json({ error: "Recipient is not a known contact for your company." });
+      res.status(403).json({ error: "Recipient is not a known, established contact for your company." });
       return;
     }
 

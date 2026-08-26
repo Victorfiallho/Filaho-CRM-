@@ -1,7 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { saveIntegrationSettings } from "../data/integrationSettings";
+import { getIntegrationSettings, saveIntegrationSettings } from "../data/integrationSettings";
 import { useIntegrationSettings } from "../data/hooks";
 import { now } from "../domain/format";
 import type { IntegrationSettings } from "../domain/types";
@@ -105,7 +105,16 @@ export default function Integrations() {
   }
 
   async function patch(updater: (s: IntegrationSettings) => IntegrationSettings) {
-    const next = updater(activeSettings);
+    // Reads fresh from the query cache (falling back to a direct fetch)
+    // instead of closing over the render-scoped `activeSettings` — that
+    // const is declared after the early-return guard above, so a call to
+    // patch() from the OAuth-landing effect (which fires on the very first,
+    // cold-load render, before `settings` has resolved and before that
+    // render ever reaches `const activeSettings = settings`) threw
+    // "Cannot access 'activeSettings' before initialization" and silently
+    // broke the Calendar OAuth completion handshake end-to-end.
+    const current = queryClient.getQueryData<IntegrationSettings>(["integration_settings"]) ?? await getIntegrationSettings();
+    const next = updater(current);
     await saveIntegrationSettings(next);
     queryClient.invalidateQueries({ queryKey: ["integration_settings"] });
   }

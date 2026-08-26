@@ -44,7 +44,7 @@ export default function Reports() {
   });
 
   return (
-    <>
+    <div className="view-enter">
       <div className="grid kpis">
         <KpiCard icon={DollarSign} label="Estimated job revenue" value={money(jobValue)} hint="from jobs/projects" />
         <KpiCard icon={Award} label="Won leads" value={won.length} hint="closed pipeline" />
@@ -80,6 +80,6 @@ export default function Reports() {
           )}
         </div>
       </section>
-    </>
+    </div>
   );
 }

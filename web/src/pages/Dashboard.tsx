@@ -77,7 +77,7 @@ export default function Dashboard() {
   ].filter(Boolean).length;
 
   return (
-    <>
+    <div className="view-enter">
       <div className="grid kpis">
         <KpiCard icon={Users} label="Clients" value={customers.length} hint="active company records" />
         <KpiCard icon={Target} label="Open leads" value={openLeads.length} hint={`${won.length} won`} />
@@ -161,6 +161,6 @@ export default function Dashboard() {
       <p className="sub" style={{ marginTop: 14 }}>
         Integrations: {integrationsConnected} of 6 connected · <button className="link-btn" onClick={() => navigate("/integrations")}>Manage integrations</button>
       </p>
-    </>
+    </div>
   );
 }

@@ -24,24 +24,62 @@ export default function Integrations() {
 
   // Lands here after web/api/google-oauth-callback.js redirects back from
   // Google with either ?connected=calendar or ?calendar_error=... — this is
-  // the completion of startCalendarOAuth()'s full-page redirect, not
-  // something that can be handled inline like the popup-based connects below.
+  // the completion of startCalendarOAuth()'s redirect chain, not something
+  // that can be handled inline like the popup-based connects below.
+  //
+  // startCalendarOAuth() now sends the user through this whole chain in a
+  // separate popup tab (see below) instead of navigating the CRM tab itself
+  // away to Google. That means *this* landing also happens inside that
+  // popup — so when window.opener is set, hand the result back to the CRM
+  // tab via postMessage and close instead of rendering a second full copy
+  // of the app. If the popup got blocked and startCalendarOAuth() fell back
+  // to a same-tab redirect, window.opener is null here and this tab handles
+  // it directly, same as before.
   useEffect(() => {
     const connected = searchParams.get("connected");
     const calendarError = searchParams.get("calendar_error");
-    if (connected === "calendar") {
-      patch(s => ({ ...s, google_calendar: { ...s.google_calendar, enabled: true } }));
-      toast("Google Calendar connected — background sync will pick up scheduled jobs.");
-    } else if (calendarError) {
-      toast(`Google Calendar connection failed: ${calendarError}`);
-    }
-    if (connected || calendarError) {
+    if (!connected && !calendarError) return;
+
+    (async () => {
+      if (connected === "calendar") {
+        await patch(s => ({ ...s, google_calendar: { ...s.google_calendar, enabled: true } }));
+      }
+      if (window.opener) {
+        try {
+          window.opener.postMessage(
+            { source: "fialho-google-oauth", connected: connected === "calendar", error: calendarError || null },
+            window.location.origin
+          );
+        } catch { /* opener gone or cross-origin — nothing to notify */ }
+        window.close();
+        return;
+      }
+      if (connected === "calendar") toast("Google Calendar connected — background sync will pick up scheduled jobs.");
+      else if (calendarError) toast(`Google Calendar connection failed: ${calendarError}`);
       searchParams.delete("connected");
       searchParams.delete("calendar_error");
       setSearchParams(searchParams, { replace: true });
-    }
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
+
+  // Companion to the popup landing above: when *this* (original) tab
+  // receives the postMessage from that popup, refresh the settings this tab
+  // already has cached and surface the same toast the old same-tab redirect
+  // used to show directly.
+  useEffect(() => {
+    function onOAuthMessage(e: MessageEvent) {
+      if (e.origin !== window.location.origin || e.data?.source !== "fialho-google-oauth") return;
+      if (e.data.connected) {
+        queryClient.invalidateQueries({ queryKey: ["integration_settings"] });
+        toast("Google Calendar connected — background sync will pick up scheduled jobs.");
+      } else if (e.data.error) {
+        toast(`Google Calendar connection failed: ${e.data.error}`);
+      }
+    }
+    window.addEventListener("message", onOAuthMessage);
+    return () => window.removeEventListener("message", onOAuthMessage);
+  }, [queryClient]);
 
   if (!settings || !activeCompanyId) return null;
   const activeSettings = settings;
@@ -50,10 +88,18 @@ export default function Integrations() {
   async function startCalendarOAuth() {
     if (!activeSettings.google_oauth.client_id) { toast("Import the Google OAuth JSON first."); return; }
     if (!session?.access_token) { toast("Your session expired — sign in again."); return; }
+    // Opened synchronously, before the await below, so it's still tied to
+    // this click — most browsers block a window.open() that happens after
+    // an await, treating it as an unsolicited popup rather than a
+    // user-initiated one. Its location is filled in once the signed URL
+    // comes back, so the CRM tab itself never navigates away to Google.
+    const popup = window.open("", "_blank");
     try {
       const url = await startGoogleCalendarAuth(session.access_token, companyId);
-      location.href = url;
+      if (popup) popup.location.href = url;
+      else location.href = url; // popup blocked — fall back to the old same-tab redirect
     } catch (err) {
+      popup?.close();
       toast(errorMessage(err, "Could not start the Google connection."));
     }
   }

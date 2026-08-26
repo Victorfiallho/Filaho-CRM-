@@ -175,8 +175,15 @@ export default function Shell() {
           <button className="btn ghost" data-action="new-customer" onClick={() => openRecordModal("customer")}>New client</button>
           <button className="btn" data-action="new-job" onClick={() => openRecordModal("job")}><Plus />New job</button>
         </header>
-        <section className="content view-enter" id="view">
-          <Outlet />
+        <section className="content" id="view">
+          {/* Keyed on the route so this div actually remounts on every
+              navigation, replaying .view-enter's fade+rise — previously the
+              class sat on the section above, which never remounts (only
+              Outlet's child swaps), so the animation only ever played once,
+              on first login, and every later page change was an instant cut. */}
+          <div key={location.pathname} className="view-enter">
+            <Outlet />
+          </div>
         </section>
       </main>
       <RecordModal />

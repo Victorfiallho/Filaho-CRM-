@@ -72,7 +72,7 @@ export default function Pipeline() {
   if (isLoading) return <PageSkeleton kpis={4} cards={0} />;
 
   return (
-    <>
+    <div className="view-enter">
       <div className="grid kpis" style={{ marginBottom: 14 }}>
         <KpiCard icon={Target} label="Open leads" value={openLeads.length} hint="across all open stages" />
         <KpiCard icon={Wallet} label="Pipeline value" value={money(pipelineValue)} hint="open leads" />
@@ -152,7 +152,7 @@ export default function Pipeline() {
       {editingStages && activeCompanyId && (
         <StagesEditor companyId={activeCompanyId} stages={stages} onClose={() => setEditingStages(false)} />
       )}
-    </>
+    </div>
   );
 }
 

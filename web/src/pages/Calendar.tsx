@@ -80,7 +80,7 @@ export default function Calendar() {
   if (isLoading) return <PageSkeleton cards={2} />;
 
   return (
-    <div className="grid two">
+    <div className="grid two view-enter">
       <section className="card">
         <div className="card-h">
           <div><h3>Internal job calendar</h3><span className="sub">Company events before Google sync</span></div>

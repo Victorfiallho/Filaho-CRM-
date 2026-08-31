@@ -1,6 +1,7 @@
 import { LogOut, PanelLeftClose, PanelLeftOpen, Plus, RefreshCw } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Navigate, Outlet, useLocation, useNavigate } from "react-router-dom";
+import ChatWidget from "./ChatWidget";
 import CompanyLogo from "./CompanyLogo";
 import { useCustomers, useImportsHistory, useJobs, useLeads } from "../data/hooks";
 import { MODULE_ICONS, MODULES } from "../domain/constants";
@@ -184,6 +185,7 @@ export default function Shell() {
         </section>
       </main>
       <RecordModal />
+      <ChatWidget />
     </div>
   );
 }

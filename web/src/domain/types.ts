@@ -10,6 +10,7 @@ export interface Company {
   accent: string | null;
   industry: string | null;
   settings: Record<string, unknown>;
+  stale_lead_days: number;
 }
 
 export interface PipelineStage {
@@ -19,6 +20,7 @@ export interface PipelineStage {
   order: number;
   color: string | null;
   type: string | null;
+  win_probability: number;
 }
 
 export interface Customer {
@@ -57,6 +59,8 @@ export interface Lead {
   service_type: string;
   value: number;
   source: string;
+  campaign_id?: string | null;
+  campaign_name?: string | null;
   lat: number | "" | null;
   lng: number | "" | null;
   created_at: string;
@@ -83,6 +87,7 @@ export interface Job {
   notes?: string;
   customer_name?: string;
   google_event_id?: string | null;
+  closed_at?: string | null;
   lat: number | "" | null;
   lng: number | "" | null;
   created_at: string;
@@ -149,6 +154,52 @@ export interface RecordFile {
 export interface AppUser {
   id: string;
   name: string;
+  auth_user_id: string | null;
+}
+
+// Rows below come back from RPCs (get_stagnant_leads, get_funnel_summary,
+// get_campaign_roi) — already aggregated/scoped server-side, not raw table
+// rows, so their shape mirrors each RPC's `returns table (...)` exactly.
+
+export interface StagnantLead {
+  lead_id: string;
+  name: string;
+  stage_id: string;
+  value: number;
+  days_in_stage: number;
+}
+
+export interface FunnelStageSummary {
+  stage_id: string;
+  stage_name: string;
+  stage_order: number;
+  stage_type: string | null;
+  lead_count: number;
+  total_value: number;
+  weighted_forecast: number;
+  avg_days_in_stage: number | null;
+  conversion_rate: number;
+}
+
+export interface CampaignRoi {
+  campaign_id: string | null;
+  campaign_name: string | null;
+  spend: number;
+  revenue: number;
+  leads_count: number;
+  roas: number;
+  cpl: number;
+}
+
+export interface AuditLogEntry {
+  id: string;
+  company_id: string;
+  user_id: string | null;
+  entity: string;
+  entity_id: string;
+  action: string;
+  diff: Record<string, unknown>;
+  created_at: string;
 }
 
 export type MapKind = "customer" | "lead" | "job";

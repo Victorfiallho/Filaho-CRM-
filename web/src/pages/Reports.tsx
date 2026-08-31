@@ -1,11 +1,22 @@
-import { Award, BarChart3, DollarSign, Megaphone, TrendingUp, Users } from "lucide-react";
+import { Award, BarChart3, DollarSign, Megaphone, Percent, Target, TrendingUp, Users } from "lucide-react";
+import { useState } from "react";
 import BarRow from "../components/BarRow";
 import KpiCard from "../components/KpiCard";
 import PageSkeleton from "../components/PageSkeleton";
-import { useCustomers, useImportsHistory, useIntegrationSettings, useJobs, useLeads, useMetaAdsInsights } from "../data/hooks";
+import Select from "../components/Select";
+import {
+  useCampaignRoi, useCustomers, useFunnelSummary, useImportsHistory,
+  useIntegrationSettings, useJobs, useLeads, useMetaAdsInsights
+} from "../data/hooks";
 import { money } from "../domain/format";
 import { isWonStage } from "../domain/pipelineStages";
 import { useCompany } from "../state/CompanyContext";
+
+const ROI_PERIODS = [
+  { value: "30", label: "Last 30 days" },
+  { value: "90", label: "Last 90 days" },
+  { value: "365", label: "Last 12 months" }
+];
 
 // Ported verbatim from app.js (metrics, renderReports), then extended with a
 // Meta Ads "Ad performance" section fed by scripts/sync-meta-ads.mjs's daily
@@ -19,6 +30,11 @@ export default function Reports() {
   const { data: imports = [], isLoading: importsLoading } = useImportsHistory(activeCompanyId);
   const { data: settings } = useIntegrationSettings();
   const { data: adInsights = [] } = useMetaAdsInsights(activeCompanyId);
+  const { data: funnel = [] } = useFunnelSummary(activeCompanyId);
+  const [roiPeriod, setRoiPeriod] = useState("90");
+  const roiDateTo = new Date().toISOString();
+  const roiDateFrom = new Date(Date.now() - Number(roiPeriod) * 86400000).toISOString();
+  const { data: campaignRoi = [] } = useCampaignRoi(activeCompanyId, roiDateFrom, roiDateTo);
 
   if (customersLoading || leadsLoading || jobsLoading || importsLoading) return <PageSkeleton kpis={4} cards={2} />;
 
@@ -67,6 +83,74 @@ export default function Reports() {
               <BarRow key={k} label={k} magnitude={v} max={maxServiceRevenue} valueLabel={<span className="muted">{money(v)}</span>} />
             ))
             : <div className="empty"><BarChart3 />No revenue yet</div>}
+        </div>
+      </section>
+      <section className="card" style={{ marginTop: 14 }}>
+        <div className="card-h"><h3>Funnel</h3><span className="sub">Conversion, velocity &amp; weighted forecast by stage — all time</span></div>
+        <div className="card-b">
+          {funnel.length === 0 ? (
+            <div className="empty"><Target />No pipeline stages yet</div>
+          ) : (
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Stage</th><th>Leads</th><th>Conversion</th><th>Avg. days in stage</th><th>Value</th><th>Weighted forecast</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {funnel.map(f => (
+                    <tr key={f.stage_id}>
+                      <td>{f.stage_name}</td>
+                      <td>{f.lead_count}</td>
+                      <td>{Math.round(f.conversion_rate * 100)}%</td>
+                      <td>{f.avg_days_in_stage != null ? `${Math.round(f.avg_days_in_stage)}d` : "—"}</td>
+                      <td>{money(f.total_value)}</td>
+                      <td>{money(f.weighted_forecast)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </section>
+      <section className="card" style={{ marginTop: 14 }}>
+        <div className="card-h">
+          <div>
+            <h3>ROI by campaign</h3>
+            <span className="sub">Ad spend vs. attributed job revenue</span>
+          </div>
+          <div className="field" style={{ margin: 0, minWidth: 160 }}>
+            <Select value={roiPeriod} onChange={setRoiPeriod} options={ROI_PERIODS} />
+          </div>
+        </div>
+        <div className="card-b">
+          {!settings?.meta_ads.enabled ? (
+            <div className="empty"><Percent />Meta Ads not enabled yet — set it up on Integrations.</div>
+          ) : campaignRoi.length === 0 ? (
+            <div className="empty"><Percent />No campaign data for this period yet.</div>
+          ) : (
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr><th>Campaign</th><th>Spend</th><th>Revenue</th><th>ROAS</th><th>CPL</th><th>Leads</th></tr>
+                </thead>
+                <tbody>
+                  {campaignRoi.map(c => (
+                    <tr key={c.campaign_id ?? "unattributed"}>
+                      <td>{c.campaign_name || c.campaign_id || "—"}</td>
+                      <td>{money(c.spend)}</td>
+                      <td>{money(c.revenue)}</td>
+                      <td>{c.spend > 0 ? `${c.roas.toFixed(2)}x` : "—"}</td>
+                      <td>{c.leads_count > 0 ? money(c.cpl) : "—"}</td>
+                      <td>{c.leads_count || "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </section>
       <section className="card" style={{ marginTop: 14 }}>

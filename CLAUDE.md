@@ -49,3 +49,16 @@ browser cache issue — `curl -sI <url>` and look for `Content-Disposition: inli
 - Node 24.x, npm.
 - Supabase env vars (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`) come from `web/.env` locally
   (gitignored) and from the Vercel project's Environment Variables in deployments — never commit them.
+- Server-only secrets for `web/api/*` functions (never `VITE_`-prefixed, so they never ship to the
+  client bundle): `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY`, `RESEND_API_KEY`/`TWILIO_*` (existing),
+  and `GROQ_API_KEY` (console.groq.com, free tier — backs `web/api/summarize-job.js`'s "Resumo com
+  IA" button and `web/api/chat-agent.js`'s global assistant widget, chosen to avoid API cost. Tried
+  Gemini first; abandoned after Google AI Studio started issuing "AQ."-prefixed keys that 401 with
+  ACCESS_TOKEN_TYPE_UNSUPPORTED — a known, unresolved bug on Google's side as of 2026-08-31, not
+  this codebase). Same secrets are needed as GitHub Actions secrets for the `scripts/*.mjs` crons
+  that use them.
+- Local-only: `npm run dev` (plain Vite) doesn't serve `web/api/*` — those are Vercel functions, so
+  a local `fetch("/api/...")` 404s unless you also run `vercel dev --listen 3000` in a second
+  terminal (`vite.config.ts`'s `server.proxy` forwards `/api` there). `vercel dev` itself has an
+  unrelated bug where it can't parse this project's `index.html` (Vite v8 incompatibility) — don't
+  browse the app on its port, only use it as the `/api` proxy target.

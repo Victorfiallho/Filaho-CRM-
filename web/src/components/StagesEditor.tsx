@@ -35,7 +35,7 @@ export default function StagesEditor({ companyId, stages, onClose }: { companyId
     const existingIds = draft.map(s => s.id);
     const id = slugifyStageId("New stage", existingIds);
     const nextOrder = Math.max(0, ...draft.map(s => s.order)) + 1;
-    setDraft(d => [...d, { id, company_id: companyId, name: "New stage", order: nextOrder, color: DEFAULT_COLOR, type: "open", isNew: true }]);
+    setDraft(d => [...d, { id, company_id: companyId, name: "New stage", order: nextOrder, color: DEFAULT_COLOR, type: "open", win_probability: 0.5, isNew: true }]);
   }
 
   function move(id: string, dir: -1 | 1) {
@@ -99,8 +99,11 @@ export default function StagesEditor({ companyId, stages, onClose }: { companyId
           await insertStage(stage);
         } else {
           const original = stages.find(s => s.id === row.id)!;
-          if (original.name !== row.name || original.color !== row.color || original.type !== row.type || original.order !== row.order) {
-            await updateStage(companyId, row.id, { name: row.name, color: row.color, type: row.type, order: row.order });
+          if (
+            original.name !== row.name || original.color !== row.color || original.type !== row.type ||
+            original.order !== row.order || original.win_probability !== row.win_probability
+          ) {
+            await updateStage(companyId, row.id, { name: row.name, color: row.color, type: row.type, order: row.order, win_probability: row.win_probability });
           }
         }
       }
@@ -183,6 +186,17 @@ export default function StagesEditor({ companyId, stages, onClose }: { companyId
                       options={STAGE_TYPES.map(t => ({ value: t, label: t.charAt(0).toUpperCase() + t.slice(1) }))}
                     />
                   </div>
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={Math.round((s.win_probability ?? 0.5) * 100)}
+                    onChange={e => updateRow(s.id, { win_probability: Math.min(100, Math.max(0, Number(e.target.value) || 0)) / 100 })}
+                    className="stage-win-prob-input"
+                    aria-label="Win probability"
+                    title="Win probability — used to weight this stage's leads in the funnel forecast"
+                    style={{ width: 56 }}
+                  />
                   <button className="icon-btn" onClick={() => removeStage(s.id)} aria-label="Remove stage" title="Remove stage"><Trash2 /></button>
                 </div>
               );

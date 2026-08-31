@@ -2,10 +2,11 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Select from "./Select";
+import { summarizeJob, type JobAiSummary } from "../data/aiSummary";
 import { listCustomers, insertCustomer, updateCustomer, deleteCustomer } from "../data/customers";
 import { deleteFile, insertFile } from "../data/files";
 import { geocodeAddress } from "../data/geocoding";
-import { useCurrentAppUser, useFiles, useIntegrationSettings, useNotes, useUsers } from "../data/hooks";
+import { useCurrentAppUser, useFiles, useIntegrationSettings, useMetaAdsInsights, useNotes, useUsers } from "../data/hooks";
 import { insertJob, updateJob, deleteJob } from "../data/jobs";
 import { upsertClientFromLead } from "../data/leadClientSync";
 import { insertLead, updateLead, deleteLead } from "../data/leads";
@@ -59,13 +60,21 @@ function RecordModalContent() {
   const { data: users = [] } = useUsers();
   const { data: currentAppUser } = useCurrentAppUser();
   const { data: integrationSettings } = useIntegrationSettings();
+  const { data: adInsights = [] } = useMetaAdsInsights(type === "lead" ? activeCompanyId : null);
   const userNameById = new Map(users.map(u => [u.id, u.name]));
+  // Distinct campaigns synced from Meta Ads — offered as a dropdown so a
+  // lead's campaign_id matches meta_ads_insights.campaign_id exactly (that's
+  // an opaque Meta-assigned id, not something to hand-type reliably) for
+  // get_campaign_roi() to join on.
+  const campaignOptions = Array.from(new Map(adInsights.map(a => [a.campaign_id, a.campaign_name || a.campaign_id])).entries());
 
   const [newNoteBody, setNewNoteBody] = useState("");
   const [addingNote, setAddingNote] = useState(false);
   const [newFileName, setNewFileName] = useState("");
   const [newFileUrl, setNewFileUrl] = useState("");
   const [addingFile, setAddingFile] = useState(false);
+  const [aiSummary, setAiSummary] = useState<JobAiSummary | null>(null);
+  const [summarizing, setSummarizing] = useState(false);
 
   // Lets a new lead be linked to an existing client by picking them from a
   // list, instead of only relying on the fuzzy dedupe match (phone/email/
@@ -85,6 +94,7 @@ function RecordModalContent() {
     stage_id: r.stage_id || "new",
     value: r.value ?? "",
     source: r.source || "Manual",
+    campaign_id: r.campaign_id || "",
     scheduled_date: r.scheduled_date || "",
     estimated_value: r.estimated_value ?? "",
     address: r.address || "",
@@ -236,6 +246,9 @@ function RecordModalContent() {
           data.stage_id = form.stage_id;
           data.value = Number(form.value || 0);
           data.source = "Manual";
+          const matchedCampaign = campaignOptions.find(([id]) => id === form.campaign_id);
+          data.campaign_id = form.campaign_id || null;
+          data.campaign_name = matchedCampaign?.[1] || null;
         }
         if (type === "customer") {
           data.status = form.status;
@@ -389,6 +402,18 @@ function RecordModalContent() {
     }
   }
 
+  async function handleSummarize() {
+    if (!r.id) return;
+    setSummarizing(true);
+    try {
+      setAiSummary(await summarizeJob(r.id));
+    } catch (error) {
+      toast(errorMessage(error, "Could not generate a summary."));
+    } finally {
+      setSummarizing(false);
+    }
+  }
+
   // Real Drive file picker, next to the plain "paste a link" flow above —
   // reuses the same Drive OAuth token connectGoogleWorkspace mints for the
   // Integrations page's "Allow Drive" button, prompting for it here too if
@@ -444,7 +469,19 @@ function RecordModalContent() {
               <Field label="Latitude" value={String(form.lat)} onChange={v => set("lat", v)} type="number" />
               <Field label="Longitude" value={String(form.lng)} onChange={v => set("lng", v)} type="number" />
               {isEdit && (
-                <button className="btn ghost slim" onClick={handleSendReminderNow} type="button">Send reminder now</button>
+                <div className="inline-actions">
+                  <button className="btn ghost slim" onClick={handleSendReminderNow} type="button">Send reminder now</button>
+                  <button className="btn ghost slim" onClick={handleSummarize} type="button" disabled={summarizing}>
+                    {summarizing ? "Gerando resumo..." : "Resumo com IA"}
+                  </button>
+                </div>
+              )}
+              {aiSummary && (
+                <div className="field" style={{ gridColumn: "1 / -1" }}>
+                  <label>Resumo com IA</label>
+                  <p><b>Estado atual:</b> {aiSummary.summary}</p>
+                  <p><b>Próximo passo:</b> {aiSummary.next_step}</p>
+                </div>
               )}
             </div>
           ) : (
@@ -476,6 +513,16 @@ function RecordModalContent() {
                   <Field label="Estimated value" value={String(form.value)} onChange={v => set("value", v)} type="number" />
                 ) : (
                   <Field label="Source" value={form.source} onChange={v => set("source", v)} />
+                )}
+                {type === "lead" && (
+                  <div className="field">
+                    <label>Campaign (optional)</label>
+                    <Select
+                      value={form.campaign_id}
+                      onChange={v => set("campaign_id", v)}
+                      options={[{ value: "", label: "— None —" }, ...campaignOptions.map(([id, name]) => ({ value: id || "", label: name || id || "" }))]}
+                    />
+                  </div>
                 )}
                 <Field label="Address" value={form.address} onChange={v => set("address", v)} />
                 <Field label="City" value={form.city} onChange={v => set("city", v)} />

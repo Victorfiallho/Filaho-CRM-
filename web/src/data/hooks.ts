@@ -2,11 +2,15 @@
 // company — the React equivalent of app.js calling `FialhoDB.byCompany(table)`
 // on every render.
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { listAuditLog, type AuditLogFilters } from "./auditLog";
+import { getCampaignRoi } from "./campaignRoi";
 import { listCustomers } from "./customers";
 import { listFiles } from "./files";
+import { getFunnelSummary } from "./funnel";
 import { getIntegrationSettings } from "./integrationSettings";
 import { listImports } from "./imports";
 import { listJobs } from "./jobs";
+import { getStagnantLeads } from "./leadInsights";
 import { listLeads } from "./leads";
 import { listMetaAdsInsights } from "./metaAds";
 import { listNotes } from "./notes";
@@ -55,6 +59,38 @@ export function useMetaAdsInsights(companyId: string | null) {
   return useQuery({
     queryKey: ["meta_ads_insights", companyId],
     queryFn: () => listMetaAdsInsights(companyId!),
+    enabled: Boolean(companyId)
+  });
+}
+
+export function useStagnantLeads(companyId: string | null) {
+  return useQuery({
+    queryKey: ["stagnant-leads", companyId],
+    queryFn: () => getStagnantLeads(companyId!),
+    enabled: Boolean(companyId)
+  });
+}
+
+export function useFunnelSummary(companyId: string | null, dateFrom?: string, dateTo?: string) {
+  return useQuery({
+    queryKey: ["funnel-summary", companyId, dateFrom, dateTo],
+    queryFn: () => getFunnelSummary(companyId!, dateFrom, dateTo),
+    enabled: Boolean(companyId)
+  });
+}
+
+export function useCampaignRoi(companyId: string | null, dateFrom: string, dateTo: string) {
+  return useQuery({
+    queryKey: ["campaign-roi", companyId, dateFrom, dateTo],
+    queryFn: () => getCampaignRoi(companyId!, dateFrom, dateTo),
+    enabled: Boolean(companyId)
+  });
+}
+
+export function useAuditLog(companyId: string | null, filters: AuditLogFilters = {}) {
+  return useQuery({
+    queryKey: ["audit-log", companyId, filters],
+    queryFn: () => listAuditLog(companyId!, filters),
     enabled: Boolean(companyId)
   });
 }

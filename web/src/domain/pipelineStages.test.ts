@@ -3,7 +3,7 @@ import { isLostStage, isOpenStage, isWonStage, slugifyStageId } from "./pipeline
 import type { PipelineStage } from "./types";
 
 function stage(overrides: Partial<PipelineStage> = {}): PipelineStage {
-  return { id: "new", company_id: "peach_fresh", name: "New", order: 1, color: "#667085", type: "open", ...overrides };
+  return { id: "new", company_id: "peach_fresh", name: "New", order: 1, color: "#667085", type: "open", win_probability: 0.5, ...overrides };
 }
 
 const stages: PipelineStage[] = [

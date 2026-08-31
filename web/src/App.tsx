@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import Shell from "./components/Shell";
+import AuditLog from "./pages/AuditLog";
 import Calendar from "./pages/Calendar";
 import CompanyPicker from "./pages/CompanyPicker";
 import Customers from "./pages/Customers";
@@ -29,6 +30,7 @@ export default function App() {
         <Route path="/import" element={<ImportCenter />} />
         <Route path="/integrations" element={<Integrations />} />
         <Route path="/reports" element={<Reports />} />
+        <Route path="/audit-log" element={<AuditLog />} />
       </Route>
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>

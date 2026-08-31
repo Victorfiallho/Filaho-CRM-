@@ -9,7 +9,7 @@ import { supabase } from "../lib/supabaseClient";
 // policy). This function only selects id/name for "who wrote this note",
 // but that's a UI-code choice, not something enforced by the database.
 export async function listUsers(): Promise<AppUser[]> {
-  const { data, error } = await supabase.from("users").select("id, name");
+  const { data, error } = await supabase.from("users").select("id, name, auth_user_id");
   if (error) throw error;
   return (data || []) as AppUser[];
 }
@@ -23,7 +23,7 @@ export async function getCurrentAppUser(): Promise<AppUser | null> {
   if (authError || !authData.user) return null;
   const { data, error } = await supabase
     .from("users")
-    .select("id, name")
+    .select("id, name, auth_user_id")
     .eq("auth_user_id", authData.user.id)
     .maybeSingle();
   if (error || !data) return null;

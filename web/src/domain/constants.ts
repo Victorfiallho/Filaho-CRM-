@@ -9,6 +9,7 @@ import {
   Calendar,
   Download,
   Filter,
+  History,
   LayoutDashboard,
   MapPin,
   Puzzle,
@@ -44,7 +45,8 @@ export const MODULES: [string, string][] = [
   ["map", "Map & Routes"],
   ["import", "Import Center"],
   ["integrations", "Integrations"],
-  ["reports", "Reports"]
+  ["reports", "Reports"],
+  ["audit-log", "Audit Log"]
 ];
 
 export const MODULE_ICONS: Record<string, LucideIcon> = {
@@ -56,7 +58,8 @@ export const MODULE_ICONS: Record<string, LucideIcon> = {
   map: MapPin,
   import: Download,
   integrations: Puzzle,
-  reports: BarChart3
+  reports: BarChart3,
+  "audit-log": History
 };
 
 export const IMPORT_FIELDS: [string, string][] = [

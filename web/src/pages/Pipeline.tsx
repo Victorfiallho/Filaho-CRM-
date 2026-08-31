@@ -1,12 +1,12 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { Award, Clock, Inbox, MapPin, Plus, Settings, Target, Wallet } from "lucide-react";
+import { Award, AlertTriangle, Clock, Inbox, MapPin, Plus, Settings, Target, Wallet } from "lucide-react";
 import { useMemo, useState } from "react";
 import KpiCard from "../components/KpiCard";
 import PageSkeleton from "../components/PageSkeleton";
 import Select from "../components/Select";
 import StagesEditor from "../components/StagesEditor";
 import { updateLead } from "../data/leads";
-import { useLeads } from "../data/hooks";
+import { useLeads, useStagnantLeads } from "../data/hooks";
 import { filterRowsBySearch } from "../domain/search";
 import { initials, money, relativeDate, unique } from "../domain/format";
 import { isOpenStage, isWonStage } from "../domain/pipelineStages";
@@ -34,6 +34,8 @@ const STAGE_RENDER_CAP = 50;
 export default function Pipeline() {
   const { activeCompanyId, stages } = useCompany();
   const { data: allLeads = [], isLoading } = useLeads(activeCompanyId);
+  const { data: stagnantLeads = [] } = useStagnantLeads(activeCompanyId);
+  const stagnantById = useMemo(() => new Map(stagnantLeads.map(s => [s.lead_id, s])), [stagnantLeads]);
   const { searchText } = useSearch();
   const { openRecordModal } = useModal();
   const queryClient = useQueryClient();
@@ -123,6 +125,7 @@ export default function Pipeline() {
                     key={lead.id}
                     lead={lead}
                     color={stage.color || "var(--muted)"}
+                    stagnantDays={stagnantById.get(lead.id)?.days_in_stage}
                     dragging={draggingId === lead.id}
                     onClick={() => openRecordModal("lead", lead)}
                     onDragStart={e => { e.dataTransfer.setData("text/plain", lead.id); e.dataTransfer.effectAllowed = "move"; setDraggingId(lead.id); }}
@@ -156,8 +159,8 @@ export default function Pipeline() {
   );
 }
 
-function LeadCard({ lead, color, dragging, onClick, onDragStart, onDragEnd }: {
-  lead: Lead; color: string; dragging: boolean; onClick: () => void;
+function LeadCard({ lead, color, stagnantDays, dragging, onClick, onDragStart, onDragEnd }: {
+  lead: Lead; color: string; stagnantDays?: number; dragging: boolean; onClick: () => void;
   onDragStart: (e: React.DragEvent) => void; onDragEnd: () => void;
 }) {
   return (
@@ -178,6 +181,11 @@ function LeadCard({ lead, color, dragging, onClick, onDragStart, onDragEnd }: {
       </div>
       {(lead.city || lead.zip) && <div className="lead-card-meta"><MapPin />{[lead.city, lead.zip].filter(Boolean).join(" ")}</div>}
       {lead.updated_at && <div className="lead-card-meta"><Clock />Updated {relativeDate(lead.updated_at)}</div>}
+      {stagnantDays !== undefined && (
+        <div className="lead-card-meta stagnant-badge" title="No movement in this stage for a while">
+          <AlertTriangle />{Math.floor(stagnantDays)}d stuck in stage
+        </div>
+      )}
     </button>
   );
 }

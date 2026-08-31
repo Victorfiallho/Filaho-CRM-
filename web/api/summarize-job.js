@@ -1,7 +1,8 @@
 // Vercel serverless function (web/api/* is Vercel's zero-config function
-// folder for this project's Root Directory) — backs RecordModal's "Resumo
-// com IA" button on a job's detail view. Reads that job's notes and asks
-// an LLM for a PT-BR "current state + recommended next step" summary.
+// folder for this project's Root Directory) — backs RecordModal's "AI
+// Summary" button on a job's detail view. Reads that job's notes and asks
+// an LLM for an English "current state + recommended next step" summary,
+// matching the rest of the app's language.
 //
 // Runs on Groq (free tier, OpenAI-compatible chat completions API) —
 // switched from Gemini after Google AI Studio started issuing "AQ."-prefixed
@@ -34,8 +35,8 @@ async function callGroq(prompt) {
         {
           role: "system",
           content:
-            'Você é um assistente de CRM para uma empresa de reformas/home improvement. Responda ESTRITAMENTE em JSON válido ' +
-            'no formato {"summary": "...", "next_step": "..."} — nada além do JSON, sem markdown.'
+            'You are a CRM assistant for a home improvement company. Respond STRICTLY in valid JSON, ' +
+            'in the format {"summary": "...", "next_step": "..."} — nothing but the JSON, no markdown.'
         },
         { role: "user", content: prompt }
       ]
@@ -105,23 +106,23 @@ export default async function handler(req, res) {
       .order("created_at", { ascending: true });
 
     const noteHistory = (notes || []).length
-      ? notes.map(n => `[${new Date(n.created_at).toLocaleDateString("pt-BR")}] ${n.body}`).join("\n")
-      : "(nenhuma nota registrada ainda)";
+      ? notes.map(n => `[${new Date(n.created_at).toLocaleDateString("en-US")}] ${n.body}`).join("\n")
+      : "(no notes logged yet)";
 
     const jobSummary = [
-      `Título: ${job.title}`,
-      `Cliente: ${job.customer_name || "não informado"}`,
+      `Title: ${job.title}`,
+      `Customer: ${job.customer_name || "not provided"}`,
       `Status: ${job.status}`,
-      `Serviço: ${job.service_type || "não informado"}`,
-      `Data agendada: ${job.scheduled_date || "não agendada"}`,
-      `Valor estimado: ${job.estimated_value || 0}`
+      `Service: ${job.service_type || "not provided"}`,
+      `Scheduled date: ${job.scheduled_date || "not scheduled"}`,
+      `Estimated value: ${job.estimated_value || 0}`
     ].join("\n");
 
     const prompt =
-      "Você é um assistente de CRM para uma empresa de reformas/home improvement. " +
-      "Responda sempre em português do Brasil, de forma direta e objetiva, em no máximo 3 frases por campo.\n\n" +
-      `Dados do job:\n${jobSummary}\n\nHistórico de notas:\n${noteHistory}\n\n` +
-      "Com base nisso, preencha: summary (estado atual do negócio) e next_step (próximo passo recomendado).";
+      "You are a CRM assistant for a home improvement company. " +
+      "Always respond in English, directly and objectively, in at most 3 sentences per field.\n\n" +
+      `Job data:\n${jobSummary}\n\nNote history:\n${noteHistory}\n\n` +
+      "Based on this, fill in: summary (current state of the deal) and next_step (recommended next step).";
 
     const parsed = await callGroq(prompt);
     res.status(200).json({ summary: parsed.summary || "", next_step: parsed.next_step || "" });

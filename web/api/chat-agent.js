@@ -34,19 +34,19 @@ const MAX_HISTORY_TURNS = 10;
 const MAX_MESSAGE_LENGTH = 2000;
 
 const SYSTEM_INSTRUCTION =
-  "Você é o assistente de suporte da Filaho Home Improvement, um CRM para empresas de reformas. " +
-  "Responda sempre em português do Brasil, de forma direta e objetiva. " +
-  "Use as ferramentas disponíveis sempre que a pergunta envolver dados reais da empresa (leads, clientes, jobs, funil, campanhas) — " +
-  "nunca invente números. Se não tiver certeza ou a ferramenta não cobrir o que foi perguntado, diga isso claramente. " +
-  "Você é somente leitura: não pode criar, editar ou apagar nada — se pedirem uma ação, explique que só consegue consultar informações " +
-  "e sugira onde na plataforma a pessoa pode fazer isso manualmente.";
+  "You are the support assistant for Filaho Home Improvement, a CRM for home improvement companies. " +
+  "Always respond in English, directly and objectively, matching the rest of the app's language. " +
+  "Use the available tools whenever the question involves real company data (leads, customers, jobs, funnel, campaigns) — " +
+  "never make up numbers. If you're unsure or no tool covers what was asked, say so clearly. " +
+  "You are read-only: you cannot create, edit, or delete anything — if asked to perform an action, explain that you can only " +
+  "look up information and suggest where in the platform the person can do that manually.";
 
 const TOOLS = [
   {
     type: "function",
     function: {
       name: "get_company_overview",
-      description: "Contagens gerais da empresa ativa: clientes, leads, valor total em pipeline, jobs, receita fechada e leads estagnados.",
+      description: "General counts for the active company: customers, leads, total pipeline value, jobs, closed revenue, and stagnant leads.",
       parameters: { type: "object", properties: {} }
     }
   },
@@ -54,7 +54,7 @@ const TOOLS = [
     type: "function",
     function: {
       name: "get_pipeline_funnel",
-      description: "Funil de vendas por estágio do pipeline: quantidade de leads, taxa de conversão, tempo médio no estágio, valor total e forecast ponderado.",
+      description: "Sales funnel by pipeline stage: lead count, conversion rate, average time in stage, total value, and weighted forecast.",
       parameters: { type: "object", properties: {} }
     }
   },
@@ -62,7 +62,7 @@ const TOOLS = [
     type: "function",
     function: {
       name: "get_stagnant_leads",
-      description: "Lista de leads parados há muito tempo no mesmo estágio do pipeline (negócios estagnados).",
+      description: "List of leads that have been stuck in the same pipeline stage for a long time (stalled deals).",
       parameters: { type: "object", properties: {} }
     }
   },
@@ -70,10 +70,10 @@ const TOOLS = [
     type: "function",
     function: {
       name: "get_campaign_roi",
-      description: "ROI de campanhas de anúncio (Meta Ads) num período: custo, receita atribuída, ROAS e CPL por campanha.",
+      description: "Ad campaign ROI (Meta Ads) over a period: cost, attributed revenue, ROAS, and CPL per campaign.",
       parameters: {
         type: "object",
-        properties: { days: { type: "integer", description: "Quantos dias para trás considerar. Padrão 90 se não informado." } }
+        properties: { days: { type: "integer", description: "How many days back to consider. Defaults to 90 if not given." } }
       }
     }
   },
@@ -81,10 +81,10 @@ const TOOLS = [
     type: "function",
     function: {
       name: "search_customers",
-      description: "Busca clientes da empresa pelo nome.",
+      description: "Search the company's customers by name.",
       parameters: {
         type: "object",
-        properties: { query: { type: "string", description: "Termo de busca no nome do cliente. Deixe vazio para ver os mais recentes." } }
+        properties: { query: { type: "string", description: "Search term for the customer's name. Leave empty to see the most recent ones." } }
       }
     }
   },
@@ -92,10 +92,10 @@ const TOOLS = [
     type: "function",
     function: {
       name: "search_leads",
-      description: "Busca leads (oportunidades no pipeline) pelo nome.",
+      description: "Search leads (pipeline opportunities) by name.",
       parameters: {
         type: "object",
-        properties: { query: { type: "string", description: "Termo de busca no nome do lead. Deixe vazio para ver os mais recentes." } }
+        properties: { query: { type: "string", description: "Search term for the lead's name. Leave empty to see the most recent ones." } }
       }
     }
   },
@@ -103,12 +103,12 @@ const TOOLS = [
     type: "function",
     function: {
       name: "search_jobs",
-      description: "Busca jobs/projetos pelo título, opcionalmente filtrando por status.",
+      description: "Search jobs/projects by title, optionally filtering by status.",
       parameters: {
         type: "object",
         properties: {
-          query: { type: "string", description: "Termo de busca no título do job. Deixe vazio para ver os mais recentes." },
-          status: { type: "string", description: "Filtrar por status exato: planned, scheduled, in progress ou complete." }
+          query: { type: "string", description: "Search term for the job's title. Leave empty to see the most recent ones." },
+          status: { type: "string", description: "Filter by exact status: planned, scheduled, in progress, or complete." }
         }
       }
     }

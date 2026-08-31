@@ -472,15 +472,15 @@ function RecordModalContent() {
                 <div className="inline-actions">
                   <button className="btn ghost slim" onClick={handleSendReminderNow} type="button">Send reminder now</button>
                   <button className="btn ghost slim" onClick={handleSummarize} type="button" disabled={summarizing}>
-                    {summarizing ? "Gerando resumo..." : "Resumo com IA"}
+                    {summarizing ? "Generating summary..." : "AI Summary"}
                   </button>
                 </div>
               )}
               {aiSummary && (
                 <div className="field" style={{ gridColumn: "1 / -1" }}>
-                  <label>Resumo com IA</label>
-                  <p><b>Estado atual:</b> {aiSummary.summary}</p>
-                  <p><b>Próximo passo:</b> {aiSummary.next_step}</p>
+                  <label>AI Summary</label>
+                  <p><b>Current state:</b> {aiSummary.summary}</p>
+                  <p><b>Next step:</b> {aiSummary.next_step}</p>
                 </div>
               )}
             </div>

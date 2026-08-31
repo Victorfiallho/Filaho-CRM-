@@ -35,7 +35,7 @@ export default function ChatWidget() {
       setMessages(m => [...m, { role: "assistant", text: reply }]);
     } catch (error) {
       toast(errorMessage(error, "Could not reach the assistant."));
-      setMessages(m => [...m, { role: "assistant", text: "Desculpa, não consegui responder agora. Tenta de novo em instantes." }]);
+      setMessages(m => [...m, { role: "assistant", text: "Sorry, I couldn't respond right now. Please try again in a moment." }]);
     } finally {
       setSending(false);
     }
@@ -46,19 +46,19 @@ export default function ChatWidget() {
       {open && (
         <section className="chat-panel">
           <div className="chat-panel-h">
-            <b>Assistente</b>
+            <b>Assistant</b>
             <button className="icon-btn" onClick={() => setOpen(false)} aria-label="Close chat">
               <X />
             </button>
           </div>
           <div className="chat-panel-body" ref={listRef}>
             {messages.length === 0 && (
-              <p className="sub">Pergunte sobre seus leads, jobs, clientes ou campanhas — respondo com os dados reais da empresa ativa.</p>
+              <p className="sub">Ask about your leads, jobs, customers, or campaigns — I'll answer with real data from the active company.</p>
             )}
             {messages.map((m, i) => (
               <div key={i} className={`chat-bubble chat-bubble-${m.role}`}>{m.text}</div>
             ))}
-            {sending && <div className="chat-bubble chat-bubble-assistant chat-bubble-loading">Pensando...</div>}
+            {sending && <div className="chat-bubble chat-bubble-assistant chat-bubble-loading">Thinking...</div>}
           </div>
           <div className="chat-panel-input">
             <input
@@ -70,7 +70,7 @@ export default function ChatWidget() {
                   handleSend();
                 }
               }}
-              placeholder="Pergunte algo..."
+              placeholder="Ask something..."
               disabled={sending}
             />
             <button className="btn slim" onClick={handleSend} disabled={sending || !input.trim()} aria-label="Send message">

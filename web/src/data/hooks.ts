@@ -139,6 +139,22 @@ export function useAdminUsers() {
   return useQuery({ queryKey: ["admin-users"], queryFn: listAdminUsers });
 }
 
+// Gates create/edit/import/export actions client-side against the signed-in
+// user's `users.permissions` array (set via the Users & Access manage modal).
+// A company owner always passes every check — role='owner' already grants
+// full company_members-level access, so a missing/empty permissions row
+// should never lock an owner out of their own data.
+export function usePermissions() {
+  const { isOwner, isLoading: ownerLoading } = useIsOwner();
+  const { data: currentAppUser, isLoading: profileLoading } = useCurrentAppUser();
+  const permissionSet = new Set(currentAppUser?.permissions || []);
+  return {
+    isOwner,
+    isLoading: ownerLoading || profileLoading,
+    has: (perm: string) => isOwner || permissionSet.has(perm)
+  };
+}
+
 export function useInvalidateCompanyData(companyId: string | null) {
   const queryClient = useQueryClient();
   return () => {

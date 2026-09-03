@@ -5,12 +5,15 @@ import { useAuditLog, useUsers } from "../data/hooks";
 import { titleize } from "../domain/format";
 import { useCompany } from "../state/CompanyContext";
 
-const ENTITY_OPTIONS = ["customers", "jobs", "pipeline_stages"];
+const ENTITY_OPTIONS = ["customers", "jobs", "pipeline_stages", "company_access", "user_account", "user_permissions"];
 const ACTION_OPTIONS = ["insert", "update", "delete"];
 
-// Read-only view over audit_log, populated exclusively by the
-// record_audit_log() DB trigger (supabase/migrations/2026-08-31_04_audit_log.sql) —
-// there's no create/edit here, only filtering what already happened.
+// Read-only view over audit_log — there's no create/edit here, only
+// filtering what already happened. Populated by the record_audit_log() DB
+// trigger for customers/jobs/pipeline_stages (see
+// supabase/migrations/2026-08-31_04_audit_log.sql), and written directly by
+// web/api/admin-users.js for company_access/user_account/user_permissions
+// (company_members/users have no trigger of their own).
 export default function AuditLog() {
   const { activeCompanyId } = useCompany();
   const { data: users = [] } = useUsers();

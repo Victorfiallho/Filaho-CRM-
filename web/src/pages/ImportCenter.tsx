@@ -1,8 +1,9 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, type LucideIcon, PlusCircle, SkipForward, Upload } from "lucide-react";
 import { useRef, useState } from "react";
+import { Navigate } from "react-router-dom";
 import Select from "../components/Select";
-import { useCustomers, useImportsHistory, useIntegrationSettings, useInvalidateCompanyData } from "../data/hooks";
+import { useCustomers, useImportsHistory, useIntegrationSettings, useInvalidateCompanyData, usePermissions } from "../data/hooks";
 import { saveIntegrationSettings } from "../data/integrationSettings";
 import { insertCustomer, updateCustomer } from "../data/customers";
 import { insertImport } from "../data/imports";
@@ -56,6 +57,7 @@ export default function ImportCenter() {
   const { data: history = [] } = useImportsHistory(activeCompanyId);
   const invalidate = useInvalidateCompanyData(activeCompanyId);
   const queryClient = useQueryClient();
+  const { has: hasPermission, isLoading: permissionsLoading } = usePermissions();
 
   const [type, setType] = useState<ImportSourceType>("csv");
   const [fileName, setFileName] = useState("");
@@ -68,6 +70,11 @@ export default function ImportCenter() {
   const [connectingSheet, setConnectingSheet] = useState(false);
   const jobsMapCache = useRef<Record<string, Job[]>>({});
   const servicesMapCache = useRef<Record<string, string[]>>({});
+
+  // Also hidden from Shell's nav for the same reason — this is a
+  // belt-and-suspenders guard against a direct /import link.
+  if (permissionsLoading) return null;
+  if (!hasPermission("import")) return <Navigate to="/dashboard" replace />;
 
   const resetImportState = () => {
     setType("csv"); setFileName(""); setHeaders([]); setRows([]); setMapping({}); setPreview([]);

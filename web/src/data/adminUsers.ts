@@ -36,7 +36,7 @@ export interface AdminUsersData {
   profiles: AdminProfile[];
 }
 
-async function authedFetch(body?: Record<string, unknown>): Promise<AdminUsersData> {
+async function authedFetch<T = { ok: true }>(body?: Record<string, unknown>): Promise<T> {
   const { data: sessionData } = await supabase.auth.getSession();
   const token = sessionData.session?.access_token;
   if (!token) throw new Error("Your session expired — sign in again.");
@@ -51,7 +51,7 @@ async function authedFetch(body?: Record<string, unknown>): Promise<AdminUsersDa
 }
 
 export function listAdminUsers(): Promise<AdminUsersData> {
-  return authedFetch();
+  return authedFetch<AdminUsersData>();
 }
 
 export async function grantCompanyAccess(userId: string, companyId: string, role: "owner" | "member"): Promise<void> {
@@ -75,4 +75,18 @@ export async function updateUserProfile(profile: {
   permissions: string[];
 }): Promise<void> {
   await authedFetch({ action: "update_profile", ...profile });
+}
+
+export async function inviteUser(invite: {
+  email: string;
+  name: string;
+  company_id: string;
+  role: "owner" | "member";
+  permissions: string[];
+}): Promise<{ user_id: string }> {
+  return authedFetch<{ ok: true; user_id: string }>({ action: "invite", ...invite });
+}
+
+export async function deleteUserAccount(userId: string): Promise<void> {
+  await authedFetch({ action: "delete_user", user_id: userId });
 }

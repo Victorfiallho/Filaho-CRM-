@@ -1,11 +1,13 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { Settings2, ShieldAlert, UserPlus, X } from "lucide-react";
+import { History, Settings2, ShieldAlert, Trash2, UserPlus, X } from "lucide-react";
 import { useState } from "react";
 import { createPortal } from "react-dom";
-import { Navigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import Select from "../components/Select";
 import {
+  deleteUserAccount,
   grantCompanyAccess,
+  inviteUser,
   revokeCompanyAccess,
   setCompanyRole,
   updateUserProfile,
@@ -23,8 +25,8 @@ import { useAuth } from "../state/AuthContext";
 const PERMISSIONS: [string, string][] = [
   ["view", "View records"],
   ["create", "Create records"],
-  ["edit", "Edit records"],
-  ["import", "Import data"],
+  ["edit", "Edit + delete records"],
+  ["import", "Import Center"],
   ["export", "Export data"]
 ];
 
@@ -33,10 +35,15 @@ type AccessLevel = "" | "member" | "owner";
 // Server-side gate is web/api/admin-users.js (only a company owner can even
 // GET the data); this page mirrors that with useIsOwner so a non-owner
 // following a stray /users link sees a normal redirect, not a raw API 403.
+// Every grant/revoke/invite/delete/permission-edit this page triggers gets
+// logged to audit_log server-side — see AuditLog.tsx (filterable there under
+// entity "company_access" / "user_account" / "user_permissions").
 export default function UserManagement() {
   const { isOwner, isLoading: ownerLoading } = useIsOwner();
   const { data, isLoading, error } = useAdminUsers();
   const [managingUser, setManagingUser] = useState<AdminAuthUser | null>(null);
+  const [inviting, setInviting] = useState(false);
+  const navigate = useNavigate();
 
   if (ownerLoading) return null;
   if (!isOwner) return <Navigate to="/dashboard" replace />;
@@ -61,6 +68,19 @@ export default function UserManagement() {
 
   return (
     <>
+      <section className="card" style={{ marginBottom: 14 }}>
+        <div className="card-h">
+          <div>
+            <h3>Users &amp; permissions</h3>
+            <div className="sub">{authUsers.length} account{authUsers.length === 1 ? "" : "s"} total</div>
+          </div>
+          <div className="inline-actions">
+            <button className="btn ghost slim" onClick={() => navigate("/audit-log")}><History />Audit log</button>
+            <button className="btn slim" onClick={() => setInviting(true)}><UserPlus />Invite user</button>
+          </div>
+        </div>
+      </section>
+
       {pendingUsers.length > 0 && (
         <section className="card" style={{ marginBottom: 14 }}>
           <div className="card-h">
@@ -90,10 +110,7 @@ export default function UserManagement() {
 
       <section className="card">
         <div className="card-h">
-          <div>
-            <h3>Users &amp; permissions</h3>
-            <div className="sub">{authUsers.length} account{authUsers.length === 1 ? "" : "s"} total</div>
-          </div>
+          <h3>All accounts</h3>
         </div>
         <div className="card-b table-wrap">
           <table>
@@ -137,7 +154,89 @@ export default function UserManagement() {
           onClose={() => setManagingUser(null)}
         />
       )}
+
+      {inviting && <InviteUserModal companies={companies} onClose={() => setInviting(false)} />}
     </>
+  );
+}
+
+function InviteUserModal({ companies, onClose }: { companies: AdminCompany[]; onClose: () => void }) {
+  const queryClient = useQueryClient();
+  const [email, setEmail] = useState("");
+  const [name, setName] = useState("");
+  const [companyId, setCompanyId] = useState(companies[0]?.id || "");
+  const [role, setRole] = useState<"owner" | "member">("member");
+  const [permissions, setPermissions] = useState<string[]>(["view"]);
+  const [sending, setSending] = useState(false);
+
+  function togglePermission(key: string) {
+    setPermissions(p => (p.includes(key) ? p.filter(k => k !== key) : [...p, key]));
+  }
+
+  async function handleInvite() {
+    if (!email.trim() || !companyId) {
+      toast("Email and a company are required.");
+      return;
+    }
+    setSending(true);
+    try {
+      await inviteUser({ email: email.trim(), name: name.trim(), company_id: companyId, role, permissions });
+      queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+      toast(`Invite sent to ${email.trim()}.`);
+      onClose();
+    } catch (err) {
+      toast(errorMessage(err, "Could not send that invite."));
+    } finally {
+      setSending(false);
+    }
+  }
+
+  return createPortal(
+    <div className="modal-bg" onClick={onClose}>
+      <section className="modal" style={{ width: "min(480px,100%)" }} onClick={e => e.stopPropagation()}>
+        <div className="modal-h">
+          <h3>Invite a new user</h3>
+          <button className="icon-btn" onClick={onClose} aria-label="Close"><X /></button>
+        </div>
+        <div className="modal-b">
+          <p className="sub">Sends a Supabase account-invite email with a link to set their password and sign in.</p>
+          <div className="field">
+            <label>Email</label>
+            <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="name@example.com" />
+          </div>
+          <div className="field">
+            <label>Display name (optional)</label>
+            <input value={name} onChange={e => setName(e.target.value)} placeholder="Full name" />
+          </div>
+          <div className="form-row">
+            <div className="field">
+              <label>Company</label>
+              <Select value={companyId} onChange={setCompanyId} options={companies.map(c => ({ value: c.id, label: c.name }))} />
+            </div>
+            <div className="field">
+              <label>Role</label>
+              <Select value={role} onChange={v => setRole(v as "owner" | "member")} options={[{ value: "member", label: "Member" }, { value: "owner", label: "Owner" }]} />
+            </div>
+          </div>
+          <div className="field">
+            <label>Permissions</label>
+            <div className="inline-actions" style={{ flexWrap: "wrap" }}>
+              {PERMISSIONS.map(([key, label]) => (
+                <label key={key} style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 150 }}>
+                  <input type="checkbox" checked={permissions.includes(key)} onChange={() => togglePermission(key)} />
+                  {label}
+                </label>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div className="modal-f">
+          <button className="btn ghost" onClick={onClose} disabled={sending}>Cancel</button>
+          <button className="btn" onClick={handleInvite} disabled={sending}>{sending ? "Sending..." : "Send invite"}</button>
+        </div>
+      </section>
+    </div>,
+    document.getElementById("modal-root")!
   );
 }
 
@@ -157,6 +256,7 @@ function ManageUserModal({
   const { session } = useAuth();
   const queryClient = useQueryClient();
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const initialAccess: Record<string, AccessLevel> = Object.fromEntries(
     companies.map(c => [c.id, (memberships.find(m => m.company_id === c.id)?.role as AccessLevel) || ""])
   );
@@ -204,6 +304,22 @@ function ManageUserModal({
       toast(errorMessage(err, "Could not update this user."));
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleDeleteAccount() {
+    if (isSelf) return;
+    if (!window.confirm(`Permanently delete ${authUser.email}'s account? They will lose all access and won't be able to log in again — this can't be undone.`)) return;
+    setDeleting(true);
+    try {
+      await deleteUserAccount(authUser.id);
+      queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+      toast(`${authUser.email}'s account was deleted.`);
+      onClose();
+    } catch (err) {
+      toast(errorMessage(err, "Could not delete this account."));
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -256,20 +372,28 @@ function ManageUserModal({
             <label>Permissions</label>
             <div className="inline-actions" style={{ flexWrap: "wrap" }}>
               {PERMISSIONS.map(([key, label]) => (
-                <label key={key} className="checkbox-row" style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 150 }}>
+                <label key={key} style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 150 }}>
                   <input type="checkbox" checked={permissions.includes(key)} onChange={() => togglePermission(key)} />
                   {label}
                 </label>
               ))}
             </div>
-            <p className="sub">Applies to future permission-gated actions in the app; company access above is what's enforced today.</p>
+            <p className="sub">
+              Owners always have full access regardless of these checkboxes. For everyone else: create/edit gate the
+              "New lead/client/job" buttons and Save in the record modal, import gates the Import Center nav item and
+              page, export gates the Clients CSV export button.
+            </p>
           </div>
         </div>
         <div className="modal-f between">
-          <span className="sub">Changes apply immediately.</span>
+          {!isSelf ? (
+            <button className="btn ghost slim" style={{ color: "var(--red)" }} onClick={handleDeleteAccount} disabled={saving || deleting}>
+              <Trash2 />{deleting ? "Deleting..." : "Delete account"}
+            </button>
+          ) : <span className="sub">Changes apply immediately.</span>}
           <div className="inline-actions">
-            <button className="btn ghost" onClick={onClose} disabled={saving}>Cancel</button>
-            <button className="btn" onClick={handleSave} disabled={saving}>{saving ? "Saving..." : "Save changes"}</button>
+            <button className="btn ghost" onClick={onClose} disabled={saving || deleting}>Cancel</button>
+            <button className="btn" onClick={handleSave} disabled={saving || deleting}>{saving ? "Saving..." : "Save changes"}</button>
           </div>
         </div>
       </section>

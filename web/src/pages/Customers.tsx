@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import Select from "../components/Select";
-import { useCustomers } from "../data/hooks";
+import { useCustomers, usePermissions } from "../data/hooks";
 import { toCSV } from "../domain/csv";
 import { initials, relativeDate, unique } from "../domain/format";
 import { filterRowsBySearch } from "../domain/search";
@@ -88,6 +88,7 @@ export default function Customers() {
   const { searchText } = useSearch();
   const { openRecordModal } = useModal();
   const navigate = useNavigate();
+  const { has: hasPermission } = usePermissions();
 
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -160,9 +161,9 @@ export default function Customers() {
           <div className="sub">{allRows.length} client{allRows.length === 1 ? "" : "s"}</div>
         </div>
         <div className="inline-actions">
-          <button className="btn ghost slim" onClick={() => navigate("/import")}><Upload />Import</button>
-          <button className="btn ghost slim" onClick={exportCSV} disabled={!rows.length}><Download />Export</button>
-          <button className="btn slim" onClick={() => openRecordModal("customer")}><Plus />Add client</button>
+          {hasPermission("import") && <button className="btn ghost slim" onClick={() => navigate("/import")}><Upload />Import</button>}
+          {hasPermission("export") && <button className="btn ghost slim" onClick={exportCSV} disabled={!rows.length}><Download />Export</button>}
+          {hasPermission("create") && <button className="btn slim" onClick={() => openRecordModal("customer")}><Plus />Add client</button>}
         </div>
       </div>
       <div className="card-b table-filters">

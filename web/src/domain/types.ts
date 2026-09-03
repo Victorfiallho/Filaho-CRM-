@@ -155,6 +155,10 @@ export interface AppUser {
   id: string;
   name: string;
   auth_user_id: string | null;
+  // Only populated by getCurrentAppUser() (the signed-in user's own row, for
+  // permission checks) — listUsers()'s lookup select doesn't fetch it, so
+  // any AppUser sourced from that list won't have this set.
+  permissions?: string[];
 }
 
 // Rows below come back from RPCs (get_stagnant_leads, get_funnel_summary,

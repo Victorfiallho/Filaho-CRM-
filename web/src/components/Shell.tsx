@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { Navigate, Outlet, useLocation, useNavigate } from "react-router-dom";
 import ChatWidget from "./ChatWidget";
 import CompanyLogo from "./CompanyLogo";
-import { useCustomers, useImportsHistory, useIsOwner, useJobs, useLeads } from "../data/hooks";
+import { useCustomers, useImportsHistory, useIsOwner, useJobs, useLeads, usePermissions } from "../data/hooks";
 import { MODULE_ICONS, MODULES } from "../domain/constants";
 import { money } from "../domain/format";
 import { isOpenStage } from "../domain/pipelineStages";
@@ -59,6 +59,7 @@ export default function Shell() {
   const { session, signOut } = useAuth();
   const { activeCompany, activeCompanyId, clearCompany, stages } = useCompany();
   const { isOwner } = useIsOwner();
+  const { has: hasPermission } = usePermissions();
   const { searchText, setSearchText } = useSearch();
   const { openRecordModal } = useModal();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -136,7 +137,7 @@ export default function Shell() {
         </button>
         <nav className="nav" ref={navRef}>
           <span className="nav-indicator" style={{ transform: `translateY(${indicator.top}px)`, height: indicator.height }} />
-          {MODULES.filter(([id]) => id !== "users" || isOwner).map(([id, label]) => {
+          {MODULES.filter(([id]) => (id !== "users" || isOwner) && (id !== "import" || hasPermission("import"))).map(([id, label]) => {
             const Icon = MODULE_ICONS[id];
             return (
               <button
@@ -170,9 +171,13 @@ export default function Shell() {
           <div className="search">
             <input placeholder="Search this company..." value={searchText} onChange={e => setSearchText(e.target.value)} />
           </div>
-          <button className="btn ghost" data-action="new-lead" onClick={() => openRecordModal("lead")}>New lead</button>
-          <button className="btn ghost" data-action="new-customer" onClick={() => openRecordModal("customer")}>New client</button>
-          <button className="btn" data-action="new-job" onClick={() => openRecordModal("job")}><Plus />New job</button>
+          {hasPermission("create") && (
+            <>
+              <button className="btn ghost" data-action="new-lead" onClick={() => openRecordModal("lead")}>New lead</button>
+              <button className="btn ghost" data-action="new-customer" onClick={() => openRecordModal("customer")}>New client</button>
+              <button className="btn" data-action="new-job" onClick={() => openRecordModal("job")}><Plus />New job</button>
+            </>
+          )}
         </header>
         <section className="content" id="view">
           {/* Keyed on the route so this div actually remounts on every

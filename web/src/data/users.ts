@@ -23,7 +23,7 @@ export async function getCurrentAppUser(): Promise<AppUser | null> {
   if (authError || !authData.user) return null;
   const { data, error } = await supabase
     .from("users")
-    .select("id, name, auth_user_id")
+    .select("id, name, auth_user_id, permissions")
     .eq("auth_user_id", authData.user.id)
     .maybeSingle();
   if (error || !data) return null;

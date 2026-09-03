@@ -6,7 +6,7 @@ import { summarizeJob, type JobAiSummary } from "../data/aiSummary";
 import { listCustomers, insertCustomer, updateCustomer, deleteCustomer } from "../data/customers";
 import { deleteFile, insertFile } from "../data/files";
 import { geocodeAddress } from "../data/geocoding";
-import { useCurrentAppUser, useFiles, useIntegrationSettings, useMetaAdsInsights, useNotes, useUsers } from "../data/hooks";
+import { useCurrentAppUser, useFiles, useIntegrationSettings, useMetaAdsInsights, useNotes, usePermissions, useUsers } from "../data/hooks";
 import { insertJob, updateJob, deleteJob } from "../data/jobs";
 import { upsertClientFromLead } from "../data/leadClientSync";
 import { insertLead, updateLead, deleteLead } from "../data/leads";
@@ -60,6 +60,7 @@ function RecordModalContent() {
   const { data: users = [] } = useUsers();
   const { data: currentAppUser } = useCurrentAppUser();
   const { data: integrationSettings } = useIntegrationSettings();
+  const { has: hasPermission } = usePermissions();
   const { data: adInsights = [] } = useMetaAdsInsights(type === "lead" ? activeCompanyId : null);
   const userNameById = new Map(users.map(u => [u.id, u.name]));
   // Distinct campaigns synced from Meta Ads — offered as a dropdown so a
@@ -123,6 +124,38 @@ function RecordModalContent() {
 
   if (!modal || !activeCompanyId) return null;
 
+  const titleType = type === "customer" ? "client" : type;
+  const title = `${isEdit ? "Edit" : "New"} ${titleType}`;
+
+  // Central permission gate — every "add lead/client/job" and "open record"
+  // entry point across the app (Shell topbar, Pipeline, Customers, Jobs,
+  // Calendar, Map & Routes) funnels through this one modal, so checking here
+  // covers all of them instead of needing the same check repeated at each
+  // call site. No "delete" permission exists in users.permissions, so
+  // deleting an existing record is treated as part of "edit".
+  const blocked = isEdit ? !hasPermission("edit") : !hasPermission("create");
+  if (blocked) {
+    return (
+      <div className="modal-bg">
+        <section className="modal" style={{ width: "min(420px,100%)" }}>
+          <div className="modal-h">
+            <h3>{titleize(title)}</h3>
+            <button className="btn ghost slim" onClick={closeModal}>Close</button>
+          </div>
+          <div className="modal-b">
+            <p className="sub">
+              You don't have permission to {isEdit ? "edit" : "create"} {titleType}s. Ask a company owner to grant it
+              from Users &amp; Access.
+            </p>
+          </div>
+          <div className="modal-f">
+            <button className="btn ghost" onClick={closeModal}>Close</button>
+          </div>
+        </section>
+      </div>
+    );
+  }
+
   const set = (field: string, value: string) => setForm(f => ({ ...f, [field]: value }));
 
   const pickExistingClient = (clientId: string) => {
@@ -163,9 +196,6 @@ function RecordModalContent() {
       // saving proceeds without coordinates; Map & Routes can still catch up later
     }
   }
-
-  const titleType = type === "customer" ? "client" : type;
-  const title = `${isEdit ? "Edit" : "New"} ${titleType}`;
 
   // Esc closes the modal from anywhere in it. Enter in a plain text input
   // jumps to the next field instead of doing nothing (or, on the last field,

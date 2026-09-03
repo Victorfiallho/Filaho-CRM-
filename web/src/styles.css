@@ -291,6 +291,12 @@ h1,h2,h3{margin:0;letter-spacing:-.02em;font-weight:700;color:var(--ink)}
   color:var(--muted);
   display:flex;flex-direction:column;
 }
+/* Mobile-only drawer scrim, rendered while the hamburger's menu is open —
+   without it there was no way to dismiss the slide-in sidebar except by
+   tapping a nav link (which also navigates away): no backdrop existed at
+   all, and the open sidebar's own z-index sat above the topbar, covering
+   the hamburger button itself so a second tap couldn't reach it either. */
+.sidebar-backdrop{display:none}
 .brand{padding:18px;display:flex;align-items:center;gap:13px;border-bottom:1px solid var(--line-strong)}
 .brand .logo{width:56px;height:56px;border-radius:16px;background:color-mix(in srgb,var(--company-color) 14%,white);color:var(--company-color);box-shadow:var(--shadow-xs);padding:6px}
 .brand .logo svg{display:block}
@@ -636,7 +642,13 @@ input[type="checkbox"]:focus-visible{outline:none;box-shadow:0 0 0 3px var(--bra
 .tab{background:#fff;border:1px solid var(--line-strong);border-radius:999px;color:var(--ink-soft);padding:8px 14px;font-weight:600}
 .tab.active{background:var(--company-color);color:#fff;border-color:var(--company-color)}
 .modal-bg{
-  position:fixed;inset:0;background:rgba(15,23,42,.4);z-index:20;display:grid;place-items:start center;
+  /* Above .chat-widget (z-index:60) — found via a mobile pass: on a phone
+     width a modal's footer buttons sit exactly where the chat FAB floats
+     (both bottom-right fixed elements), and the FAB used to win, sitting on
+     top of and partly swallowing clicks meant for the modal's Save button.
+     Below .toast (z-index:70) so a save-error toast still surfaces above an
+     open modal. */
+  position:fixed;inset:0;background:rgba(15,23,42,.4);z-index:61;display:grid;place-items:start center;
   padding:34px 16px;overflow:auto;
   animation:modalBgIn .18s ease both;
 }
@@ -660,7 +672,7 @@ input[type="checkbox"]:focus-visible{outline:none;box-shadow:0 0 0 3px var(--bra
 .record-note{background:var(--surface-muted);border:1px solid var(--line-strong);border-radius:var(--radius-sm);padding:8px 10px}
 .record-note p{margin:0 0 4px;white-space:pre-wrap;font-size:13.5px}
 .record-note-meta{display:flex;align-items:center;justify-content:space-between;gap:8px}
-.toast{position:fixed;left:50%;bottom:22px;transform:translate(-50%,80px);opacity:0;background:var(--ink);color:#fff;border-radius:var(--radius-sm);padding:11px 18px;font-weight:600;box-shadow:var(--shadow-md);transition:.2s;z-index:30}
+.toast{position:fixed;left:50%;bottom:22px;transform:translate(-50%,80px);opacity:0;background:var(--ink);color:#fff;border-radius:var(--radius-sm);padding:11px 18px;font-weight:600;box-shadow:var(--shadow-md);transition:.2s;z-index:70}
 .toast.show{transform:translate(-50%,0);opacity:1}
 .muted{color:var(--muted)}
 .empty{text-align:center;color:var(--muted);padding:32px;display:flex;flex-direction:column;align-items:center;gap:10px}
@@ -733,6 +745,7 @@ td a svg{width:14px;height:14px}
   .app-shell{grid-template-columns:1fr;margin:8px;border-radius:18px;min-height:calc(100vh - 16px)}
   .sidebar{position:fixed;inset:0 auto 0 0;width:264px;z-index:15;transform:translateX(-105%);transition:.2s;border-radius:0 18px 18px 0}
   .sidebar.open{transform:none}
+  .sidebar-backdrop{display:block;position:fixed;inset:0;background:rgba(15,23,42,.4);z-index:14;animation:modalBgIn .18s ease both}
   .main{border-radius:18px}
   .topbar{border-radius:18px 18px 0 0}
   .hamburger{display:inline-flex;order:1}

@@ -87,6 +87,17 @@ export default function Shell() {
     if (active) setIndicator({ top: active.offsetTop, height: active.offsetHeight });
   }, [location.pathname]);
 
+  // Escape closes the mobile drawer, matching RecordModal's own Escape
+  // handling — found missing during a mobile pass alongside the backdrop
+  // below (previously there was no way to dismiss the open sidebar short of
+  // tapping a nav link and navigating away).
+  useEffect(() => {
+    if (!sidebarOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setSidebarOpen(false); };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [sidebarOpen]);
+
   // A search left over from the previous module silently filtering the next
   // one (e.g. searching "Marietta" on Clients, then Jobs looking empty for no
   // visible reason) was confusing enough to change from app.js's original
@@ -127,10 +138,21 @@ export default function Shell() {
           exactly one h1 on every render — screen-reader heading navigation
           otherwise jumped straight from nothing to the topbar's h2. */}
       <h1 className="sr-only">Fialho Home Improvement</h1>
+      {/* Mobile-only drawer scrim — also the only way to dismiss the open
+          sidebar besides tapping a nav link (see the Escape handler above).
+          Only ever mounted while sidebarOpen is true, and CSS additionally
+          keeps it (and the sidebar's slide-in transform) inert above 760px,
+          so it can't appear from a desktop click. */}
+      {sidebarOpen && <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />}
       <aside className={`sidebar${sidebarOpen ? " open" : ""}${collapsed ? " collapsed" : ""}`} id="sidebar">
         <div className="brand">
           <div className="logo" data-company={activeCompany.id}><CompanyLogo company={activeCompany} /></div>
-          {!collapsed && <div><b>Fialho Home Improvement</b><span>{activeCompany.name}</span></div>}
+          {/* `collapsed` is a desktop-only, persisted icon-rail preference —
+              on mobile the drawer always opens full width regardless of it
+              (styles.css forces width:264px there), so while sidebarOpen is
+              true this ignores `collapsed` and shows full labels instead of
+              leaving mobile permanently stuck with an unlabeled icon rail. */}
+          {(!collapsed || sidebarOpen) && <div><b>Fialho Home Improvement</b><span>{activeCompany.name}</span></div>}
         </div>
         <button className="sidebar-toggle" onClick={toggleCollapsed} aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"} title={collapsed ? "Expand sidebar" : "Collapse sidebar"}>
           {collapsed ? <PanelLeftOpen /> : <PanelLeftClose />}
@@ -139,25 +161,26 @@ export default function Shell() {
           <span className="nav-indicator" style={{ transform: `translateY(${indicator.top}px)`, height: indicator.height }} />
           {MODULES.filter(([id]) => (id !== "users" || isOwner) && (id !== "import" || hasPermission("import"))).map(([id, label]) => {
             const Icon = MODULE_ICONS[id];
+            const showLabel = !collapsed || sidebarOpen;
             return (
               <button
                 key={id}
                 className={location.pathname === `/${id}` ? "active" : ""}
                 onClick={() => { navigate(`/${id}`); setSidebarOpen(false); }}
-                title={collapsed ? label : undefined}
+                title={showLabel ? undefined : label}
               >
                 {Icon && <Icon />}
-                {!collapsed && label}
+                {showLabel && label}
               </button>
             );
           })}
         </nav>
         <div className="side-foot">
-          <button className="btn ghost slim" onClick={switchCompany} title={collapsed ? "Switch company" : undefined}>
-            <RefreshCw />{!collapsed && "Switch company"}
+          <button className="btn ghost slim" onClick={switchCompany} title={collapsed && !sidebarOpen ? "Switch company" : undefined}>
+            <RefreshCw />{(!collapsed || sidebarOpen) && "Switch company"}
           </button>
-          <button className="btn ghost slim" onClick={() => signOut()} title={collapsed ? "Logout" : undefined}>
-            <LogOut />{!collapsed && "Logout"}
+          <button className="btn ghost slim" onClick={() => signOut()} title={collapsed && !sidebarOpen ? "Logout" : undefined}>
+            <LogOut />{(!collapsed || sidebarOpen) && "Logout"}
           </button>
         </div>
       </aside>

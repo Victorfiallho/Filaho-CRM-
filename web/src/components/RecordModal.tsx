@@ -230,25 +230,30 @@ function RecordModalContent() {
     setSaving(true);
     try {
       if (type === "job") {
+        // The <select> has no blank option (matches app.js's recordForm), so a
+        // browser leaves the first customer visually selected when nothing was
+        // explicitly chosen — mirror that by falling back to the first customer
+        // on save too, instead of silently saving an unassigned job.
+        const jobCustomerId = form.customer_id || customers[0]?.id || "";
+        // Address/city/state/zip/lat/lng aren't asked on the job form at all —
+        // a job's location is always the linked client's, pulled straight from
+        // their record instead of re-typing (or re-geocoding) it per job.
+        const jobCustomer = customers.find(c => c.id === jobCustomerId);
         const data = {
           company_id: activeCompanyId,
           title: form.title,
-          // The <select> has no blank option (matches app.js's recordForm), so a
-          // browser leaves the first customer visually selected when nothing was
-          // explicitly chosen — mirror that by falling back to the first customer
-          // on save too, instead of silently saving an unassigned job.
-          customer_id: form.customer_id || customers[0]?.id || "",
+          customer_id: jobCustomerId,
           status: form.status || "planned",
           service_type: form.service_type,
           scheduled_date: form.scheduled_date,
           estimated_value: Number(form.estimated_value || 0),
-          address: form.address,
-          city: form.city,
-          state: form.state,
-          zip: form.zip,
+          address: jobCustomer?.address || "",
+          city: jobCustomer?.city || "",
+          state: jobCustomer?.state || "",
+          zip: jobCustomer?.zip || "",
           drive_folder_url: form.drive_folder_url,
-          lat: Number(form.lat || 0) || "",
-          lng: Number(form.lng || 0) || ""
+          lat: Number(jobCustomer?.lat || 0) || "",
+          lng: Number(jobCustomer?.lng || 0) || ""
         };
         await autoGeocode(data);
         if (isEdit && r.id) await updateJob(r.id, activeCompanyId, data as any);
@@ -472,6 +477,11 @@ function RecordModalContent() {
     }
   }
 
+  // Read-only location preview for the Job form (see handleSave's job
+  // branch, which pulls the actual saved address/city/state/zip/lat/lng from
+  // this same customer rather than from any job-specific input).
+  const jobLocationCustomer = type === "job" ? customers.find(c => c.id === (form.customer_id || customers[0]?.id)) : undefined;
+
   return (
     <div className="modal-bg">
       <section className="modal" onKeyDown={handleModalKeyDown}>
@@ -491,13 +501,17 @@ function RecordModalContent() {
               <SelectField label="Service" value={form.service_type} options={services} onChange={v => set("service_type", v)} />
               <Field label="Scheduled date" value={form.scheduled_date} onChange={v => set("scheduled_date", v)} type="date" />
               <Field label="Estimated value" value={String(form.estimated_value)} onChange={v => set("estimated_value", v)} type="number" />
-              <Field label="Address" value={form.address} onChange={v => set("address", v)} />
-              <Field label="City" value={form.city} onChange={v => set("city", v)} />
-              <Field label="State" value={form.state} onChange={v => set("state", v)} />
-              <Field label="ZIP" value={form.zip} onChange={v => set("zip", v)} />
               <Field label="Google Drive folder URL" value={form.drive_folder_url} onChange={v => set("drive_folder_url", v)} />
-              <Field label="Latitude" value={String(form.lat)} onChange={v => set("lat", v)} type="number" />
-              <Field label="Longitude" value={String(form.lng)} onChange={v => set("lng", v)} type="number" />
+              <div className="field" style={{ gridColumn: "1 / -1" }}>
+                <label>Location</label>
+                {jobLocationCustomer?.address || jobLocationCustomer?.city ? (
+                  <p className="sub">
+                    {[jobLocationCustomer.address, jobLocationCustomer.city, jobLocationCustomer.state, jobLocationCustomer.zip].filter(Boolean).join(", ")}
+                  </p>
+                ) : (
+                  <p className="sub">This client has no address on file yet — add one on their Clients record to place this job on the map.</p>
+                )}
+              </div>
               {isEdit && (
                 <div className="inline-actions">
                   <button className="btn ghost slim" onClick={handleSendReminderNow} type="button">Send reminder now</button>

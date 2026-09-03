@@ -9,3 +9,15 @@ export async function listMyCompanies(): Promise<Company[]> {
   if (error) throw error;
   return (data || []) as Company[];
 }
+
+// Own company_members rows, role included — the users/UserManagement page
+// uses this to decide whether to show its nav link and to gate the route,
+// same "only see your own row" RLS as listMyCompanies (company_members_select).
+export async function listMyMemberships(): Promise<{ company_id: string; role: string }[]> {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const userId = sessionData.session?.user.id;
+  if (!userId) return [];
+  const { data, error } = await supabase.from("company_members").select("company_id, role").eq("user_id", userId);
+  if (error) throw error;
+  return data || [];
+}

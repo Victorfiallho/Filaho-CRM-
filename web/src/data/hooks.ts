@@ -2,8 +2,10 @@
 // company — the React equivalent of app.js calling `FialhoDB.byCompany(table)`
 // on every render.
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { listAdminUsers } from "./adminUsers";
 import { listAuditLog, type AuditLogFilters } from "./auditLog";
 import { getCampaignRoi } from "./campaignRoi";
+import { listMyMemberships } from "./companies";
 import { listCustomers } from "./customers";
 import { listFiles } from "./files";
 import { getFunnelSummary } from "./funnel";
@@ -119,6 +121,22 @@ export function useUsers() {
 
 export function useCurrentAppUser() {
   return useQuery({ queryKey: ["current-app-user"], queryFn: getCurrentAppUser, staleTime: 5 * 60 * 1000 });
+}
+
+// Whether the signed-in user owns at least one company — gates the "Users"
+// nav link/route the same way web/api/admin-users.js gates the endpoint
+// itself, so the link doesn't dead-end non-owners in a 403 page.
+export function useIsOwner() {
+  const { data: memberships = [], isLoading } = useQuery({
+    queryKey: ["my-memberships"],
+    queryFn: listMyMemberships,
+    staleTime: 5 * 60 * 1000
+  });
+  return { isOwner: memberships.some(m => m.role === "owner"), isLoading };
+}
+
+export function useAdminUsers() {
+  return useQuery({ queryKey: ["admin-users"], queryFn: listAdminUsers });
 }
 
 export function useInvalidateCompanyData(companyId: string | null) {

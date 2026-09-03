@@ -13,6 +13,7 @@ import {
   LayoutDashboard,
   MapPin,
   Puzzle,
+  UserCog,
   Users,
   type LucideIcon
 } from "lucide-react";
@@ -46,9 +47,14 @@ export const MODULES: [string, string][] = [
   ["import", "Import Center"],
   ["integrations", "Integrations"],
   ["reports", "Reports"],
-  ["audit-log", "Audit Log"]
+  ["audit-log", "Audit Log"],
+  ["users", "Users & Access"]
 ];
 
+// "users" is filtered out of Shell's rendered nav for anyone who isn't a
+// company owner (see Shell.tsx's useIsOwner check) — it stays in MODULES
+// itself so pageTitle() still resolves a real label for owners who do
+// navigate to /users, instead of falling back to MODULES[0]'s "Dashboard".
 export const MODULE_ICONS: Record<string, LucideIcon> = {
   dashboard: LayoutDashboard,
   pipeline: Filter,
@@ -59,7 +65,8 @@ export const MODULE_ICONS: Record<string, LucideIcon> = {
   import: Download,
   integrations: Puzzle,
   reports: BarChart3,
-  "audit-log": History
+  "audit-log": History,
+  users: UserCog
 };
 
 export const IMPORT_FIELDS: [string, string][] = [

@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { Navigate, Outlet, useLocation, useNavigate } from "react-router-dom";
 import ChatWidget from "./ChatWidget";
 import CompanyLogo from "./CompanyLogo";
-import { useCustomers, useImportsHistory, useJobs, useLeads } from "../data/hooks";
+import { useCustomers, useImportsHistory, useIsOwner, useJobs, useLeads } from "../data/hooks";
 import { MODULE_ICONS, MODULES } from "../domain/constants";
 import { money } from "../domain/format";
 import { isOpenStage } from "../domain/pipelineStages";
@@ -58,6 +58,7 @@ function useTopbarSubtitle(pathname: string, companyId: string | null, companyNa
 export default function Shell() {
   const { session, signOut } = useAuth();
   const { activeCompany, activeCompanyId, clearCompany, stages } = useCompany();
+  const { isOwner } = useIsOwner();
   const { searchText, setSearchText } = useSearch();
   const { openRecordModal } = useModal();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -135,7 +136,7 @@ export default function Shell() {
         </button>
         <nav className="nav" ref={navRef}>
           <span className="nav-indicator" style={{ transform: `translateY(${indicator.top}px)`, height: indicator.height }} />
-          {MODULES.map(([id, label]) => {
+          {MODULES.filter(([id]) => id !== "users" || isOwner).map(([id, label]) => {
             const Icon = MODULE_ICONS[id];
             return (
               <button

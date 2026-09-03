@@ -13,6 +13,7 @@ import MapRoutes from "./pages/MapRoutes";
 import Pipeline from "./pages/Pipeline";
 import Reports from "./pages/Reports";
 import ResetPassword from "./pages/ResetPassword";
+import UserManagement from "./pages/UserManagement";
 
 export default function App() {
   return (
@@ -31,6 +32,7 @@ export default function App() {
         <Route path="/integrations" element={<Integrations />} />
         <Route path="/reports" element={<Reports />} />
         <Route path="/audit-log" element={<AuditLog />} />
+        <Route path="/users" element={<UserManagement />} />
       </Route>
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>

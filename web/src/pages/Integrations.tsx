@@ -217,10 +217,10 @@ export default function Integrations() {
           <p className="sub">Upload the Google Web OAuth JSON. The CRM stores the Client ID and project only; it does not store the client secret.</p>
           <div className="form-row">
             <div className="field"><label>OAuth JSON from Google Cloud</label><input type="file" accept=".json,application/json" onChange={e => loadGoogleOAuthJson(e.target.files?.[0] || null)} /></div>
-            <div className="field"><label>OAuth Client ID</label><input value={settings.google_oauth.client_id || ""} onChange={e => saveOAuthField("client_id", e.target.value)} /></div>
+            <div className="field"><label>OAuth Client ID</label><DebouncedField value={settings.google_oauth.client_id || ""} onCommit={v => saveOAuthField("client_id", v)} /></div>
           </div>
           <div className="form-row">
-            <div className="field"><label>Project ID</label><input value={settings.google_oauth.project_id || ""} onChange={e => saveOAuthField("project_id", e.target.value)} /></div>
+            <div className="field"><label>Project ID</label><DebouncedField value={settings.google_oauth.project_id || ""} onCommit={v => saveOAuthField("project_id", v)} /></div>
             <div className="field"><label>Granted scopes</label><input value={settings.google_oauth.granted_scopes || ""} readOnly /></div>
           </div>
           <div className="inline-actions">
@@ -253,7 +253,7 @@ export default function Integrations() {
             <>
               <div className="field">
                 <label>Company Google Calendar ID</label>
-                <input value={settings.google_calendar.calendar_ids?.[companyId] || ""} onChange={e => saveCompanyIntegrationValue("google_calendar", "calendar_ids", e.target.value)} placeholder="primary" />
+                <DebouncedField value={settings.google_calendar.calendar_ids?.[companyId] || ""} onCommit={v => saveCompanyIntegrationValue("google_calendar", "calendar_ids", v)} placeholder="primary" />
                 <p className="sub">Leave blank to use the connected account's primary calendar.</p>
               </div>
               <button className="btn ghost slim" onClick={startCalendarOAuth}>Connect for background sync</button>
@@ -266,7 +266,7 @@ export default function Integrations() {
           extra={
             <div className="field">
               <label>Default Google Sheet URL for {activeCompany?.name}</label>
-              <input value={settings.google_sheets.source_urls?.[companyId] || ""} onChange={e => saveCompanyIntegrationValue("google_sheets", "source_urls", e.target.value)} />
+              <DebouncedField value={settings.google_sheets.source_urls?.[companyId] || ""} onCommit={v => saveCompanyIntegrationValue("google_sheets", "source_urls", v)} />
             </div>
           }
         />
@@ -277,14 +277,14 @@ export default function Integrations() {
             <>
               <div className="field">
                 <label>Company Google Drive root folder URL</label>
-                <input value={settings.google_drive.folder_urls?.[companyId] || ""} onChange={e => saveCompanyIntegrationValue("google_drive", "folder_urls", e.target.value)} />
+                <DebouncedField value={settings.google_drive.folder_urls?.[companyId] || ""} onCommit={v => saveCompanyIntegrationValue("google_drive", "folder_urls", v)} />
               </div>
               {settings.google_drive.folder_urls?.[companyId] && (
                 <a className="btn ghost slim" target="_blank" rel="noreferrer" href={settings.google_drive.folder_urls[companyId]}>Open Drive folder</a>
               )}
               <div className="field">
                 <label>Google Picker API key</label>
-                <input value={settings.google_drive.picker_api_key || ""} onChange={e => savePickerApiKey(e.target.value)} placeholder="Enables the 'Attach from Drive' file picker" />
+                <DebouncedField value={settings.google_drive.picker_api_key || ""} onCommit={savePickerApiKey} placeholder="Enables the 'Attach from Drive' file picker" />
                 <p className="sub">Enable the Google Picker API on the same Cloud project as your OAuth client, then paste its API key here.</p>
               </div>
             </>
@@ -294,8 +294,8 @@ export default function Integrations() {
           <div className="card-h"><h3>Email &amp; SMS</h3><span className="pill">{settings.email_sms.enabled ? "enabled" : "planned"}</span></div>
           <div className="card-b">
             <p className="sub">Sends a reminder (SMS if the client has a phone on file, else email) the day before a scheduled job, plus a manual "Send reminder now" button on jobs.</p>
-            <div className="field"><label>From email (Resend)</label><input value={settings.email_sms.from_email} onChange={e => saveEmailSmsField("from_email", e.target.value)} placeholder="notifications@yourdomain.com" /></div>
-            <div className="field"><label>From phone (Twilio)</label><input value={settings.email_sms.from_phone} onChange={e => saveEmailSmsField("from_phone", e.target.value)} placeholder="+15555550123" /></div>
+            <div className="field"><label>From email (Resend)</label><DebouncedField value={settings.email_sms.from_email} onCommit={v => saveEmailSmsField("from_email", v)} placeholder="notifications@yourdomain.com" /></div>
+            <div className="field"><label>From phone (Twilio)</label><DebouncedField value={settings.email_sms.from_phone} onCommit={v => saveEmailSmsField("from_phone", v)} placeholder="+15555550123" /></div>
             <p className="sub">Real API keys (Resend, Twilio) are set as Vercel/GitHub Actions secrets, not here — ask Victor if those aren't set up yet.</p>
             <button className="btn ghost slim" onClick={() => toggleIntegration("email_sms")}>{settings.email_sms.enabled ? "Mark planned" : "Mark ready"}</button>
           </div>
@@ -306,7 +306,7 @@ export default function Integrations() {
             <p className="sub">Daily ad spend/impressions/clicks sync from Meta Ads Manager into Reports.</p>
             <div className="field">
               <label>Ad account ID for {activeCompany?.name}</label>
-              <input value={settings.meta_ads.ad_account_ids?.[companyId] || ""} onChange={e => saveMetaAdAccountId(e.target.value)} placeholder="act_1234567890" />
+              <DebouncedField value={settings.meta_ads.ad_account_ids?.[companyId] || ""} onCommit={saveMetaAdAccountId} placeholder="act_1234567890" />
             </div>
             <p className="sub">The Marketing API access token is a GitHub Actions secret, set up by Victor separately.</p>
             <button className="btn ghost slim" onClick={() => toggleIntegration("meta_ads")}>{settings.meta_ads.enabled ? "Mark planned" : "Mark ready"}</button>
@@ -329,6 +329,38 @@ export default function Integrations() {
   );
 }
 
+// Every text field on this page used to be a plain <input value={live query
+// data} onChange={fires a full save+refetch per keystroke}/> — fine for a
+// single paste, but typing more than one character raced the save against
+// the query refetch: each keystroke kicked off an async write, and the
+// input's value snapped back to the (still-stale) server value on every
+// re-render in between, effectively eating whatever was being typed (found
+// 2026-09-04 when Victor genuinely couldn't type a new Google OAuth Client
+// ID into place). This decouples typing from saving: local draft state
+// while focused, one save on blur, and only re-syncs from the live value
+// while NOT focused — so it still picks up saves from elsewhere (e.g. a
+// different field's edit invalidating this whole shared settings row)
+// without clobbering an in-progress edit.
+function DebouncedField({ value, onCommit, ...props }: { value: string; onCommit: (v: string) => void } & Omit<React.InputHTMLAttributes<HTMLInputElement>, "value" | "onChange" | "onBlur" | "onFocus">) {
+  const [draft, setDraft] = useState(value);
+  const [focused, setFocused] = useState(false);
+  useEffect(() => {
+    if (!focused) setDraft(value);
+  }, [value, focused]);
+  return (
+    <input
+      {...props}
+      value={draft}
+      onChange={e => setDraft(e.target.value)}
+      onFocus={() => setFocused(true)}
+      onBlur={() => {
+        setFocused(false);
+        if (draft !== value) onCommit(draft);
+      }}
+    />
+  );
+}
+
 function IntegrationCard({ k, title, description, setting, onSaveSetting, onToggle, extra }: {
   k: keyof IntegrationSettings;
   title: string;
@@ -345,7 +377,7 @@ function IntegrationCard({ k, title, description, setting, onSaveSetting, onTogg
         <p className="sub">{description}</p>
         <div className="field">
           <label>API key / OAuth note</label>
-          <input value={setting.api_key || setting.notes || ""} onChange={e => onSaveSetting(k, e.target.value)} />
+          <DebouncedField value={setting.api_key || setting.notes || ""} onCommit={v => onSaveSetting(k, v)} />
         </div>
         {extra}
         <button className="btn ghost slim" onClick={() => onToggle(k)}>{setting.enabled ? "Mark planned" : "Mark ready"}</button>

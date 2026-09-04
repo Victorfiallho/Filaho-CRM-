@@ -23,7 +23,7 @@ export default function Jobs() {
   return (
     <section className="card">
       <div className="card-h">
-        <h3>Jobs/projects</h3>
+        <h3>Jobs</h3>
         <button className="btn slim" onClick={() => openRecordModal("job")}><Plus />Add job</button>
       </div>
       <div className="table-wrap">

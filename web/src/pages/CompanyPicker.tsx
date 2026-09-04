@@ -12,10 +12,15 @@ import { useCompany } from "../state/CompanyContext";
 const LAST_COMPANY_KEY = "fialho_last_company_id";
 
 export default function CompanyPicker() {
-  const { session, signOut } = useAuth();
+  const { session, loading: authLoading, signOut } = useAuth();
   const { companies, companiesLoading, selectCompany } = useCompany();
   const navigate = useNavigate();
 
+  // See Shell.tsx's identical guard for why authLoading has to gate this —
+  // `session` reads null for a moment on every mount, not just when signed
+  // out for real, which used to bounce a hard reload of /companies itself
+  // straight to /login.
+  if (authLoading) return null;
   if (!session) return <Navigate to="/login" replace />;
 
   let lastCompanyId: string | null = null;

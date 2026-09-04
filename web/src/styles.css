@@ -786,4 +786,11 @@ td a svg{width:14px;height:14px}
   .pager button{min-height:44px}
   .hamburger{padding:12px}
   .input-icon-btn{padding:10px}
+  /* A short page's own empty-state text (e.g. "No clients yet") naturally
+     lands right where .chat-widget's fixed FAB sits — its screen position
+     is set entirely by what's above it in the flow, so no amount of
+     padding on an ancestor container pushes it up; the FAB itself has to
+     move. Raised well clear of where a card's last line of content or an
+     empty-state message typically ends on a phone-sized viewport. */
+  .chat-widget{bottom:84px}
 }

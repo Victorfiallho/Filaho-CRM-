@@ -56,8 +56,8 @@ function useTopbarSubtitle(pathname: string, companyId: string | null, companyNa
 }
 
 export default function Shell() {
-  const { session, signOut } = useAuth();
-  const { activeCompany, activeCompanyId, clearCompany, stages } = useCompany();
+  const { session, loading: authLoading, signOut } = useAuth();
+  const { activeCompany, activeCompanyId, clearCompany, stages, companiesLoading } = useCompany();
   const { isOwner } = useIsOwner();
   const { has: hasPermission } = usePermissions();
   const { searchText, setSearchText } = useSearch();
@@ -123,6 +123,18 @@ export default function Shell() {
     return () => { document.body.style.removeProperty("--company-color"); };
   }, [activeCompany?.color]);
 
+  // `session` starts null on every mount until AuthContext's getSession()
+  // resolves (see its own comment) — bailing on `!session` alone, before
+  // `authLoading` confirms that's for real and not just "hasn't checked
+  // yet", would redirect a valid signed-in visit to /login on every hard
+  // reload. Same reasoning applies to `companiesLoading` below: a hard
+  // reload (or, critically, every cold start of the installed PWA/APK)
+  // restores activeCompanyId from localStorage synchronously but still
+  // needs a real network round-trip for the companies list, so
+  // `activeCompany` is momentarily null on that first render regardless —
+  // without waiting it out, a perfectly valid, already-selected session got
+  // bounced straight to /companies, discarding whatever page it wanted.
+  if (authLoading || companiesLoading) return <div className="empty">Loading...</div>;
   if (!session) return <Navigate to="/login" replace />;
   if (!activeCompanyId || !activeCompany) return <Navigate to="/companies" replace />;
 

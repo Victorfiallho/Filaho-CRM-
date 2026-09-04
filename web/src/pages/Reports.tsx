@@ -1,5 +1,5 @@
 import { Award, BarChart3, DollarSign, Megaphone, Percent, Target, TrendingUp, Users } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import BarRow from "../components/BarRow";
 import KpiCard from "../components/KpiCard";
 import PageSkeleton from "../components/PageSkeleton";
@@ -32,8 +32,18 @@ export default function Reports() {
   const { data: adInsights = [] } = useMetaAdsInsights(activeCompanyId);
   const { data: funnel = [] } = useFunnelSummary(activeCompanyId);
   const [roiPeriod, setRoiPeriod] = useState("90");
-  const roiDateTo = new Date().toISOString();
-  const roiDateFrom = new Date(Date.now() - Number(roiPeriod) * 86400000).toISOString();
+  // Was computed inline on every render — a fresh `new Date().toISOString()`
+  // differs (at least in milliseconds) from the previous render's value, and
+  // useCampaignRoi() puts both dates straight into its query key, so every
+  // render produced a "new" query, which fetched, which caused a render,
+  // forever. Found as an actual infinite request loop hitting
+  // rpc/get_campaign_roi nonstop while this page was open. Memoized to only
+  // recompute when the selected period actually changes.
+  const [roiDateFrom, roiDateTo] = useMemo(() => {
+    const to = new Date();
+    const from = new Date(to.getTime() - Number(roiPeriod) * 86400000);
+    return [from.toISOString(), to.toISOString()];
+  }, [roiPeriod]);
   const { data: campaignRoi = [] } = useCampaignRoi(activeCompanyId, roiDateFrom, roiDateTo);
 
   if (customersLoading || leadsLoading || jobsLoading || importsLoading) return <PageSkeleton kpis={4} cards={2} />;

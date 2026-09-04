@@ -400,6 +400,23 @@ h1,h2,h3{margin:0;letter-spacing:-.02em;font-weight:700;color:var(--ink)}
 .bar-row-track{height:8px;background:var(--soft);border-radius:999px;overflow:hidden}
 .bar-row-fill{height:8px;border-radius:0 999px 999px 0;transition:filter .15s ease}
 .bar-row:hover .bar-row-fill{filter:brightness(1.1)}
+.trend-chart-plot{position:relative;width:100%;touch-action:pan-y}
+.trend-chart-plot svg{display:block;cursor:crosshair}
+.trend-chart-plot svg:focus-visible{outline:2px solid var(--brand-ring);outline-offset:2px}
+.trend-chart-grid{stroke:var(--line-strong);stroke-width:1}
+.trend-chart-crosshair{stroke:var(--muted-soft);stroke-width:1}
+.trend-chart-area{fill:var(--brand);opacity:.1;stroke:none}
+.trend-chart-line{fill:none;stroke:var(--brand);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.trend-chart-dot-ring{fill:var(--surface)}
+.trend-chart-dot{fill:var(--brand)}
+.trend-chart-axis-label{fill:var(--muted);font-size:11px;font-family:inherit}
+.trend-chart-tooltip{
+  position:absolute;top:0;transform:translate(-50%,-4px);pointer-events:none;
+  background:var(--ink);color:#fff;border-radius:var(--radius-sm);padding:6px 10px;
+  box-shadow:var(--shadow-md);white-space:nowrap;
+}
+.trend-chart-tooltip-value{font-weight:700;font-size:13px}
+.trend-chart-tooltip-label{font-size:11px;opacity:.75;margin-top:1px}
 .table-filters{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding-bottom:14px}
 .table-filters .cs{min-width:160px}
 .table-filters .cs .cs-trigger,.table-filters .search-field input{min-height:38px}

@@ -3,9 +3,11 @@ import { useNavigate } from "react-router-dom";
 import BarRow from "../components/BarRow";
 import KpiCard from "../components/KpiCard";
 import PageSkeleton from "../components/PageSkeleton";
+import TrendLineChart from "../components/TrendLineChart";
 import { useCustomers, useIntegrationSettings, useJobs, useLeads } from "../data/hooks";
 import { money } from "../domain/format";
 import { isOpenStage, isWonStage } from "../domain/pipelineStages";
+import { weeklyTrend } from "../domain/trend";
 import { useCompany } from "../state/CompanyContext";
 import type { Customer, Job } from "../domain/types";
 
@@ -75,6 +77,11 @@ export default function Dashboard() {
   const stageCounts = stages.map(stage => ({ stage, count: leads.filter(l => l.stage_id === stage.id).length }));
   const maxStageCount = Math.max(1, ...stageCounts.map(s => s.count));
 
+  // New leads per week, not revenue — every company has leads flowing in
+  // (a momentum signal that's always meaningful), while won deals can be too
+  // sparse for a small company to make a readable trend line week to week.
+  const leadsPerWeek = weeklyTrend(leads, l => l.created_at, () => 1, 12);
+
   // Same 6 integrations app.js originally hardcoded as "planned" placeholders
   // (map_geocoding, google_calendar, google_sheets, google_drive, email_sms,
   // meta_ads) — now reading the real integration_settings row instead, so
@@ -96,6 +103,15 @@ export default function Dashboard() {
         <KpiCard icon={Briefcase} label="Active jobs" value={activeJobs.length} hint={`${scheduledJobs.length} scheduled`} />
         <KpiCard icon={DollarSign} label="Pipeline" value={money(pipelineValue)} hint="estimated value" />
       </div>
+      <section className="card" style={{ marginTop: 14 }}>
+        <div className="card-h">
+          <h3>New leads</h3>
+          <span className="sub">Last 12 weeks</span>
+        </div>
+        <div className="card-b">
+          <TrendLineChart data={leadsPerWeek} />
+        </div>
+      </section>
       <div className="grid two" style={{ marginTop: 14 }}>
         <section className="card">
           <div className="card-h">

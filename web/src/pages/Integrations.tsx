@@ -377,7 +377,7 @@ function IntegrationCard({ k, title, description, setting, onSaveSetting, onTogg
         <p className="sub">{description}</p>
         <div className="field">
           <label>API key / OAuth note</label>
-          <DebouncedField value={setting.api_key || setting.notes || ""} onCommit={v => onSaveSetting(k, v)} />
+          <DebouncedField value={setting.api_key || ""} placeholder={setting.notes} onCommit={v => onSaveSetting(k, v)} />
         </div>
         {extra}
         <button className="btn ghost slim" onClick={() => onToggle(k)}>{setting.enabled ? "Mark planned" : "Mark ready"}</button>

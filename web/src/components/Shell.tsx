@@ -171,7 +171,7 @@ export default function Shell() {
         </button>
         <nav className="nav" ref={navRef}>
           <span className="nav-indicator" style={{ transform: `translateY(${indicator.top}px)`, height: indicator.height }} />
-          {MODULES.filter(([id]) => (id !== "users" || isOwner) && (id !== "import" || hasPermission("import"))).map(([id, label]) => {
+          {MODULES.filter(([id]) => (id !== "users" || isOwner) && (id !== "company-financials" || isOwner) && (id !== "import" || hasPermission("import"))).map(([id, label]) => {
             const Icon = MODULE_ICONS[id];
             const showLabel = !collapsed || sidebarOpen;
             return (

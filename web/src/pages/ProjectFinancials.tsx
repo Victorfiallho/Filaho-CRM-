@@ -11,11 +11,18 @@ import {
   useCostLineItems,
   useFinanceSettings,
   useJobs,
+  useIsOwner,
+  useProfitReleases,
   useProjectFinancials,
+  useRefunds,
+  useTransactionsByJob,
   useUsers,
   useVendors
 } from "../data/hooks";
+import { insertProfitRelease } from "../data/profitReleases";
 import { createProjectFinancials, updateProjectFinancials } from "../data/projectFinancials";
+import { insertRefund, updateRefund } from "../data/refunds";
+import { confirmTransaction, deleteDraftTransaction, insertTransaction, reverseTransaction } from "../data/transactions";
 import {
   categoryBudgetUsage,
   contractRevenue,
@@ -35,13 +42,23 @@ import {
   sumRemainingEstimate,
   type HealthStatus
 } from "../domain/costing";
+import { isCustomerPayment, OWNER_AMBIGUOUS_TYPES, TRANSACTION_TYPE_LABELS } from "../domain/transactions";
 import { findOrCreateVendor } from "../data/vendors";
 import { money, titleize, uid } from "../domain/format";
 import { errorMessage } from "../lib/errorMessage";
 import { toast } from "../lib/toast";
 import { useAuth } from "../state/AuthContext";
 import { useCompany } from "../state/CompanyContext";
-import { COST_CATEGORIES, COST_LINE_ITEM_STATUSES, type CostCategory, type CostLineItemStatus } from "../domain/types";
+import {
+  COST_CATEGORIES,
+  COST_LINE_ITEM_STATUSES,
+  REFUND_STATUSES,
+  TRANSACTION_TYPES,
+  type CostCategory,
+  type CostLineItemStatus,
+  type RefundStatus,
+  type TransactionType
+} from "../domain/types";
 
 const HEALTH_LABEL: Record<HealthStatus, string> = {
   green: "On track",
@@ -61,6 +78,7 @@ export default function ProjectFinancials() {
   const { jobId } = useParams<{ jobId: string }>();
   const { activeCompanyId } = useCompany();
   const { session } = useAuth();
+  const { isOwner } = useIsOwner();
   const queryClient = useQueryClient();
 
   const { data: jobs = [], isLoading: jobsLoading } = useJobs(activeCompanyId);
@@ -72,11 +90,14 @@ export default function ProjectFinancials() {
   const { data: changeOrders = [], isLoading: coLoading } = useChangeOrders(jobId || null);
   const { data: vendors = [] } = useVendors(activeCompanyId);
   const { data: users = [] } = useUsers();
+  const { data: transactions = [], isLoading: txnLoading } = useTransactionsByJob(jobId || null);
+  const { data: refunds = [], isLoading: refundsLoading } = useRefunds(jobId || null);
+  const { data: profitReleases = [], isLoading: releasesLoading } = useProfitReleases(jobId || null);
 
   const [savingSetup, setSavingSetup] = useState(false);
   const [setupContract, setSetupContract] = useState<string>("");
 
-  const loading = jobsLoading || settingsLoading || pfLoading || itemsLoading || coLoading;
+  const loading = jobsLoading || settingsLoading || pfLoading || itemsLoading || coLoading || txnLoading || refundsLoading || releasesLoading;
   if (loading) return <PageSkeleton kpis={6} rows={[5]} />;
 
   if (!job) {
@@ -157,10 +178,20 @@ export default function ProjectFinancials() {
   const forecastMarginVal = marginPct(forecastProfitVal, revenue);
   const remainingBudget = Math.max(0, maxCost - forecastCost);
 
-  const paymentsReceived = pf.payments_received_manual;
+  // Confirmed customer-payment transactions supersede the Phase 1 manual
+  // field once any exist for this job — see the Phase 2 migration's comment.
+  const confirmedCustomerPayments = transactions
+    .filter(t => t.status === "confirmed" && isCustomerPayment(t.transaction_type))
+    .reduce((total, t) => total + Number(t.amount || 0), 0);
+  const hasLedgerPayments = transactions.some(t => t.status === "confirmed" && isCustomerPayment(t.transaction_type));
+  const paymentsReceived = hasLedgerPayments ? confirmedCustomerPayments : pf.payments_received_manual;
   const balanceDue = Math.max(0, revenue - paymentsReceived);
   const requiredReserve = committedUnpaid + remainingEstimate + contingencyUsd;
-  const safeWithdraw = safeToWithdraw(paymentsReceived, cashPaid, committedUnpaid, remainingEstimate, contingencyUsd);
+  const releasedTotal = profitReleases.reduce((total, r) => total + Number(r.amount || 0), 0);
+  // Cash already handed out as a profit release is no longer sitting in the
+  // account either — folded into the "paid" side of the formula so it can't
+  // be released twice.
+  const safeWithdraw = safeToWithdraw(paymentsReceived, cashPaid + releasedTotal, committedUnpaid, remainingEstimate, contingencyUsd);
 
   const health = evaluateProjectHealth({
     hasEnoughData: revenue > 0,
@@ -210,7 +241,8 @@ export default function ProjectFinancials() {
 
       <div className="kpis" style={{ marginTop: 16 }}>
         <KpiCard label="Contract Value" value={money(revenue)} hint={`Original ${money(pf.original_contract_value)}`} />
-        <KpiCard label="Amount Received" value={money(paymentsReceived)} hint="Manual until the ledger (Phase 2) ships" />
+        <KpiCard label="Amount Received" value={money(paymentsReceived)} hint={hasLedgerPayments ? "From confirmed customer payments" : "Manual (no confirmed payments logged yet)"} />
+        <KpiCard label="Profit Released" value={money(releasedTotal)} hint={`Safe to release now: ${money(safeWithdraw)}`} />
         <KpiCard label="Balance Due" value={money(balanceDue)} hint="Contract value minus received" />
         <KpiCard label="Estimated Cost" value={money(estCost)} hint={`Incl. ${money(contingencyUsd)} contingency`} />
         <KpiCard label="Actual Net Cost" value={money(actualNet)} hint="Real + internal owner-labor cost" />
@@ -231,7 +263,14 @@ export default function ProjectFinancials() {
             <NumberField label="Original contract value" value={pf.original_contract_value} onSave={v => handleSaveContract("original_contract_value", v)} />
             <NumberField label="Discounts" value={pf.discounts} onSave={v => handleSaveContract("discounts", v)} />
             <NumberField label="Customer fees" value={pf.customer_fees} onSave={v => handleSaveContract("customer_fees", v)} />
-            <NumberField label={`Minimum margin % (company default ${settings?.default_minimum_margin_pct ?? 35}%)`} value={pf.minimum_margin_pct ?? ""} onSave={v => handleSaveContract("minimum_margin_pct", v)} />
+            {isOwner ? (
+              <NumberField label={`Minimum margin % (company default ${settings?.default_minimum_margin_pct ?? 35}%)`} value={pf.minimum_margin_pct ?? ""} onSave={v => handleSaveContract("minimum_margin_pct", v)} />
+            ) : (
+              <div className="field">
+                <label>Minimum margin %</label>
+                <input value={pf.minimum_margin_pct ?? `${settings?.default_minimum_margin_pct ?? 35} (company default)`} disabled />
+              </div>
+            )}
             <NumberField label="Deposit %" value={pf.deposit_pct} onSave={v => handleSaveContract("deposit_pct", v)} />
             <NumberField label="Payments received (manual)" value={pf.payments_received_manual} onSave={v => handleSaveContract("payments_received_manual", v)} />
           </div>
@@ -253,6 +292,40 @@ export default function ProjectFinancials() {
         vendors={vendors}
         users={users}
         onChanged={() => queryClient.invalidateQueries({ queryKey: ["cost-line-items", job.id] })}
+      />
+
+      <TransactionLedgerCard
+        jobId={job.id}
+        companyId={activeCompanyId!}
+        clientId={job.customer_id}
+        transactions={transactions}
+        vendors={vendors}
+        approverId={session?.user.id || null}
+        canReverse={isOwner}
+        onChanged={() => queryClient.invalidateQueries({ queryKey: ["transactions-job", job.id] })}
+      />
+
+      <RefundsCard
+        jobId={job.id}
+        companyId={activeCompanyId!}
+        refunds={refunds}
+        costLineItems={items}
+        onChanged={() => {
+          queryClient.invalidateQueries({ queryKey: ["refunds", job.id] });
+          queryClient.invalidateQueries({ queryKey: ["cost-line-items", job.id] });
+        }}
+      />
+
+      <ProfitReleaseCard
+        jobId={job.id}
+        companyId={activeCompanyId!}
+        releases={profitReleases}
+        health={health}
+        safeToWithdrawAmount={safeWithdraw}
+        stageRequired={pf.profit_release_stage}
+        currentStage={job.status}
+        isOwnerUser={isOwner}
+        onChanged={() => queryClient.invalidateQueries({ queryKey: ["profit-releases", job.id] })}
       />
     </div>
   );
@@ -461,6 +534,323 @@ function CostLineItemsCard({ jobId, companyId, items, vendors, users, onChanged 
           </div>
         </div>
         <button className="btn ghost slim" style={{ marginTop: 8 }} disabled={saving} onClick={addItem}><Plus />Add cost item</button>
+      </div>
+    </section>
+  );
+}
+
+const EMPTY_TXN_FORM = { transaction_type: "material_purchase" as TransactionType, payee_name: "", description: "", amount: "", sales_tax: "", transaction_date: new Date().toISOString().slice(0, 10), payment_method: "", account: "" };
+
+function TransactionLedgerCard({ jobId, companyId, clientId, transactions, vendors, approverId, canReverse, onChanged }: {
+  jobId: string;
+  companyId: string;
+  clientId: string | null;
+  transactions: import("../domain/types").Transaction[];
+  vendors: import("../domain/types").Vendor[];
+  approverId: string | null;
+  canReverse: boolean;
+  onChanged: () => void;
+}) {
+  const [form, setForm] = useState(EMPTY_TXN_FORM);
+  const [saving, setSaving] = useState(false);
+
+  function set<K extends keyof typeof EMPTY_TXN_FORM>(key: K, value: typeof EMPTY_TXN_FORM[K]) {
+    setForm(prev => ({ ...prev, [key]: value }));
+  }
+
+  async function add() {
+    if (!form.amount) { toast("Amount is required."); return; }
+    setSaving(true);
+    try {
+      await insertTransaction({
+        company_id: companyId,
+        client_id: clientId,
+        job_id: jobId,
+        transaction_type: form.transaction_type,
+        category: "",
+        vendor_id: null,
+        payee_name: form.payee_name.trim(),
+        description: form.description.trim(),
+        transaction_date: form.transaction_date,
+        due_date: null,
+        amount: Number(form.amount || 0),
+        sales_tax: Number(form.sales_tax || 0),
+        payment_method: form.payment_method,
+        account: form.account,
+        receipt_id: null
+      });
+      setForm(EMPTY_TXN_FORM);
+      onChanged();
+    } catch (error) {
+      toast(errorMessage(error, "Could not add transaction."));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function confirm(id: string) {
+    try {
+      await confirmTransaction(id, companyId, approverId);
+      onChanged();
+    } catch (error) {
+      toast(errorMessage(error, "Could not confirm transaction."));
+    }
+  }
+
+  async function reverse(txn: import("../domain/types").Transaction) {
+    const reason = window.prompt("Reason for reversing this transaction?", "");
+    if (reason === null) return;
+    try {
+      await reverseTransaction(txn, reason || "no reason given");
+      toast("Reversal created as a draft — review and confirm it below.");
+      onChanged();
+    } catch (error) {
+      toast(errorMessage(error, "Could not create reversal."));
+    }
+  }
+
+  async function removeDraft(id: string) {
+    await deleteDraftTransaction(id, companyId);
+    onChanged();
+  }
+
+  const showOwnerHint = OWNER_AMBIGUOUS_TYPES.includes(form.transaction_type) && form.payee_name.trim().length > 0;
+
+  return (
+    <section className="card" style={{ marginTop: 16 }}>
+      <div className="card-h"><h3>Transactions</h3></div>
+      <div className="card-b">
+        <div className="table-wrap">
+          <table>
+            <thead><tr><th>Date</th><th>Type</th><th>Payee</th><th>Description</th><th>Amount</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+              {transactions.map(t => {
+                const vendor = vendors.find(v => v.id === t.vendor_id);
+                return (
+                  <tr key={t.id}>
+                    <td>{t.transaction_date}</td>
+                    <td>{TRANSACTION_TYPE_LABELS[t.transaction_type]}</td>
+                    <td>{t.payee_name || vendor?.canonical_name || "—"}</td>
+                    <td>{t.description}{t.reversal_of && <div className="sub">Reversal of {t.reversal_of}</div>}</td>
+                    <td>{money(t.amount)}</td>
+                    <td><span className={`pill status-${t.status}`}>{t.status}</span></td>
+                    <td>
+                      {t.status === "draft" && (
+                        <>
+                          <button className="btn ghost slim" onClick={() => confirm(t.id)}>Confirm</button>
+                          <button className="icon-btn" onClick={() => removeDraft(t.id)}><Trash2 /></button>
+                        </>
+                      )}
+                      {t.status === "confirmed" && !t.reversal_of && canReverse && (
+                        <button className="btn ghost slim" onClick={() => reverse(t)}>Reverse</button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+              {transactions.length === 0 && <tr><td colSpan={7} className="muted">No transactions yet.</td></tr>}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="form-row" style={{ marginTop: 12 }}>
+          <div className="field">
+            <label>Type</label>
+            <select value={form.transaction_type} onChange={e => set("transaction_type", e.target.value as TransactionType)}>
+              {TRANSACTION_TYPES.map(t => <option key={t} value={t}>{TRANSACTION_TYPE_LABELS[t]}</option>)}
+            </select>
+          </div>
+          <div className="field"><label>Payee / vendor name</label><input value={form.payee_name} onChange={e => set("payee_name", e.target.value)} /></div>
+          <div className="field"><label>Description</label><input value={form.description} onChange={e => set("description", e.target.value)} /></div>
+          <div className="field"><label>Amount</label><input type="number" value={form.amount} onChange={e => set("amount", e.target.value)} /></div>
+          <div className="field"><label>Sales tax</label><input type="number" value={form.sales_tax} onChange={e => set("sales_tax", e.target.value)} /></div>
+          <div className="field"><label>Date</label><input type="date" value={form.transaction_date} onChange={e => set("transaction_date", e.target.value)} /></div>
+          <div className="field"><label>Payment method</label><input value={form.payment_method} onChange={e => set("payment_method", e.target.value)} /></div>
+          <div className="field"><label>Account</label><input value={form.account} onChange={e => set("account", e.target.value)} /></div>
+        </div>
+        {showOwnerHint && (
+          <p className="health-alert" style={{ marginTop: 8 }}>
+            Paying an owner? Choose <b>Owner labor payment</b> if this is pay for work performed (reduces this project's profit), or{" "}
+            <b>Owner draw / distribution</b> if this is a withdrawal of profit (does not count as a project cost).
+          </p>
+        )}
+        <button className="btn ghost slim" style={{ marginTop: 8 }} disabled={saving} onClick={add}><Plus />Add transaction (draft)</button>
+      </div>
+    </section>
+  );
+}
+
+function RefundsCard({ jobId, companyId, refunds, costLineItems, onChanged }: {
+  jobId: string;
+  companyId: string;
+  refunds: import("../domain/types").Refund[];
+  costLineItems: import("../domain/types").CostLineItem[];
+  onChanged: () => void;
+}) {
+  const [description, setDescription] = useState("");
+  const [amount, setAmount] = useState("");
+  const [costLineItemId, setCostLineItemId] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  async function add() {
+    if (!amount) return;
+    setSaving(true);
+    try {
+      await insertRefund({
+        company_id: companyId,
+        job_id: jobId,
+        cost_line_item_id: costLineItemId || null,
+        transaction_id: null,
+        description: description.trim(),
+        amount: Number(amount),
+        status: "expected",
+        expected_date: null,
+        received_date: null,
+        notes: ""
+      });
+      setDescription(""); setAmount(""); setCostLineItemId("");
+      onChanged();
+    } catch (error) {
+      toast(errorMessage(error, "Could not add refund."));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // Marking a refund received also applies it to the linked purchase's
+  // returned_amount, so net_cost/margin actually reflect the money back —
+  // the original purchase row is never removed, only its returned_amount grows.
+  async function markReceived(refund: import("../domain/types").Refund) {
+    try {
+      await updateRefund(refund.id, companyId, { status: "received", received_date: new Date().toISOString().slice(0, 10) });
+      if (refund.cost_line_item_id) {
+        const item = costLineItems.find(i => i.id === refund.cost_line_item_id);
+        if (item) await updateCostLineItem(item.id, companyId, { returned_amount: Number(item.returned_amount || 0) + Number(refund.amount || 0) });
+      }
+      onChanged();
+    } catch (error) {
+      toast(errorMessage(error, "Could not update refund."));
+    }
+  }
+
+  async function setStatus(refund: import("../domain/types").Refund, status: RefundStatus) {
+    if (status === "received") { await markReceived(refund); return; }
+    await updateRefund(refund.id, companyId, { status });
+    onChanged();
+  }
+
+  return (
+    <section className="card" style={{ marginTop: 16 }}>
+      <div className="card-h"><h3>Refunds & returns</h3></div>
+      <div className="card-b">
+        <div className="table-wrap">
+          <table>
+            <thead><tr><th>Description</th><th>Linked purchase</th><th>Amount</th><th>Status</th></tr></thead>
+            <tbody>
+              {refunds.map(r => {
+                const linked = costLineItems.find(i => i.id === r.cost_line_item_id);
+                return (
+                  <tr key={r.id}>
+                    <td>{r.description}</td>
+                    <td>{linked?.description || "—"}</td>
+                    <td>{money(r.amount)}</td>
+                    <td>
+                      <select value={r.status} onChange={e => setStatus(r, e.target.value as RefundStatus)}>
+                        {REFUND_STATUSES.map(s => <option key={s} value={s}>{titleize(s)}</option>)}
+                      </select>
+                    </td>
+                  </tr>
+                );
+              })}
+              {refunds.length === 0 && <tr><td colSpan={4} className="muted">No refunds tracked yet.</td></tr>}
+            </tbody>
+          </table>
+        </div>
+        <div className="form-row" style={{ marginTop: 12 }}>
+          <div className="field"><label>Description</label><input value={description} onChange={e => setDescription(e.target.value)} /></div>
+          <div className="field"><label>Amount</label><input type="number" value={amount} onChange={e => setAmount(e.target.value)} /></div>
+          <div className="field">
+            <label>Linked purchase (optional)</label>
+            <select value={costLineItemId} onChange={e => setCostLineItemId(e.target.value)}>
+              <option value="">—</option>
+              {costLineItems.map(i => <option key={i.id} value={i.id}>{i.description || titleize(i.category)}</option>)}
+            </select>
+          </div>
+        </div>
+        <button className="btn ghost slim" style={{ marginTop: 8 }} disabled={saving} onClick={add}><Plus />Add refund</button>
+      </div>
+    </section>
+  );
+}
+
+function ProfitReleaseCard({ jobId, companyId, releases, health, safeToWithdrawAmount, stageRequired, currentStage, isOwnerUser, onChanged }: {
+  jobId: string;
+  companyId: string;
+  releases: import("../domain/types").ProfitRelease[];
+  health: { status: HealthStatus };
+  safeToWithdrawAmount: number;
+  stageRequired: string;
+  currentStage: string;
+  isOwnerUser: boolean;
+  onChanged: () => void;
+}) {
+  const [amount, setAmount] = useState("");
+  const [notes, setNotes] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const stageBlocked = Boolean(stageRequired) && stageRequired !== currentStage;
+  const canRelease = isOwnerUser && safeToWithdrawAmount > 0 && !stageBlocked && health.status !== "red";
+
+  async function release() {
+    const value = Number(amount || 0);
+    if (!value || value > safeToWithdrawAmount) { toast(`Amount must be between $1 and the safe-to-withdraw amount (${money(safeToWithdrawAmount)}).`); return; }
+    setSaving(true);
+    try {
+      await insertProfitRelease({ company_id: companyId, job_id: jobId, amount: value, notes: notes.trim() });
+      setAmount(""); setNotes("");
+      onChanged();
+    } catch (error) {
+      toast(errorMessage(error, "Could not release profit."));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <section className="card" style={{ marginTop: 16 }}>
+      <div className="card-h"><h3>Profit release</h3></div>
+      <div className="card-b">
+        {!canRelease && (
+          <p className="health-alert">
+            {!isOwnerUser
+              ? "Only a company owner can release profit."
+              : stageBlocked
+                ? `Profit release is gated on this project reaching the "${stageRequired}" stage (currently "${currentStage}").`
+                : health.status === "red"
+                  ? "This project's profit or margin is below the minimum policy — resolve that before releasing profit."
+                  : "Nothing is safe to release right now — required costs, commitments, and contingency aren't fully covered yet."}
+          </p>
+        )}
+        <div className="table-wrap">
+          <table>
+            <thead><tr><th>Date</th><th>Amount</th><th>Notes</th></tr></thead>
+            <tbody>
+              {releases.map(r => (
+                <tr key={r.id}><td>{new Date(r.released_at).toLocaleDateString("en-US")}</td><td>{money(r.amount)}</td><td>{r.notes}</td></tr>
+              ))}
+              {releases.length === 0 && <tr><td colSpan={3} className="muted">No profit released yet.</td></tr>}
+            </tbody>
+          </table>
+        </div>
+        {canRelease && (
+          <>
+            <div className="form-row" style={{ marginTop: 12 }}>
+              <div className="field"><label>{`Amount (up to ${money(safeToWithdrawAmount)})`}</label><input type="number" value={amount} onChange={e => setAmount(e.target.value)} /></div>
+              <div className="field"><label>Notes</label><input value={notes} onChange={e => setNotes(e.target.value)} /></div>
+            </div>
+            <button className="btn ghost slim" style={{ marginTop: 8 }} disabled={saving} onClick={release}><Plus />Release profit</button>
+          </>
+        )}
       </div>
     </section>
   );

@@ -15,6 +15,7 @@ import {
   Puzzle,
   UserCog,
   Users,
+  Wallet,
   type LucideIcon
 } from "lucide-react";
 
@@ -47,6 +48,7 @@ export const MODULES: [string, string][] = [
   ["import", "Import Center"],
   ["integrations", "Integrations"],
   ["reports", "Reports"],
+  ["company-financials", "Company Financials"],
   ["audit-log", "Audit Log"],
   ["users", "Users & Access"]
 ];
@@ -65,6 +67,7 @@ export const MODULE_ICONS: Record<string, LucideIcon> = {
   import: Download,
   integrations: Puzzle,
   reports: BarChart3,
+  "company-financials": Wallet,
   "audit-log": History,
   users: UserCog
 };

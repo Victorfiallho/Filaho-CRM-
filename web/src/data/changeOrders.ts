@@ -8,6 +8,12 @@ export async function listChangeOrders(jobId: string): Promise<ChangeOrder[]> {
   return (data || []) as ChangeOrder[];
 }
 
+export async function listChangeOrdersByCompany(companyId: string): Promise<ChangeOrder[]> {
+  const { data, error } = await supabase.from("change_orders").select("*").eq("company_id", companyId);
+  if (error) throw error;
+  return (data || []) as ChangeOrder[];
+}
+
 export async function insertChangeOrder(row: Omit<ChangeOrder, "id" | "created_at" | "updated_at" | "approved_by" | "approved_at" | "status"> & { status?: ChangeOrder["status"] }): Promise<ChangeOrder> {
   const record = { id: uid("co"), status: "draft", approved_by: null, approved_at: null, created_at: now(), updated_at: now(), ...row };
   const { data, error } = await supabase.from("change_orders").insert(record).select().single();

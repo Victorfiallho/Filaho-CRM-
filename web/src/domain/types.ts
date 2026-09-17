@@ -316,6 +316,73 @@ export interface CostLineItem {
   updated_at: string;
 }
 
+// ── Project Costing & Financial Control (Phase 2 — ledger) ───────────────
+export const TRANSACTION_TYPES = [
+  "customer_deposit", "progress_payment", "final_payment", "change_order_payment",
+  "material_purchase", "labor_payment", "subcontractor_payment", "employee_payment",
+  "owner_labor_payment", "vendor_refund", "vendor_credit", "customer_refund",
+  "processing_fee", "reimbursement", "owner_draw", "transfer", "adjustment",
+  "other_income", "other_expense"
+] as const;
+export type TransactionType = typeof TRANSACTION_TYPES[number];
+
+export type TransactionStatus = "draft" | "confirmed";
+
+export interface Transaction {
+  id: string;
+  company_id: string;
+  client_id: string | null;
+  job_id: string | null;
+  transaction_type: TransactionType;
+  category: string;
+  vendor_id: string | null;
+  payee_name: string;
+  description: string;
+  transaction_date: string;
+  due_date: string | null;
+  amount: number;
+  sales_tax: number;
+  payment_method: string;
+  account: string;
+  status: TransactionStatus;
+  receipt_id: string | null;
+  reversal_of: string | null;
+  created_by: string | null;
+  approved_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export const REFUND_STATUSES = ["expected", "submitted", "processing", "received", "denied"] as const;
+export type RefundStatus = typeof REFUND_STATUSES[number];
+
+export interface Refund {
+  id: string;
+  company_id: string;
+  job_id: string;
+  cost_line_item_id: string | null;
+  transaction_id: string | null;
+  description: string;
+  amount: number;
+  status: RefundStatus;
+  expected_date: string | null;
+  received_date: string | null;
+  notes: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProfitRelease {
+  id: string;
+  company_id: string;
+  job_id: string;
+  amount: number;
+  released_by: string | null;
+  released_at: string;
+  notes: string;
+  created_at: string;
+}
+
 export type MapKind = "customer" | "lead" | "job";
 
 export interface MapRecord {

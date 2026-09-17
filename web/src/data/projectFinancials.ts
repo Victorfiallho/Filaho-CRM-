@@ -9,6 +9,12 @@ export async function getProjectFinancials(jobId: string): Promise<ProjectFinanc
   return (data as ProjectFinancials) || null;
 }
 
+export async function listProjectFinancialsByCompany(companyId: string): Promise<ProjectFinancials[]> {
+  const { data, error } = await supabase.from("project_financials").select("*").eq("company_id", companyId);
+  if (error) throw error;
+  return (data || []) as ProjectFinancials[];
+}
+
 export async function createProjectFinancials(row: {
   company_id: string;
   job_id: string;

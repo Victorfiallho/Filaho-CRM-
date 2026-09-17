@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import Shell from "./components/Shell";
 import AuditLog from "./pages/AuditLog";
 import Calendar from "./pages/Calendar";
+import CompanyFinancials from "./pages/CompanyFinancials";
 import CompanyPicker from "./pages/CompanyPicker";
 import Customers from "./pages/Customers";
 import Dashboard from "./pages/Dashboard";
@@ -33,6 +34,7 @@ export default function App() {
         <Route path="/import" element={<ImportCenter />} />
         <Route path="/integrations" element={<Integrations />} />
         <Route path="/reports" element={<Reports />} />
+        <Route path="/company-financials" element={<CompanyFinancials />} />
         <Route path="/audit-log" element={<AuditLog />} />
         <Route path="/users" element={<UserManagement />} />
       </Route>

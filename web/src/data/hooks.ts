@@ -5,9 +5,9 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { listAdminUsers } from "./adminUsers";
 import { listAuditLog, type AuditLogFilters } from "./auditLog";
 import { getCampaignRoi } from "./campaignRoi";
-import { listChangeOrders } from "./changeOrders";
+import { listChangeOrders, listChangeOrdersByCompany } from "./changeOrders";
 import { listMyMemberships } from "./companies";
-import { listCostLineItems } from "./costLineItems";
+import { listCostLineItems, listCostLineItemsByCompany } from "./costLineItems";
 import { listCustomers } from "./customers";
 import { getFinanceSettings } from "./financeSettings";
 import { listFiles } from "./files";
@@ -20,7 +20,10 @@ import { listLeads } from "./leads";
 import { listMetaAdsInsights } from "./metaAds";
 import { listNotes } from "./notes";
 import { getCurrentAppUser, listUsers } from "./users";
-import { getProjectFinancials } from "./projectFinancials";
+import { getProjectFinancials, listProjectFinancialsByCompany } from "./projectFinancials";
+import { listProfitReleases, listProfitReleasesByCompany } from "./profitReleases";
+import { listRefundsByJob } from "./refunds";
+import { listTransactionsByCompany, listTransactionsByJob } from "./transactions";
 import { listVendors } from "./vendors";
 
 export function useCustomers(companyId: string | null) {
@@ -198,6 +201,70 @@ export function useVendors(companyId: string | null) {
     queryFn: () => listVendors(companyId!),
     enabled: Boolean(companyId),
     staleTime: 60 * 1000
+  });
+}
+
+export function useTransactionsByJob(jobId: string | null) {
+  return useQuery({
+    queryKey: ["transactions-job", jobId],
+    queryFn: () => listTransactionsByJob(jobId!),
+    enabled: Boolean(jobId)
+  });
+}
+
+export function useCompanyTransactions(companyId: string | null) {
+  return useQuery({
+    queryKey: ["transactions-company", companyId],
+    queryFn: () => listTransactionsByCompany(companyId!),
+    enabled: Boolean(companyId)
+  });
+}
+
+export function useRefunds(jobId: string | null) {
+  return useQuery({
+    queryKey: ["refunds", jobId],
+    queryFn: () => listRefundsByJob(jobId!),
+    enabled: Boolean(jobId)
+  });
+}
+
+export function useProfitReleases(jobId: string | null) {
+  return useQuery({
+    queryKey: ["profit-releases", jobId],
+    queryFn: () => listProfitReleases(jobId!),
+    enabled: Boolean(jobId)
+  });
+}
+
+export function useCompanyProjectFinancials(companyId: string | null) {
+  return useQuery({
+    queryKey: ["project-financials-company", companyId],
+    queryFn: () => listProjectFinancialsByCompany(companyId!),
+    enabled: Boolean(companyId)
+  });
+}
+
+export function useCompanyCostLineItems(companyId: string | null) {
+  return useQuery({
+    queryKey: ["cost-line-items-company", companyId],
+    queryFn: () => listCostLineItemsByCompany(companyId!),
+    enabled: Boolean(companyId)
+  });
+}
+
+export function useCompanyChangeOrders(companyId: string | null) {
+  return useQuery({
+    queryKey: ["change-orders-company", companyId],
+    queryFn: () => listChangeOrdersByCompany(companyId!),
+    enabled: Boolean(companyId)
+  });
+}
+
+export function useCompanyProfitReleases(companyId: string | null) {
+  return useQuery({
+    queryKey: ["profit-releases-company", companyId],
+    queryFn: () => listProfitReleasesByCompany(companyId!),
+    enabled: Boolean(companyId)
   });
 }
 

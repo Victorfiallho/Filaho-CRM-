@@ -1,4 +1,5 @@
-import { Briefcase, FolderOpen, Plus } from "lucide-react";
+import { Briefcase, DollarSign, FolderOpen, Plus } from "lucide-react";
+import { Link } from "react-router-dom";
 import { useCustomers, useIntegrationSettings, useJobs } from "../data/hooks";
 import { filterRowsBySearch } from "../domain/search";
 import { money } from "../domain/format";
@@ -28,7 +29,7 @@ export default function Jobs() {
       </div>
       <div className="table-wrap">
         <table>
-          <thead><tr><th>Job</th><th>Status</th><th>Client</th><th>Date</th><th>Value</th><th>Drive</th></tr></thead>
+          <thead><tr><th>Job</th><th>Status</th><th>Client</th><th>Date</th><th>Value</th><th>Drive</th><th>Financials</th></tr></thead>
           <tbody>
             {rows.map(j => {
               const cust = customers.find(c => c.id === j.customer_id);
@@ -47,11 +48,14 @@ export default function Jobs() {
                         ? <a href={driveRootUrl} target="_blank" rel="noreferrer"><FolderOpen />Link root</a>
                         : <span className="muted">—</span>}
                   </td>
+                  <td onClick={e => e.stopPropagation()}>
+                    <Link to={`/jobs/${j.id}/financials`}><DollarSign />Costing</Link>
+                  </td>
                 </tr>
               );
             })}
             {!isLoading && rows.length === 0 && (
-              <tr><td colSpan={6}><div className="empty"><Briefcase />No jobs yet</div></td></tr>
+              <tr><td colSpan={7}><div className="empty"><Briefcase />No jobs yet</div></td></tr>
             )}
           </tbody>
         </table>

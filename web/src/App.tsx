@@ -11,6 +11,7 @@ import Jobs from "./pages/Jobs";
 import Login from "./pages/Login";
 import MapRoutes from "./pages/MapRoutes";
 import Pipeline from "./pages/Pipeline";
+import ProjectFinancials from "./pages/ProjectFinancials";
 import Reports from "./pages/Reports";
 import ResetPassword from "./pages/ResetPassword";
 import UserManagement from "./pages/UserManagement";
@@ -26,6 +27,7 @@ export default function App() {
         <Route path="/pipeline" element={<Pipeline />} />
         <Route path="/customers" element={<Customers />} />
         <Route path="/jobs" element={<Jobs />} />
+        <Route path="/jobs/:jobId/financials" element={<ProjectFinancials />} />
         <Route path="/calendar" element={<Calendar />} />
         <Route path="/map" element={<MapRoutes />} />
         <Route path="/import" element={<ImportCenter />} />

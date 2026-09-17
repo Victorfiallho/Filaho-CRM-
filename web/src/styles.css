@@ -469,6 +469,22 @@ tr.row-clickable{cursor:pointer}
 .pill.status-in-progress{background:var(--yellow-soft);color:var(--yellow)}
 .pill.status-complete{background:var(--success-soft);color:#047857}
 .pill.status-connected{background:var(--success-soft);color:#047857}
+.pill.status-approved{background:var(--success-soft);color:#047857}
+.pill.status-draft{background:rgba(100,116,139,.14);color:var(--muted)}
+.pill.status-rejected{background:rgba(214,69,69,.12);color:var(--red)}
+
+.health-banner{display:flex;align-items:flex-start;gap:12px;border-radius:var(--radius-sm);padding:14px 16px;border:1px solid var(--line-strong)}
+.health-banner svg{width:22px;height:22px;flex:0 0 auto;margin-top:1px}
+.health-banner b{display:block;font-size:14px;margin-bottom:2px}
+.health-alert{font-size:12.5px;color:var(--ink-soft);margin-top:2px}
+.health-green{background:var(--success-soft);color:#047857}
+.health-green svg{color:#047857}
+.health-yellow{background:var(--yellow-soft);color:#92610a}
+.health-yellow svg{color:var(--yellow)}
+.health-red{background:rgba(214,69,69,.1);color:var(--red)}
+.health-red svg{color:var(--red)}
+.health-gray{background:var(--soft);color:var(--muted)}
+.health-gray svg{color:var(--muted-soft)}
 .link-btn{background:transparent;color:var(--blue);font-weight:600;font-size:12.5px;padding:0}
 .link-btn:hover{text-decoration:underline}
 .attention-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-top:1px solid var(--line-strong)}

@@ -5,8 +5,11 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { listAdminUsers } from "./adminUsers";
 import { listAuditLog, type AuditLogFilters } from "./auditLog";
 import { getCampaignRoi } from "./campaignRoi";
+import { listChangeOrders } from "./changeOrders";
 import { listMyMemberships } from "./companies";
+import { listCostLineItems } from "./costLineItems";
 import { listCustomers } from "./customers";
+import { getFinanceSettings } from "./financeSettings";
 import { listFiles } from "./files";
 import { getFunnelSummary } from "./funnel";
 import { getIntegrationSettings } from "./integrationSettings";
@@ -17,6 +20,8 @@ import { listLeads } from "./leads";
 import { listMetaAdsInsights } from "./metaAds";
 import { listNotes } from "./notes";
 import { getCurrentAppUser, listUsers } from "./users";
+import { getProjectFinancials } from "./projectFinancials";
+import { listVendors } from "./vendors";
 
 export function useCustomers(companyId: string | null) {
   return useQuery({
@@ -153,6 +158,47 @@ export function usePermissions() {
     isLoading: ownerLoading || profileLoading,
     has: (perm: string) => isOwner || permissionSet.has(perm)
   };
+}
+
+export function useFinanceSettings(companyId: string | null) {
+  return useQuery({
+    queryKey: ["finance-settings", companyId],
+    queryFn: () => getFinanceSettings(companyId!),
+    enabled: Boolean(companyId)
+  });
+}
+
+export function useProjectFinancials(jobId: string | null) {
+  return useQuery({
+    queryKey: ["project-financials", jobId],
+    queryFn: () => getProjectFinancials(jobId!),
+    enabled: Boolean(jobId)
+  });
+}
+
+export function useChangeOrders(jobId: string | null) {
+  return useQuery({
+    queryKey: ["change-orders", jobId],
+    queryFn: () => listChangeOrders(jobId!),
+    enabled: Boolean(jobId)
+  });
+}
+
+export function useCostLineItems(jobId: string | null) {
+  return useQuery({
+    queryKey: ["cost-line-items", jobId],
+    queryFn: () => listCostLineItems(jobId!),
+    enabled: Boolean(jobId)
+  });
+}
+
+export function useVendors(companyId: string | null) {
+  return useQuery({
+    queryKey: ["vendors", companyId],
+    queryFn: () => listVendors(companyId!),
+    enabled: Boolean(companyId),
+    staleTime: 60 * 1000
+  });
 }
 
 export function useInvalidateCompanyData(companyId: string | null) {

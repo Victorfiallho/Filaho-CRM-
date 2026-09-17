@@ -383,6 +383,50 @@ export interface ProfitRelease {
   created_at: string;
 }
 
+// ── Project Costing & Financial Control (Phase 3 — Google Drive) ─────────
+export type DriveEntityType = "root" | "company" | "client" | "job";
+
+export interface DriveFolder {
+  id: string;
+  company_id: string;
+  entity_type: DriveEntityType;
+  entity_id: string;
+  subfolder_key: string;
+  drive_folder_id: string;
+  drive_folder_url: string;
+  created_at: string;
+}
+
+export interface DriveFile {
+  id: string;
+  company_id: string;
+  entity_type: "client" | "job";
+  entity_id: string;
+  drive_folder_id: string;
+  drive_file_id: string;
+  file_name: string;
+  mime_type: string;
+  category: string;
+  related_transaction_id: string | null;
+  uploaded_by: string | null;
+  upload_date: string;
+  sync_status: "synced" | "error";
+  last_sync_date: string;
+  created_at: string;
+}
+
+export const PROJECT_DRIVE_SUBFOLDERS = [
+  "01 - Proposal & Contract",
+  "02 - Invoices & Payments",
+  "03 - Costs & Receipts",
+  "04 - Materials & Orders",
+  "05 - Photos & Videos",
+  "06 - Designs & Measurements",
+  "07 - Change Orders",
+  "08 - Financial Reports"
+] as const;
+export type ProjectDriveSubfolder = typeof PROJECT_DRIVE_SUBFOLDERS[number];
+
 export type MapKind = "customer" | "lead" | "job";
 
 export interface MapRecord {

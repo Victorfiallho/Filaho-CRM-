@@ -15,7 +15,17 @@
 import { createClient } from "@supabase/supabase-js";
 import { createHmac, randomBytes } from "crypto";
 
-const STATE_SCOPE = "https://www.googleapis.com/auth/calendar.events";
+// drive.file added 2026-09-17 (Project Costing Phase 3) — lets the same
+// background token create/manage the Fialho CRM folder tree (drive-
+// provision.js) and upload generated documents (drive-upload.js). Scoped to
+// files/folders this app itself creates, per Victor's choice — NOT the
+// broader "drive" scope, so it can never see a company's other Drive
+// content, and cannot detect a file a human drops directly into a folder
+// without going through the app (no bidirectional sync from that path).
+// Companies that connected Google before this change only granted the old
+// calendar-only scope and must click "Reconnect" once in Integrations to
+// pick up Drive access — Google only grants what's requested at connect time.
+const STATE_SCOPE = "https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/drive.file";
 
 function signState(payload, secret) {
   const json = Buffer.from(JSON.stringify(payload)).toString("base64url");

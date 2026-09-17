@@ -20,6 +20,7 @@ import { listLeads } from "./leads";
 import { listMetaAdsInsights } from "./metaAds";
 import { listNotes } from "./notes";
 import { getCurrentAppUser, listUsers } from "./users";
+import { listDriveFiles } from "./driveDocs";
 import { getProjectFinancials, listProjectFinancialsByCompany } from "./projectFinancials";
 import { listProfitReleases, listProfitReleasesByCompany } from "./profitReleases";
 import { listRefundsByJob } from "./refunds";
@@ -265,6 +266,14 @@ export function useCompanyProfitReleases(companyId: string | null) {
     queryKey: ["profit-releases-company", companyId],
     queryFn: () => listProfitReleasesByCompany(companyId!),
     enabled: Boolean(companyId)
+  });
+}
+
+export function useDriveFiles(entityType: "client" | "job", entityId: string | null) {
+  return useQuery({
+    queryKey: ["drive-files", entityType, entityId],
+    queryFn: () => listDriveFiles(entityType, entityId!),
+    enabled: Boolean(entityId)
   });
 }
 

@@ -1,9 +1,11 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { FolderOpen } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Select from "./Select";
 import { summarizeJob, type JobAiSummary } from "../data/aiSummary";
 import { listCustomers, insertCustomer, updateCustomer, deleteCustomer } from "../data/customers";
+import { fileToBase64, provisionDriveFolder, uploadFileToDrive } from "../data/driveDocs";
 import { deleteFile, insertFile } from "../data/files";
 import { geocodeAddress } from "../data/geocoding";
 import { useCurrentAppUser, useFiles, useIntegrationSettings, useMetaAdsInsights, useNotes, usePermissions, useUsers } from "../data/hooks";
@@ -13,6 +15,7 @@ import { insertLead, updateLead, deleteLead } from "../data/leads";
 import { deleteNote, insertNote } from "../data/notes";
 import { now, uid } from "../domain/format";
 import { titleize } from "../domain/format";
+import { PROJECT_DRIVE_SUBFOLDERS } from "../domain/types";
 import { errorMessage } from "../lib/errorMessage";
 import { openDrivePicker } from "../lib/googleDrivePicker";
 import { connectGoogleWorkspace, googleAccessTokenFor } from "../lib/googleOAuth";
@@ -74,6 +77,9 @@ function RecordModalContent() {
   const [newFileName, setNewFileName] = useState("");
   const [newFileUrl, setNewFileUrl] = useState("");
   const [addingFile, setAddingFile] = useState(false);
+  const [provisioningFolder, setProvisioningFolder] = useState(false);
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const [uploadSubfolder, setUploadSubfolder] = useState<string>(PROJECT_DRIVE_SUBFOLDERS[2]);
   const [aiSummary, setAiSummary] = useState<JobAiSummary | null>(null);
   const [summarizing, setSummarizing] = useState(false);
 
@@ -256,8 +262,15 @@ function RecordModalContent() {
           lng: Number(jobCustomer?.lng || 0) || ""
         };
         await autoGeocode(data);
-        if (isEdit && r.id) await updateJob(r.id, activeCompanyId, data as any);
-        else await insertJob({ ...(data as any), id: uid("job"), created_at: now() });
+        if (isEdit && r.id) {
+          await updateJob(r.id, activeCompanyId, data as any);
+        } else {
+          const newJobId = uid("job");
+          await insertJob({ ...(data as any), id: newJobId, created_at: now() });
+          provisionDriveFolder(activeCompanyId, "job", newJobId).catch(error =>
+            toast(errorMessage(error, "Job saved, but its Drive folder could not be created automatically — use \"Create/locate Drive folder\" on the job later."))
+          );
+        }
         queryClient.invalidateQueries({ queryKey: ["jobs", activeCompanyId] });
       } else {
         // `notes` and `drive_folder_url` only exist on the `customers` table —
@@ -319,6 +332,9 @@ function RecordModalContent() {
             queryClient.invalidateQueries({ queryKey: ["leads", activeCompanyId] });
           } else {
             await insertCustomer(data as any);
+            provisionDriveFolder(activeCompanyId, "client", data.id).catch(error =>
+              toast(errorMessage(error, "Client saved, but their Drive folder could not be created automatically — use \"Create/locate Drive folder\" on the client later."))
+            );
           }
           queryClient.invalidateQueries({ queryKey: ["customers", activeCompanyId] });
         }
@@ -477,6 +493,48 @@ function RecordModalContent() {
     }
   }
 
+  // Manual fallback to the automatic provisioning in handleSave — for
+  // records created before this feature existed, or if the automatic call
+  // failed silently (e.g. Google wasn't connected yet for this company).
+  async function handleProvisionFolder() {
+    if (!activeCompanyId || !r.id) return;
+    setProvisioningFolder(true);
+    try {
+      const result = await provisionDriveFolder(activeCompanyId, type === "job" ? "job" : "client", r.id);
+      set("drive_folder_url", result.folder_url);
+      queryClient.invalidateQueries({ queryKey: [type === "job" ? "jobs" : "customers", activeCompanyId] });
+      toast("Drive folder ready.");
+    } catch (error) {
+      toast(errorMessage(error, "Could not create/locate the Drive folder."));
+    } finally {
+      setProvisioningFolder(false);
+    }
+  }
+
+  async function handleUploadToDrive(fileList: FileList | null) {
+    const file = fileList?.[0];
+    if (!activeCompanyId || !r.id || !file) return;
+    setUploadingFile(true);
+    try {
+      const fileBase64 = await fileToBase64(file);
+      await uploadFileToDrive({
+        companyId: activeCompanyId,
+        entityType: type === "job" ? "job" : "client",
+        entityId: r.id,
+        subfolderKey: type === "job" ? uploadSubfolder : "",
+        fileName: file.name,
+        mimeType: file.type || "application/octet-stream",
+        fileBase64
+      });
+      queryClient.invalidateQueries({ queryKey: ["files", activeCompanyId, type, r.id] });
+      toast("Uploaded to Drive.");
+    } catch (error) {
+      toast(errorMessage(error, "Could not upload that file to Drive."));
+    } finally {
+      setUploadingFile(false);
+    }
+  }
+
   // Read-only location preview for the Job form (see handleSave's job
   // branch, which pulls the actual saved address/city/state/zip/lat/lng from
   // this same customer rather than from any job-specific input).
@@ -501,7 +559,17 @@ function RecordModalContent() {
               <SelectField label="Service" value={form.service_type} options={services} onChange={v => set("service_type", v)} />
               <Field label="Scheduled date" value={form.scheduled_date} onChange={v => set("scheduled_date", v)} type="date" />
               <Field label="Estimated value" value={String(form.estimated_value)} onChange={v => set("estimated_value", v)} type="number" />
-              <Field label="Google Drive folder URL" value={form.drive_folder_url} onChange={v => set("drive_folder_url", v)} />
+              <div className="field">
+                <label>Google Drive folder</label>
+                <div className="inline-actions">
+                  {form.drive_folder_url && <a className="btn ghost slim" href={form.drive_folder_url} target="_blank" rel="noreferrer"><FolderOpen />Open project folder</a>}
+                  {isEdit && (
+                    <button className="btn ghost slim" type="button" onClick={handleProvisionFolder} disabled={provisioningFolder}>
+                      {provisioningFolder ? "Working..." : form.drive_folder_url ? "Re-locate folder" : "Create Drive folder"}
+                    </button>
+                  )}
+                </div>
+              </div>
               <div className="field" style={{ gridColumn: "1 / -1" }}>
                 <label>Location</label>
                 {jobLocationCustomer?.address || jobLocationCustomer?.city ? (
@@ -572,7 +640,19 @@ function RecordModalContent() {
                 <Field label="City" value={form.city} onChange={v => set("city", v)} />
                 <Field label="State" value={form.state} onChange={v => set("state", v)} />
                 <Field label="ZIP" value={form.zip} onChange={v => set("zip", v)} />
-                {type === "customer" && <Field label="Google Drive folder URL" value={form.drive_folder_url} onChange={v => set("drive_folder_url", v)} />}
+                {type === "customer" && (
+                  <div className="field">
+                    <label>Google Drive folder</label>
+                    <div className="inline-actions">
+                      {form.drive_folder_url && <a className="btn ghost slim" href={form.drive_folder_url} target="_blank" rel="noreferrer"><FolderOpen />Open client folder</a>}
+                      {isEdit && (
+                        <button className="btn ghost slim" type="button" onClick={handleProvisionFolder} disabled={provisioningFolder}>
+                          {provisioningFolder ? "Working..." : form.drive_folder_url ? "Re-locate folder" : "Create Drive folder"}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
                 <Field label="Latitude" value={String(form.lat)} onChange={v => set("lat", v)} type="number" />
                 <Field label="Longitude" value={String(form.lng)} onChange={v => set("lng", v)} type="number" />
               </div>
@@ -625,6 +705,20 @@ function RecordModalContent() {
                     </button>
                     <button className="btn ghost slim" onClick={handleAttachFromDrive} disabled={addingFile}>Attach from Drive</button>
                   </div>
+                  {type === "job" && (
+                    <div className="field" style={{ marginTop: 8 }}>
+                      <label>Upload to folder</label>
+                      <Select value={uploadSubfolder} onChange={setUploadSubfolder} options={PROJECT_DRIVE_SUBFOLDERS.map(s => ({ value: s, label: s }))} />
+                    </div>
+                  )}
+                  <input
+                    type="file"
+                    style={{ marginTop: 8 }}
+                    disabled={uploadingFile || !form.drive_folder_url}
+                    onChange={e => { handleUploadToDrive(e.target.files); e.target.value = ""; }}
+                  />
+                  {!form.drive_folder_url && <p className="sub">Create the Drive folder above before uploading a file here.</p>}
+                  {uploadingFile && <p className="sub">Uploading to Drive...</p>}
                 </div>
               </div>
             </div>

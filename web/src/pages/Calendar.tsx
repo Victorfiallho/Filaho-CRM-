@@ -99,19 +99,34 @@ export default function Calendar() {
             {cells.map(({ day, date }) => {
               const dayJobs = monthJobs.filter(job => job.scheduled_date === date);
               return (
-                <button key={date} className={`cal-cell${date === today ? " today" : ""}`} onClick={() => openQuickJob(date)}>
+                <div
+                  key={date}
+                  className={`cal-cell${date === today ? " today" : ""}`}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => openQuickJob(date)}
+                  onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openQuickJob(date); } }}
+                  aria-label={dayJobs.length ? `${day}, ${dayJobs.length} job${dayJobs.length === 1 ? "" : "s"} — add another` : `${day}, add a job`}
+                >
                   <span className="cal-day">{day}</span>
                   {dayJobs.slice(0, 3).map(job => {
                     const c = chipColorFor(job);
                     return (
-                      <span className="cal-job" key={job.id} style={{ background: c.bg, color: c.fg }}>
+                      <button
+                        type="button"
+                        className="cal-job"
+                        key={job.id}
+                        style={{ background: c.bg, color: c.fg }}
+                        onClick={e => { e.stopPropagation(); openRecordModal("job", job); }}
+                        title={job.title}
+                      >
                         <span className="cal-job-dot" style={{ background: c.fg }} />
                         {job.title}
-                      </span>
+                      </button>
                     );
                   })}
                   {dayJobs.length > 3 && <span className="cal-more">+{dayJobs.length - 3} more</span>}
-                </button>
+                </div>
               );
             })}
           </div>

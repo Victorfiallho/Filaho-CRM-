@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { Award, AlertTriangle, Clock, Inbox, MapPin, Plus, Settings, Target, Wallet } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import KpiCard from "../components/KpiCard";
 import PageSkeleton from "../components/PageSkeleton";
 import Select from "../components/Select";
@@ -48,8 +48,12 @@ export default function Pipeline() {
   const sources = useMemo(() => unique(leads.map(l => l.source).filter(Boolean) as string[]), [leads]);
   const filteredLeads = sourceFilter === "all" ? leads : leads.filter(l => l.source === sourceFilter);
 
-  const openLeads = allLeads.filter(l => isOpenStage(l.stage_id, stages));
-  const wonLeads = allLeads.filter(l => isWonStage(l.stage_id, stages));
+  // Matches whatever the board is actually showing (search + source filter)
+  // instead of always totaling every lead regardless of the filter above —
+  // a filtered-down board with KPIs still quoting the unfiltered company-wide
+  // totals read as a bug (the numbers didn't move when the filter did).
+  const openLeads = filteredLeads.filter(l => isOpenStage(l.stage_id, stages));
+  const wonLeads = filteredLeads.filter(l => isWonStage(l.stage_id, stages));
   const pipelineValue = openLeads.reduce((t, l) => t + Number(l.value || 0), 0);
   const wonValue = wonLeads.reduce((t, l) => t + Number(l.value || 0), 0);
 
@@ -69,6 +73,25 @@ export default function Pipeline() {
     } finally {
       queryClient.invalidateQueries({ queryKey: ["leads", activeCompanyId] });
     }
+  };
+
+  // Touch/pen counterpart to the native HTML5 DnD above — the native
+  // `draggable` API has no touch support in most mobile browsers, which
+  // left the whole "drag a lead to another stage" interaction dead on
+  // tablet/phone (moving a lead was still possible via the edit modal's
+  // stage dropdown, just not via the board). Pointer Events unify mouse/
+  // touch/pen, so this only engages for non-mouse pointers (see LeadCard's
+  // pointerType check below) — the existing mouse path is untouched.
+  const handleTouchDragStart = (leadId: string) => setDraggingId(leadId);
+  const stageIdAtPoint = (clientX: number, clientY: number): string | null =>
+    (document.elementFromPoint(clientX, clientY)?.closest<HTMLElement>("[data-stage-id]"))?.dataset.stageId || null;
+  const handleTouchDragOver = (clientX: number, clientY: number) => setDragOverStage(stageIdAtPoint(clientX, clientY));
+  const handleTouchDrop = (clientX: number, clientY: number) => {
+    const stageId = stageIdAtPoint(clientX, clientY);
+    const leadId = draggingId;
+    setDraggingId(null);
+    setDragOverStage(null);
+    if (leadId && stageId) moveLead(leadId, stageId);
   };
 
   if (isLoading) return <PageSkeleton kpis={4} cards={0} />;
@@ -101,6 +124,7 @@ export default function Pipeline() {
           <section
             className={`stage${dragOverStage === stage.id ? " drag-over" : ""}`}
             key={stage.id}
+            data-stage-id={stage.id}
             style={{ borderTop: `3px solid ${stage.color || "var(--line-strong)"}` }}
             onDragOver={e => { e.preventDefault(); setDragOverStage(stage.id); }}
             onDragLeave={() => setDragOverStage(prev => (prev === stage.id ? null : prev))}
@@ -130,6 +154,9 @@ export default function Pipeline() {
                     onClick={() => openRecordModal("lead", lead)}
                     onDragStart={e => { e.dataTransfer.setData("text/plain", lead.id); e.dataTransfer.effectAllowed = "move"; setDraggingId(lead.id); }}
                     onDragEnd={() => setDraggingId(null)}
+                    onTouchDragStart={() => handleTouchDragStart(lead.id)}
+                    onTouchDragOver={handleTouchDragOver}
+                    onTouchDrop={handleTouchDrop}
                   />
                 ))
                 : (
@@ -159,10 +186,68 @@ export default function Pipeline() {
   );
 }
 
-function LeadCard({ lead, color, stagnantDays, dragging, onClick, onDragStart, onDragEnd }: {
+const TOUCH_LONG_PRESS_MS = 260;
+const TOUCH_CANCEL_THRESHOLD_PX = 10;
+
+function LeadCard({ lead, color, stagnantDays, dragging, onClick, onDragStart, onDragEnd, onTouchDragStart, onTouchDragOver, onTouchDrop }: {
   lead: Lead; color: string; stagnantDays?: number; dragging: boolean; onClick: () => void;
   onDragStart: (e: React.DragEvent) => void; onDragEnd: () => void;
+  onTouchDragStart: () => void;
+  onTouchDragOver: (clientX: number, clientY: number) => void;
+  onTouchDrop: (clientX: number, clientY: number) => void;
 }) {
+  const longPressTimer = useRef<number | null>(null);
+  const pointerStart = useRef<{ x: number; y: number } | null>(null);
+  const touchDragActive = useRef(false);
+
+  function clearLongPress() {
+    if (longPressTimer.current !== null) { window.clearTimeout(longPressTimer.current); longPressTimer.current = null; }
+  }
+
+  // Long-press-to-arm (not "any movement starts dragging", which is what the
+  // native onDragStart below does for mouse) — a touch that moves right away
+  // is almost always someone scrolling the column, not trying to pick up a
+  // card. Holding still for TOUCH_LONG_PRESS_MS is the same disambiguation
+  // technique most touch drag-and-drop libraries use, and it's what lets
+  // preventDefault() on the subsequent pointermove actually suppress the
+  // browser's own scroll instead of losing the race to it.
+  function handlePointerDown(e: React.PointerEvent) {
+    if (e.pointerType === "mouse") return;
+    pointerStart.current = { x: e.clientX, y: e.clientY };
+    touchDragActive.current = false;
+    const pointerId = e.pointerId;
+    const target = e.currentTarget;
+    clearLongPress();
+    longPressTimer.current = window.setTimeout(() => {
+      touchDragActive.current = true;
+      onTouchDragStart();
+      try { target.setPointerCapture(pointerId); } catch { /* pointer already gone */ }
+    }, TOUCH_LONG_PRESS_MS);
+  }
+
+  function handlePointerMove(e: React.PointerEvent) {
+    if (e.pointerType === "mouse" || !pointerStart.current) return;
+    if (!touchDragActive.current) {
+      const dx = e.clientX - pointerStart.current.x;
+      const dy = e.clientY - pointerStart.current.y;
+      if (Math.hypot(dx, dy) > TOUCH_CANCEL_THRESHOLD_PX) clearLongPress();
+      return;
+    }
+    e.preventDefault();
+    onTouchDragOver(e.clientX, e.clientY);
+  }
+
+  function endTouchSequence(e: React.PointerEvent, commit: boolean) {
+    if (e.pointerType === "mouse") return;
+    clearLongPress();
+    if (touchDragActive.current) {
+      if (commit) onTouchDrop(e.clientX, e.clientY);
+      else onTouchDrop(-1, -1); // out of viewport — resolves to "no stage", a clean cancel
+    }
+    touchDragActive.current = false;
+    pointerStart.current = null;
+  }
+
   return (
     <button
       className={`lead-card${dragging ? " dragging" : ""}`}
@@ -170,7 +255,11 @@ function LeadCard({ lead, color, stagnantDays, dragging, onClick, onDragStart, o
       draggable
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
-      style={{ width: "calc(100% - 20px)", textAlign: "left" }}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={e => endTouchSequence(e, true)}
+      onPointerCancel={e => endTouchSequence(e, false)}
+      style={{ width: "calc(100% - 20px)", textAlign: "left", touchAction: dragging ? "none" : undefined }}
     >
       <div className="lead-card-head">
         <span className="lead-avatar" style={{ background: `color-mix(in srgb, ${color} 16%, white)`, color }}>{initials(lead.name)}</span>

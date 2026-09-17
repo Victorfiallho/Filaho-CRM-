@@ -158,6 +158,7 @@ h1,h2,h3{margin:0;letter-spacing:-.02em;font-weight:700;color:var(--ink)}
 .cs-menu{z-index:1000;background:var(--surface);border:1px solid var(--line-strong);border-radius:var(--radius-sm);box-shadow:var(--shadow-md);padding:6px;max-height:264px;overflow:auto}
 .cs-option{display:block;width:100%;text-align:left;padding:8px 10px;border-radius:8px;background:transparent;color:var(--ink-soft);font-weight:500;font-size:13.5px}
 .cs-option:hover:not(:disabled){background:var(--brand-soft);color:var(--ink)}
+.cs-option.highlighted:not(.selected){background:var(--soft);color:var(--ink)}
 .cs-option.selected{background:var(--brand);color:#fff}
 .cs-option:disabled{color:var(--muted-soft);cursor:not-allowed}
 .map-filters .cs{min-width:0}
@@ -417,6 +418,7 @@ h1,h2,h3{margin:0;letter-spacing:-.02em;font-weight:700;color:var(--ink)}
 }
 .trend-chart-tooltip-value{font-weight:700;font-size:13px}
 .trend-chart-tooltip-label{font-size:11px;opacity:.75;margin-top:1px}
+.bulk-bar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;padding:10px 20px;background:var(--brand-soft);border-bottom:1px solid var(--line-strong);font-size:13px;font-weight:600;color:var(--ink-soft)}
 .table-filters{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding-bottom:14px}
 .table-filters .cs{min-width:160px}
 .table-filters .cs .cs-trigger,.table-filters .search-field input{min-height:38px}
@@ -711,6 +713,17 @@ input[type="checkbox"]:focus-visible{outline:none;box-shadow:0 0 0 3px var(--bra
 .record-note-meta{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .toast{position:fixed;left:50%;bottom:22px;transform:translate(-50%,80px);opacity:0;background:var(--ink);color:#fff;border-radius:var(--radius-sm);padding:11px 18px;font-weight:600;box-shadow:var(--shadow-md);transition:.2s;z-index:70}
 .toast.show{transform:translate(-50%,0);opacity:1}
+/* Audit Log's readable diff — overrides table's default td{white-space:
+   nowrap} since a diff naturally has several field rows and can contain
+   long values that need to wrap instead of forcing the table wider. */
+.diff-list{display:flex;flex-direction:column;gap:4px;white-space:normal;max-width:420px}
+.diff-row{display:flex;flex-wrap:wrap;gap:6px;font-size:12.5px;line-height:1.4}
+.diff-field{font-weight:700;color:var(--ink-soft);flex:0 0 auto}
+.diff-value{color:var(--muted)}
+.diff-change{display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:0}
+.diff-old{color:var(--red);text-decoration:line-through;text-decoration-color:rgba(214,69,69,.5)}
+.diff-arrow{color:var(--muted-soft)}
+.diff-new{color:#047857;font-weight:600}
 .muted{color:var(--muted)}
 .empty{text-align:center;color:var(--muted);padding:32px;display:flex;flex-direction:column;align-items:center;gap:10px}
 .empty svg{width:28px;height:28px;color:var(--muted-soft)}

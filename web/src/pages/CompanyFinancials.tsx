@@ -3,6 +3,7 @@ import { Link, Navigate } from "react-router-dom";
 import BarRow from "../components/BarRow";
 import KpiCard from "../components/KpiCard";
 import PageSkeleton from "../components/PageSkeleton";
+import Select from "../components/Select";
 import {
   useCompanyChangeOrders,
   useCompanyCostLineItems,
@@ -157,11 +158,13 @@ export default function CompanyFinancials() {
     <div className="company-financials">
       <div className="between" style={{ marginBottom: 16 }}>
         <h2 style={{ margin: 0 }}>{activeCompany?.name} — Company Financials</h2>
-        <select value={days} onChange={e => setDays(Number(e.target.value))}>
-          <option value={30}>Last 30 days</option>
-          <option value={90}>Last 90 days</option>
-          <option value={365}>Last 365 days</option>
-        </select>
+        <div style={{ minWidth: 160 }}>
+          <Select
+            value={String(days)}
+            onChange={v => setDays(Number(v))}
+            options={[{ value: "30", label: "Last 30 days" }, { value: "90", label: "Last 90 days" }, { value: "365", label: "Last 365 days" }]}
+          />
+        </div>
       </div>
 
       <div className="kpis">

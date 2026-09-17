@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import KpiCard from "../components/KpiCard";
 import PageSkeleton from "../components/PageSkeleton";
+import Select from "../components/Select";
 import { deleteChangeOrder, insertChangeOrder, setChangeOrderStatus } from "../data/changeOrders";
 import { deleteCostLineItem, insertCostLineItem, updateCostLineItem } from "../data/costLineItems";
 import {
@@ -494,10 +495,12 @@ function CostLineItemsCard({ jobId, companyId, items, vendors, users, onChanged 
                     <td>{money(item.estimated_cost)}</td>
                     <td>{money(item.actual_paid)}</td>
                     <td>{money(item.net_cost)}</td>
-                    <td>
-                      <select value={item.status} onChange={e => setStatus(item.id, e.target.value as CostLineItemStatus)}>
-                        {COST_LINE_ITEM_STATUSES.map(s => <option key={s} value={s}>{titleize(s)}</option>)}
-                      </select>
+                    <td style={{ minWidth: 160 }}>
+                      <Select
+                        value={item.status}
+                        onChange={v => setStatus(item.id, v as CostLineItemStatus)}
+                        options={COST_LINE_ITEM_STATUSES.map(s => ({ value: s, label: titleize(s) }))}
+                      />
                     </td>
                     <td><button className="icon-btn" onClick={() => remove(item.id)}><Trash2 /></button></td>
                   </tr>
@@ -511,9 +514,7 @@ function CostLineItemsCard({ jobId, companyId, items, vendors, users, onChanged 
         <div className="form-row" style={{ marginTop: 12 }}>
           <div className="field">
             <label>Category</label>
-            <select value={form.category} onChange={e => set("category", e.target.value as CostCategory)}>
-              {COST_CATEGORIES.map(c => <option key={c} value={c}>{titleize(c)}</option>)}
-            </select>
+            <Select value={form.category} onChange={v => set("category", v as CostCategory)} options={COST_CATEGORIES.map(c => ({ value: c, label: titleize(c) }))} />
           </div>
           <div className="field"><label>Description</label><input value={form.description} onChange={e => set("description", e.target.value)} /></div>
           <div className="field"><label>Vendor</label><input value={form.vendorName} onChange={e => set("vendorName", e.target.value)} placeholder="e.g. The Home Depot" /></div>
@@ -527,10 +528,11 @@ function CostLineItemsCard({ jobId, companyId, items, vendors, users, onChanged 
           <div className="field"><label>Returned</label><input type="number" value={form.returned_amount} onChange={e => set("returned_amount", e.target.value)} /></div>
           <div className="field">
             <label>Responsible</label>
-            <select value={form.responsible_user_id} onChange={e => set("responsible_user_id", e.target.value)}>
-              <option value="">—</option>
-              {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-            </select>
+            <Select
+              value={form.responsible_user_id}
+              onChange={v => set("responsible_user_id", v)}
+              options={[{ value: "", label: "—" }, ...users.map(u => ({ value: u.id, label: u.name }))]}
+            />
           </div>
         </div>
         <button className="btn ghost slim" style={{ marginTop: 8 }} disabled={saving} onClick={addItem}><Plus />Add cost item</button>
@@ -656,9 +658,11 @@ function TransactionLedgerCard({ jobId, companyId, clientId, transactions, vendo
         <div className="form-row" style={{ marginTop: 12 }}>
           <div className="field">
             <label>Type</label>
-            <select value={form.transaction_type} onChange={e => set("transaction_type", e.target.value as TransactionType)}>
-              {TRANSACTION_TYPES.map(t => <option key={t} value={t}>{TRANSACTION_TYPE_LABELS[t]}</option>)}
-            </select>
+            <Select
+              value={form.transaction_type}
+              onChange={v => set("transaction_type", v as TransactionType)}
+              options={TRANSACTION_TYPES.map(t => ({ value: t, label: TRANSACTION_TYPE_LABELS[t] }))}
+            />
           </div>
           <div className="field"><label>Payee / vendor name</label><input value={form.payee_name} onChange={e => set("payee_name", e.target.value)} /></div>
           <div className="field"><label>Description</label><input value={form.description} onChange={e => set("description", e.target.value)} /></div>
@@ -754,10 +758,8 @@ function RefundsCard({ jobId, companyId, refunds, costLineItems, onChanged }: {
                     <td>{r.description}</td>
                     <td>{linked?.description || "—"}</td>
                     <td>{money(r.amount)}</td>
-                    <td>
-                      <select value={r.status} onChange={e => setStatus(r, e.target.value as RefundStatus)}>
-                        {REFUND_STATUSES.map(s => <option key={s} value={s}>{titleize(s)}</option>)}
-                      </select>
+                    <td style={{ minWidth: 150 }}>
+                      <Select value={r.status} onChange={v => setStatus(r, v as RefundStatus)} options={REFUND_STATUSES.map(s => ({ value: s, label: titleize(s) }))} />
                     </td>
                   </tr>
                 );
@@ -771,10 +773,11 @@ function RefundsCard({ jobId, companyId, refunds, costLineItems, onChanged }: {
           <div className="field"><label>Amount</label><input type="number" value={amount} onChange={e => setAmount(e.target.value)} /></div>
           <div className="field">
             <label>Linked purchase (optional)</label>
-            <select value={costLineItemId} onChange={e => setCostLineItemId(e.target.value)}>
-              <option value="">—</option>
-              {costLineItems.map(i => <option key={i.id} value={i.id}>{i.description || titleize(i.category)}</option>)}
-            </select>
+            <Select
+              value={costLineItemId}
+              onChange={setCostLineItemId}
+              options={[{ value: "", label: "—" }, ...costLineItems.map(i => ({ value: i.id, label: i.description || titleize(i.category) }))]}
+            />
           </div>
         </div>
         <button className="btn ghost slim" style={{ marginTop: 8 }} disabled={saving} onClick={add}><Plus />Add refund</button>

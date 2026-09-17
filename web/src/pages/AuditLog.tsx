@@ -8,6 +8,50 @@ import { useCompany } from "../state/CompanyContext";
 const ENTITY_OPTIONS = ["customers", "jobs", "pipeline_stages", "company_access", "user_account", "user_permissions"];
 const ACTION_OPTIONS = ["insert", "update", "delete"];
 
+// Noisy on every single update (bumped by the app on virtually every save)
+// and never itself the change someone's reviewing the audit log to find.
+const DIFF_HIDDEN_FIELDS = new Set(["updated_at"]);
+
+function formatDiffValue(value: unknown): string {
+  if (value === null || value === undefined || value === "") return "—";
+  if (typeof value === "object") return JSON.stringify(value);
+  return String(value);
+}
+
+function isChangePair(value: unknown): value is { old: unknown; new: unknown } {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value) &&
+    Object.keys(value as object).length === 2 && "old" in (value as object) && "new" in (value as object);
+}
+
+// Readable "field: old -> new" (update) or "field: value" (insert/delete)
+// list instead of a raw JSON.stringify dump — the trigger that populates
+// audit_log (record_audit_log() in supabase/migrations/2026-08-31_04_audit_log.sql)
+// already shapes an UPDATE's diff as {field: {old, new}} and an INSERT/
+// DELETE's as a flat column->value snapshot; this just renders that shape
+// instead of asking the reader to parse JSON by eye.
+function DiffView({ diff }: { diff: Record<string, unknown> }) {
+  const entries = Object.entries(diff || {}).filter(([field]) => !DIFF_HIDDEN_FIELDS.has(field));
+  if (entries.length === 0) return <span className="muted">—</span>;
+  return (
+    <div className="diff-list">
+      {entries.map(([field, value]) => (
+        <div className="diff-row" key={field}>
+          <span className="diff-field">{titleize(field)}</span>
+          {isChangePair(value) ? (
+            <span className="diff-change">
+              <span className="diff-old">{formatDiffValue(value.old)}</span>
+              <span className="diff-arrow">→</span>
+              <span className="diff-new">{formatDiffValue(value.new)}</span>
+            </span>
+          ) : (
+            <span className="diff-value">{formatDiffValue(value)}</span>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // Read-only view over audit_log — there's no create/edit here, only
 // filtering what already happened. Populated by the record_audit_log() DB
 // trigger for customers/jobs/pipeline_stages (see
@@ -78,7 +122,7 @@ export default function AuditLog() {
                 <td>{userNameByAuthId.get(row.user_id || "") || "System"}</td>
                 <td>{titleize(row.entity)} <span className="sub">{row.entity_id}</span></td>
                 <td><span className={`pill status-${row.action === "delete" ? "lost" : row.action === "insert" ? "active" : "in-progress"}`}>{row.action}</span></td>
-                <td><code style={{ fontSize: 11.5, whiteSpace: "pre-wrap" }}>{JSON.stringify(row.diff)}</code></td>
+                <td><DiffView diff={row.diff} /></td>
               </tr>
             ))}
             {!isLoading && rows.length === 0 && (

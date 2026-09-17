@@ -1,14 +1,17 @@
-import { ChevronDown, ChevronUp, Download, Mail, MoreVertical, Phone, Plus, Search, Upload, Users } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { useQueryClient } from "@tanstack/react-query";
+import { ChevronDown, ChevronUp, Download, Mail, Phone, Plus, Trash2, Upload, Users, X } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Select from "../components/Select";
+import { deleteCustomer } from "../data/customers";
 import { useCustomers, usePermissions } from "../data/hooks";
 import { toCSV } from "../domain/csv";
 import { initials, relativeDate, unique } from "../domain/format";
 import { filterRowsBySearch } from "../domain/search";
 import type { Customer } from "../domain/types";
 import { downloadText } from "../lib/downloadText";
+import { errorMessage } from "../lib/errorMessage";
+import { toast } from "../lib/toast";
 import { useCompany } from "../state/CompanyContext";
 import { useModal } from "../state/ModalContext";
 import { useSearch } from "../state/SearchContext";
@@ -33,64 +36,15 @@ const SORT_VALUE: Record<SortKey, (c: Customer) => string> = {
   status: c => c.status || "active"
 };
 
-// Three-dot row menu — a small popup portaled to <body> (same pattern as
-// Select) so it can float above the table's own overflow:auto scroll
-// container instead of being clipped by it.
-function RowMenu({ onView }: { onView: () => void }) {
-  const [open, setOpen] = useState(false);
-  const [pos, setPos] = useState({ top: 0, left: 0 });
-  const btnRef = useRef<HTMLButtonElement | null>(null);
-  const menuRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const onDocDown = (e: MouseEvent) => {
-      if (btnRef.current?.contains(e.target as Node)) return;
-      if (menuRef.current?.contains(e.target as Node)) return;
-      setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
-    document.addEventListener("mousedown", onDocDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDocDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
-
-  function toggle(e: React.MouseEvent) {
-    e.stopPropagation();
-    if (!open && btnRef.current) {
-      const rect = btnRef.current.getBoundingClientRect();
-      setPos({ top: rect.bottom + 6, left: Math.max(8, rect.right - 168) });
-    }
-    setOpen(v => !v);
-  }
-
-  return (
-    <div className="row-menu">
-      <button ref={btnRef} type="button" className="icon-btn row-menu-trigger" onClick={toggle} aria-haspopup="menu" aria-expanded={open} aria-label="Row actions">
-        <MoreVertical />
-      </button>
-      {open && createPortal(
-        <div ref={menuRef} className="cs-menu row-menu-pop" style={{ position: "fixed", top: pos.top, left: pos.left, width: 168 }}>
-          <button type="button" className="cs-option" onClick={e => { e.stopPropagation(); setOpen(false); onView(); }}>View details</button>
-        </div>,
-        document.body
-      )}
-    </div>
-  );
-}
-
 export default function Customers() {
   const { activeCompanyId, activeCompany } = useCompany();
   const { data: allRows = [], isLoading } = useCustomers(activeCompanyId);
   const { searchText } = useSearch();
   const { openRecordModal } = useModal();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { has: hasPermission } = usePermissions();
 
-  const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [serviceFilter, setServiceFilter] = useState("all");
   const [sortKey, setSortKey] = useState<SortKey>("name");
@@ -98,19 +52,19 @@ export default function Customers() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [pageSize, setPageSize] = useState("12");
   const [page, setPage] = useState(1);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   const services = useMemo(() => unique(allRows.map(c => c.service_type).filter(Boolean) as string[]), [allRows]);
 
   const rows = useMemo(() => {
     let filtered = filterRowsBySearch(allRows, searchText);
-    filtered = filterRowsBySearch(filtered, query);
     if (statusFilter !== "all") filtered = filtered.filter(c => (c.status || "active") === statusFilter);
     if (serviceFilter !== "all") filtered = filtered.filter(c => c.service_type === serviceFilter);
     const sorted = [...filtered].sort((a, b) => SORT_VALUE[sortKey](a).localeCompare(SORT_VALUE[sortKey](b)));
     return sortDir === "asc" ? sorted : sorted.reverse();
-  }, [allRows, searchText, query, statusFilter, serviceFilter, sortKey, sortDir]);
+  }, [allRows, searchText, statusFilter, serviceFilter, sortKey, sortDir]);
 
-  useEffect(() => { setPage(1); }, [searchText, query, statusFilter, serviceFilter, pageSize]);
+  useEffect(() => { setPage(1); }, [searchText, statusFilter, serviceFilter, pageSize]);
 
   const pageSizeNum = Number(pageSize);
   const totalPages = Math.max(1, Math.ceil(rows.length / pageSizeNum));
@@ -147,10 +101,36 @@ export default function Customers() {
     });
   }
 
-  function exportCSV() {
+  function customersToCSV(list: Customer[]): string {
     const headers = ["Name", "Phone", "Email", "City", "State", "Zip", "Service", "Status"];
-    const csvRows = rows.map(c => [c.name, c.phone || "", c.email || "", c.city || "", c.state || "", c.zip || "", c.service_type || "", c.status || "active"]);
-    downloadText(`${activeCompany?.slug || "clients"}.csv`, toCSV(headers, csvRows), "text/csv");
+    const csvRows = list.map(c => [c.name, c.phone || "", c.email || "", c.city || "", c.state || "", c.zip || "", c.service_type || "", c.status || "active"]);
+    return toCSV(headers, csvRows);
+  }
+
+  function exportCSV() {
+    downloadText(`${activeCompany?.slug || "clients"}.csv`, customersToCSV(rows), "text/csv");
+  }
+
+  function exportSelected() {
+    const selectedRows = rows.filter(c => selected.has(c.id));
+    downloadText(`${activeCompany?.slug || "clients"}-selected.csv`, customersToCSV(selectedRows), "text/csv");
+  }
+
+  async function deleteSelected() {
+    if (!activeCompanyId || selected.size === 0) return;
+    if (!window.confirm(`Delete ${selected.size} client${selected.size === 1 ? "" : "s"}? This cannot be undone.`)) return;
+    setBulkDeleting(true);
+    try {
+      for (const id of selected) await deleteCustomer(id, activeCompanyId);
+      setSelected(new Set());
+      queryClient.invalidateQueries({ queryKey: ["customers", activeCompanyId] });
+      toast("Selected clients deleted.");
+    } catch (error) {
+      toast(errorMessage(error, "Could not delete every selected client."));
+      queryClient.invalidateQueries({ queryKey: ["customers", activeCompanyId] });
+    } finally {
+      setBulkDeleting(false);
+    }
   }
 
   return (
@@ -166,11 +146,21 @@ export default function Customers() {
           {hasPermission("create") && <button className="btn slim" onClick={() => openRecordModal("customer")}><Plus />Add client</button>}
         </div>
       </div>
+      {selected.size > 0 && (
+        <div className="bulk-bar">
+          <span><b>{selected.size}</b> selected</span>
+          <div className="inline-actions">
+            {hasPermission("export") && <button className="btn ghost slim" onClick={exportSelected}><Download />Export selected</button>}
+            {hasPermission("edit") && (
+              <button className="btn ghost slim danger" onClick={deleteSelected} disabled={bulkDeleting}>
+                <Trash2 />{bulkDeleting ? "Deleting..." : "Delete selected"}
+              </button>
+            )}
+            <button className="icon-btn" onClick={() => setSelected(new Set())} aria-label="Clear selection" title="Clear selection"><X /></button>
+          </div>
+        </div>
+      )}
       <div className="card-b table-filters">
-        <label className="search-field">
-          <Search />
-          <input placeholder="Search clients by name, phone, email, or city" value={query} onChange={e => setQuery(e.target.value)} />
-        </label>
         <Select
           id="status-filter"
           value={statusFilter}
@@ -195,7 +185,6 @@ export default function Customers() {
             <col style={{ width: 150 }} />
             <col style={{ width: 110 }} />
             <col style={{ width: 120 }} />
-            <col style={{ width: 44 }} />
           </colgroup>
           <thead>
             <tr>
@@ -208,7 +197,6 @@ export default function Customers() {
               <th className="sortable" onClick={() => toggleSort("service_type")}><span className="th-sort">Service{sortIndicator("service_type")}</span></th>
               <th className="sortable" onClick={() => toggleSort("status")}><span className="th-sort">Status{sortIndicator("status")}</span></th>
               <th>Last activity</th>
-              <th className="col-actions" aria-hidden="true" />
             </tr>
           </thead>
           <tbody>
@@ -234,13 +222,10 @@ export default function Customers() {
                 <td>{dash(c.service_type || "")}</td>
                 <td><span className={`pill status-${c.status || "active"}`}>{c.status || "active"}</span></td>
                 <td className="sub">{relativeDate(c.updated_at) || "—"}</td>
-                <td className="col-actions" onClick={e => e.stopPropagation()}>
-                  <RowMenu onView={() => openRecordModal("customer", c)} />
-                </td>
               </tr>
             ))}
             {!isLoading && rows.length === 0 && (
-              <tr><td colSpan={8}><div className="empty"><Users />No clients yet</div></td></tr>
+              <tr><td colSpan={7}><div className="empty"><Users />No clients yet</div></td></tr>
             )}
           </tbody>
         </table>

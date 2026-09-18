@@ -81,11 +81,19 @@ export default function Shell() {
   const navigate = useNavigate();
   const navRef = useRef<HTMLElement | null>(null);
   const [indicator, setIndicator] = useState({ top: 0, height: 0 });
+  const canImport = hasPermission("import");
 
+  // isOwner/canImport gate two nav buttons (see the MODULES.filter below) and
+  // both resolve async, after this component's first paint — if either flips
+  // true after mount and reveals a hidden button above the active one, the
+  // active button's offsetTop shifts but this effect never re-ran (it only
+  // watched location.pathname), leaving the sliding highlight parked at its
+  // stale position until the next navigation. collapsed is included too since
+  // it swaps label text in/out, which can change wrapping/height.
   useEffect(() => {
     const active = navRef.current?.querySelector<HTMLElement>("button.active");
     if (active) setIndicator({ top: active.offsetTop, height: active.offsetHeight });
-  }, [location.pathname]);
+  }, [location.pathname, isOwner, canImport, collapsed, sidebarOpen]);
 
   // Escape closes the mobile drawer, matching RecordModal's own Escape
   // handling — found missing during a mobile pass alongside the backdrop
@@ -171,7 +179,7 @@ export default function Shell() {
         </button>
         <nav className="nav" ref={navRef}>
           <span className="nav-indicator" style={{ transform: `translateY(${indicator.top}px)`, height: indicator.height }} />
-          {MODULES.filter(([id]) => (id !== "users" || isOwner) && (id !== "company-financials" || isOwner) && (id !== "import" || hasPermission("import"))).map(([id, label]) => {
+          {MODULES.filter(([id]) => (id !== "users" || isOwner) && (id !== "company-financials" || isOwner) && (id !== "import" || canImport)).map(([id, label]) => {
             const Icon = MODULE_ICONS[id];
             const showLabel = !collapsed || sidebarOpen;
             return (

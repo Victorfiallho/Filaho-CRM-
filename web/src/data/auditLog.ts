@@ -6,6 +6,8 @@ export interface AuditLogFilters {
   action?: string;
   dateFrom?: string;
   dateTo?: string;
+  // Defaults to 200; the Dashboard feed only needs the latest few.
+  limit?: number;
 }
 
 // Written exclusively by the record_audit_log() trigger
@@ -17,7 +19,7 @@ export async function listAuditLog(companyId: string, filters: AuditLogFilters =
     .select("*")
     .eq("company_id", companyId)
     .order("created_at", { ascending: false })
-    .limit(200);
+    .limit(filters.limit ?? 200);
   if (filters.entity) query = query.eq("entity", filters.entity);
   if (filters.action) query = query.eq("action", filters.action);
   if (filters.dateFrom) query = query.gte("created_at", filters.dateFrom);

@@ -922,3 +922,22 @@ td a svg{width:14px;height:14px}
 .topbar .sub{min-height:1.35em}
 .skeleton-nav{display:block;height:36px;border-radius:var(--radius-sm)}
 .sidebar .skeleton-circle{width:40px;height:40px}
+
+/* ── Dashboard: My day, Money, Activity (2026-10-11) ────────────────── */
+.seg{display:inline-flex;border:1px solid var(--line-strong);border-radius:999px;padding:2px;background:var(--soft)}
+.seg button{background:transparent;border:0;border-radius:999px;padding:4px 12px;font-size:12.5px;font-weight:600;color:var(--muted)}
+.seg button.active{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(15,23,42,.08)}
+.day-section{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:14px 0 4px}
+.day-section:first-child{margin-top:0}
+.day-row{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;background:transparent;border:0;border-top:1px solid var(--line-strong);padding:9px 6px;margin:0 -6px;width:calc(100% + 12px);text-align:left;color:var(--ink);border-radius:8px;text-decoration:none}
+.day-section + .day-row{border-top:0}
+.day-row:hover{background:var(--soft)}
+.day-row-main{display:grid;gap:2px;min-width:0}
+.day-row-main b,.day-row-main .sub{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pill.pill-danger{background:rgba(214,69,69,.12);color:var(--red);white-space:nowrap}
+.pill.pill-warn{background:var(--yellow-soft);color:#92610a;white-space:nowrap}
+.money-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.money-stats > div{display:grid;gap:3px}
+.money-stats .label{font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+.money-stats b{font-size:22px;letter-spacing:-.01em}
+@media(max-width:760px){.money-stats{grid-template-columns:1fr}}

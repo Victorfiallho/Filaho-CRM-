@@ -15,64 +15,14 @@ import {
   useJobs,
   useVendors
 } from "../data/hooks";
-import { computeProjectFinancials, sumCashPaid, sumCommittedUnpaid, type HealthStatus } from "../domain/costing";
-import { isCustomerPayment, TRANSACTION_TYPE_LABELS } from "../domain/transactions";
+import { sumCashPaid, sumCommittedUnpaid } from "../domain/costing";
+import { rollupCompanyProjects } from "../domain/projectRollup";
+import { TRANSACTION_TYPE_LABELS } from "../domain/transactions";
 import { formatDay, groupBy, money, titleize } from "../domain/format";
 import { useCompany } from "../state/CompanyContext";
-import type { CostLineItem, Job, ProjectFinancials, Transaction } from "../domain/types";
 
 const OWNER_DRAW_TYPES = ["owner_draw"];
 const PAYROLL_TYPES = ["labor_payment", "subcontractor_payment", "employee_payment", "owner_labor_payment"];
-
-interface ProjectRollup {
-  job: Job;
-  pf: ProjectFinancials;
-  revenue: number;
-  paymentsReceived: number;
-  // False until the project has at least one cost item — its forecast
-  // profit/margin are then unknown (not 100%), and it holds no free cash.
-  hasCostData: boolean;
-  forecastProfitValue: number;
-  forecastMarginValue: number;
-  requiredReserve: number;
-  safeWithdraw: number;
-  healthStatus: HealthStatus;
-  minimumMarginPct: number;
-}
-
-// Same computeProjectFinancials the project screen uses, so a project that
-// shows "$0 safe to withdraw" there can't count as free cash here.
-function rollupProject(job: Job, pf: ProjectFinancials, items: CostLineItem[], approvedChangeOrdersTotal: number, transactions: Transaction[], releasedTotal: number, defaultMinMargin: number, defaultContingency: number): ProjectRollup {
-  const minimumMarginPct = pf.minimum_margin_pct ?? defaultMinMargin;
-  const ledgerPayments = transactions.filter(t => t.status === "confirmed" && isCustomerPayment(t.transaction_type));
-  const summary = computeProjectFinancials({
-    originalContractValue: Number(pf.original_contract_value || 0),
-    discounts: Number(pf.discounts || 0),
-    customerFees: Number(pf.customer_fees || 0),
-    approvedChangeOrdersTotal,
-    minimumMarginPct,
-    contingencyPct: pf.contingency_pct ?? defaultContingency,
-    minimumProfitUsd: pf.minimum_profit_usd,
-    paymentsReceivedManual: Number(pf.payments_received_manual || 0),
-    ledgerPaymentsReceived: ledgerPayments.length ? ledgerPayments.reduce((t, x) => t + Number(x.amount || 0), 0) : null,
-    releasedTotal,
-    items
-  });
-
-  return {
-    job,
-    pf,
-    revenue: summary.revenue,
-    paymentsReceived: summary.paymentsReceived,
-    hasCostData: summary.hasCostData,
-    forecastProfitValue: summary.forecastProfit,
-    forecastMarginValue: summary.forecastMarginPct,
-    requiredReserve: summary.requiredReserve,
-    safeWithdraw: summary.safeToWithdraw,
-    healthStatus: summary.health.status,
-    minimumMarginPct
-  };
-}
 
 export default function CompanyFinancials() {
   const { activeCompanyId, activeCompany } = useCompany();
@@ -97,17 +47,10 @@ export default function CompanyFinancials() {
   const cutoff = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
   const confirmedInRange = allTransactions.filter(t => t.status === "confirmed" && t.transaction_date >= cutoff);
 
-  const rollups: ProjectRollup[] = allFinancials
-    .map(pf => {
-      const job = jobs.find(j => j.id === pf.job_id);
-      if (!job) return null;
-      const items = allItems.filter(i => i.job_id === job.id);
-      const approvedChangeOrdersTotal = allChangeOrders.filter(co => co.job_id === job.id && co.status === "approved").reduce((t, co) => t + Number(co.amount || 0), 0);
-      const jobTransactions = allTransactions.filter(t => t.job_id === job.id);
-      const releasedTotal = allReleases.filter(r => r.job_id === job.id).reduce((t, r) => t + Number(r.amount || 0), 0);
-      return rollupProject(job, pf, items, approvedChangeOrdersTotal, jobTransactions, releasedTotal, defaultMinMargin, defaultContingency);
-    })
-    .filter((r): r is ProjectRollup => r !== null);
+  const rollups = rollupCompanyProjects({
+    jobs, financials: allFinancials, items: allItems, changeOrders: allChangeOrders,
+    transactions: allTransactions, releases: allReleases, defaultMinMargin, defaultContingency
+  });
 
   const contractedRevenue = rollups.reduce((t, r) => t + r.revenue, 0);
   const receivedRevenue = rollups.reduce((t, r) => t + r.paymentsReceived, 0);

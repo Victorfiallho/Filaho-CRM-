@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { FolderOpen } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Select from "./Select";
 import { summarizeJob, type JobAiSummary } from "../data/aiSummary";
@@ -8,13 +8,15 @@ import { listCustomers, insertCustomer, updateCustomer, deleteCustomer } from ".
 import { fileToBase64, provisionDriveFolder, uploadFileToDrive } from "../data/driveDocs";
 import { deleteFile, insertFile } from "../data/files";
 import { geocodeAddress } from "../data/geocoding";
-import { useCurrentAppUser, useFiles, useIntegrationSettings, useMetaAdsInsights, useNotes, usePermissions, useUsers } from "../data/hooks";
+import { useCurrentAppUser, useFiles, useIntegrationSettings, useJobs, useMetaAdsInsights, useNotes, usePermissions, useUsers } from "../data/hooks";
 import { insertJob, updateJob, deleteJob } from "../data/jobs";
 import { upsertClientFromLead } from "../data/leadClientSync";
 import { insertLead, updateLead, deleteLead } from "../data/leads";
 import { deleteNote, insertNote } from "../data/notes";
+import { createProjectFinancials } from "../data/projectFinancials";
 import { now, uid } from "../domain/format";
 import { titleize } from "../domain/format";
+import { findJobForLead, jobDraftFromLead } from "../domain/leadConversion";
 import { PROJECT_DRIVE_SUBFOLDERS } from "../domain/types";
 import { errorMessage } from "../lib/errorMessage";
 import { openDrivePicker } from "../lib/googleDrivePicker";
@@ -39,7 +41,7 @@ function RecordModalContent() {
   // component while it's set), but every hook below still has to run unconditionally
   // on every render — so the "no modal / no company" bail-out is a plain variable,
   // not an early return, and the actual `return null` happens after all hooks.
-  const { modal, closeModal } = useModal();
+  const { modal, closeModal, openRecordModal } = useModal();
   const { activeCompanyId, services, stages } = useCompany();
   const { session } = useAuth();
   const queryClient = useQueryClient();
@@ -65,6 +67,8 @@ function RecordModalContent() {
   const { data: integrationSettings } = useIntegrationSettings();
   const { has: hasPermission } = usePermissions();
   const { data: adInsights = [] } = useMetaAdsInsights(type === "lead" ? activeCompanyId : null);
+  const { data: jobs = [] } = useJobs(type === "lead" && isEdit ? activeCompanyId : null);
+  const linkedJob = type === "lead" && isEdit && r.id ? findJobForLead(r.id, jobs) : undefined;
   const userNameById = new Map(users.map(u => [u.id, u.name]));
   // Distinct campaigns synced from Meta Ads — offered as a dropdown so a
   // lead's campaign_id matches meta_ads_insights.campaign_id exactly (that's
@@ -116,17 +120,6 @@ function RecordModalContent() {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const modalBodyRef = useRef<HTMLDivElement | null>(null);
-
-  // The custom Select shows nothing selected when `value` matches no option,
-  // instead of a native <select>'s browser-default "first option" look — so
-  // for a new job, once customers load, pre-select the first one to keep the
-  // same visual (and saved) outcome as before if the user never touches it.
-  useEffect(() => {
-    if (type === "job" && !isEdit && !form.customer_id && customers.length) {
-      setForm(f => ({ ...f, customer_id: customers[0].id }));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [type, isEdit, customers]);
 
   if (!modal || !activeCompanyId) return null;
 
@@ -236,11 +229,14 @@ function RecordModalContent() {
     setSaving(true);
     try {
       if (type === "job") {
-        // The <select> has no blank option (matches app.js's recordForm), so a
-        // browser leaves the first customer visually selected when nothing was
-        // explicitly chosen — mirror that by falling back to the first customer
-        // on save too, instead of silently saving an unassigned job.
-        const jobCustomerId = form.customer_id || customers[0]?.id || "";
+        // No silent fallback to the first client in the list: that used to
+        // attach a job to whichever client sorted first (and copy that
+        // client's address onto it) whenever nobody picked one explicitly.
+        const jobCustomerId = form.customer_id || "";
+        if (!jobCustomerId) {
+          toast("Pick a client for this job.");
+          return;
+        }
         // Address/city/state/zip/lat/lng aren't asked on the job form at all —
         // a job's location is always the linked client's, pulled straight from
         // their record instead of re-typing (or re-geocoding) it per job.
@@ -266,7 +262,14 @@ function RecordModalContent() {
           await updateJob(r.id, activeCompanyId, data as any);
         } else {
           const newJobId = uid("job");
-          await insertJob({ ...(data as any), id: newJobId, created_at: now() });
+          const leadId = (r.lead_id as string | undefined) || null;
+          await insertJob({ ...(data as any), lead_id: leadId, id: newJobId, created_at: now() });
+          // A job converted from a won lead starts its costing with the
+          // lead's value as the contract, so Project Financials isn't blank.
+          if (leadId) {
+            createProjectFinancials({ company_id: activeCompanyId, job_id: newJobId, original_contract_value: data.estimated_value })
+              .catch(error => toast(errorMessage(error, "Job saved, but its financials could not be set up — open Costing to start them.")));
+          }
           provisionDriveFolder(activeCompanyId, "job", newJobId).catch(error =>
             toast(errorMessage(error, "Job saved, but its Drive folder could not be created automatically — use \"Create/locate Drive folder\" on the job later."))
           );
@@ -293,7 +296,10 @@ function RecordModalContent() {
         if (type === "lead") {
           data.stage_id = form.stage_id;
           data.value = Number(form.value || 0);
-          data.source = "Manual";
+          // Only a brand-new hand-typed lead is "Manual" — editing must keep
+          // the original source (Meta Ads, import, ...) or the source filter
+          // and campaign ROI lose it on the first save.
+          if (!isEdit) data.source = "Manual";
           const matchedCampaign = campaignOptions.find(([id]) => id === form.campaign_id);
           data.campaign_id = form.campaign_id || null;
           data.campaign_name = matchedCampaign?.[1] || null;
@@ -538,7 +544,7 @@ function RecordModalContent() {
   // Read-only location preview for the Job form (see handleSave's job
   // branch, which pulls the actual saved address/city/state/zip/lat/lng from
   // this same customer rather than from any job-specific input).
-  const jobLocationCustomer = type === "job" ? customers.find(c => c.id === (form.customer_id || customers[0]?.id)) : undefined;
+  const jobLocationCustomer = type === "job" ? customers.find(c => c.id === form.customer_id) : undefined;
 
   return (
     <div className="modal-bg">
@@ -553,7 +559,7 @@ function RecordModalContent() {
               <Field label="Job/project title" value={form.title} onChange={v => set("title", v)} />
               <div className="field">
                 <label>Client</label>
-                <Select value={form.customer_id || ""} onChange={v => set("customer_id", v)} options={customers.map(c => ({ value: c.id, label: c.name }))} />
+                <Select value={form.customer_id || ""} onChange={v => set("customer_id", v)} options={[{ value: "", label: "— Select a client —", disabled: true }, ...customers.map(c => ({ value: c.id, label: c.name }))]} />
               </div>
               <SelectField label="Status" value={form.status} options={["planned", "scheduled", "in progress", "complete"]} onChange={v => set("status", v)} />
               <SelectField label="Service" value={form.service_type} options={services} onChange={v => set("service_type", v)} />
@@ -656,6 +662,15 @@ function RecordModalContent() {
                 <Field label="Latitude" value={String(form.lat)} onChange={v => set("lat", v)} type="number" />
                 <Field label="Longitude" value={String(form.lng)} onChange={v => set("lng", v)} type="number" />
               </div>
+              {type === "lead" && isEdit && (
+                <div className="inline-actions" style={{ marginBottom: 12 }}>
+                  {linkedJob ? (
+                    <button className="btn ghost slim" type="button" onClick={() => openRecordModal("job", linkedJob)}>Open job</button>
+                  ) : hasPermission("create") && (
+                    <button className="btn slim" type="button" onClick={() => openRecordModal("job", undefined, { ...jobDraftFromLead({ ...r, ...form, value: Number(form.value || 0) }) })}>Create job from lead</button>
+                  )}
+                </div>
+              )}
               <div className="field">
                 <label>Notes</label>
                 <textarea rows={3} value={form.notes} onChange={e => set("notes", e.target.value)} />

@@ -6,9 +6,10 @@ import PageSkeleton from "../components/PageSkeleton";
 import Select from "../components/Select";
 import StagesEditor from "../components/StagesEditor";
 import { updateLead } from "../data/leads";
-import { useLeads, useStagnantLeads } from "../data/hooks";
+import { useJobs, useLeads, useStagnantLeads } from "../data/hooks";
 import { filterRowsBySearch } from "../domain/search";
 import { initials, money, relativeDate, unique } from "../domain/format";
+import { findJobForLead, jobDraftFromLead } from "../domain/leadConversion";
 import { isOpenStage, isWonStage } from "../domain/pipelineStages";
 import { errorMessage } from "../lib/errorMessage";
 import { toast } from "../lib/toast";
@@ -35,6 +36,7 @@ export default function Pipeline() {
   const { activeCompanyId, stages } = useCompany();
   const { data: allLeads = [], isLoading } = useLeads(activeCompanyId);
   const { data: stagnantLeads = [] } = useStagnantLeads(activeCompanyId);
+  const { data: jobs = [] } = useJobs(activeCompanyId);
   const stagnantById = useMemo(() => new Map(stagnantLeads.map(s => [s.lead_id, s])), [stagnantLeads]);
   const { searchText } = useSearch();
   const { openRecordModal } = useModal();
@@ -68,6 +70,12 @@ export default function Pipeline() {
     );
     try {
       await updateLead(leadId, activeCompanyId, { stage_id: stageId });
+      // Closing a deal is the moment a job should exist — open its form
+      // pre-filled from the lead (still cancelable) unless one already does.
+      if (isWonStage(stageId, stages) && !findJobForLead(leadId, jobs)) {
+        toast("Lead won — confirm the new job.");
+        openRecordModal("job", undefined, { ...jobDraftFromLead(lead) });
+      }
     } catch (error) {
       toast(errorMessage(error, "Could not move the lead."));
     } finally {

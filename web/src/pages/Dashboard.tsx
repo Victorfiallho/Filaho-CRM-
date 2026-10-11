@@ -7,6 +7,7 @@ import TrendLineChart from "../components/TrendLineChart";
 import { useCustomers, useIntegrationSettings, useJobs, useLeads } from "../data/hooks";
 import { money } from "../domain/format";
 import { isOpenStage, isWonStage } from "../domain/pipelineStages";
+import { localToday, upcomingJobs } from "../domain/jobFilters";
 import { weeklyTrend } from "../domain/trend";
 import { useCompany } from "../state/CompanyContext";
 import type { Customer, Job } from "../domain/types";
@@ -46,7 +47,9 @@ export default function Dashboard() {
   const activeJobs = jobs.filter(j => j.status !== "complete");
   const scheduledJobs = jobs.filter(j => j.scheduled_date);
 
-  const upcoming = [...jobs].filter(j => j.scheduled_date).sort((a, b) => a.scheduled_date.localeCompare(b.scheduled_date)).slice(0, 5);
+  // Only today-or-later, not-yet-complete jobs — the card used to list the
+  // oldest scheduled jobs ever, past ones included.
+  const upcoming = upcomingJobs(jobs, localToday());
 
   // Real, derivable from the actual schema — not the "Estimate sent" /
   // "follow-up date" style alerts from the reference mockup, since leads

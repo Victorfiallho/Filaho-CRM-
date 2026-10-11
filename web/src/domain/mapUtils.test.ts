@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_MAP_FILTERS, matchesMapFilters, pseudoPosition } from "./mapUtils";
+import { countStopsByKind, DEFAULT_MAP_FILTERS, matchesMapFilters, matchesStopQuery, pseudoPosition } from "./mapUtils";
 import type { MapRecord } from "./types";
 
 function record(overrides: Partial<MapRecord> = {}): MapRecord {
@@ -55,5 +55,33 @@ describe("matchesMapFilters", () => {
     expect(matchesMapFilters(job, { ...DEFAULT_MAP_FILTERS, date: "2024-02-01" })).toBe(true);
     expect(matchesMapFilters(job, { ...DEFAULT_MAP_FILTERS, date: "2024-03-01" })).toBe(false);
     expect(matchesMapFilters(record({ kind: "customer" }), { ...DEFAULT_MAP_FILTERS, date: "2024-02-01" })).toBe(false);
+  });
+});
+
+describe("matchesStopQuery", () => {
+  const kitchenJob = record({ id: "j1", kind: "job", name: "Kitchen Remodel", address: "12 Oak St", city: "Duluth", zip: "30097", service_type: "Kitchen Cabinets", status: "scheduled" });
+
+  it("matches everything on an empty query", () => {
+    expect(matchesStopQuery(kitchenJob, "   ")).toBe(true);
+  });
+  it("requires every word to appear somewhere on the stop", () => {
+    expect(matchesStopQuery(kitchenJob, "kitchen 30097")).toBe(true);
+    expect(matchesStopQuery(kitchenJob, "kitchen 30303")).toBe(false);
+  });
+  it("searches address, kind, status and the pipeline stage name", () => {
+    expect(matchesStopQuery(kitchenJob, "oak st")).toBe(true);
+    expect(matchesStopQuery(kitchenJob, "job scheduled")).toBe(true);
+    expect(matchesStopQuery(record({ kind: "customer" }), "client")).toBe(true);
+    expect(matchesStopQuery(record({ kind: "lead", stage_id: "estimate" }), "estimate sent", "Estimate Sent")).toBe(true);
+  });
+  it("is case-insensitive", () => {
+    expect(matchesStopQuery(kitchenJob, "DULUTH")).toBe(true);
+  });
+});
+
+describe("countStopsByKind", () => {
+  it("counts each kind and the total", () => {
+    const counts = countStopsByKind([record({ kind: "lead" }), record({ kind: "lead" }), record({ kind: "job" })]);
+    expect(counts).toEqual({ all: 3, lead: 2, customer: 0, job: 1 });
   });
 });

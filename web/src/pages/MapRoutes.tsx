@@ -1,13 +1,13 @@
 import { MarkerClusterer } from "@googlemaps/markerclusterer";
-import { AlertCircle, CheckCircle, ChevronDown, ChevronUp, MapPin, MapPinned, Maximize2, Navigation, Route, SlidersHorizontal } from "lucide-react";
+import { AlertCircle, CheckCircle, ChevronDown, ChevronRight, ChevronUp, MapPin, MapPinned, Maximize2, Navigation, Route, SlidersHorizontal } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Select from "../components/Select";
 import { useCustomers, useIntegrationSettings, useInvalidateCompanyData, useJobs, useLeads } from "../data/hooks";
 import { geocodeRecords } from "../data/geocoding";
 import { fetchRoutePolyline, fetchOptimizedOrder } from "../data/routing";
-import { groupBy, titleize, unique } from "../domain/format";
+import { titleize, unique } from "../domain/format";
 import { buildGoogleMapsRouteUrl, clusterByProximity, nearestNeighborRoute, twoOptImprove, type LatLng } from "../domain/geo";
-import { DEFAULT_MAP_FILTERS, matchesMapFilters } from "../domain/mapUtils";
+import { countStopsByKind, DEFAULT_MAP_FILTERS, matchesMapFilters, matchesStopQuery, type StopKindFilter } from "../domain/mapUtils";
 import { filterRowsBySearch } from "../domain/search";
 import type { MapRecord } from "../domain/types";
 import { loadGoogleMapsScript } from "../lib/googleMaps";
@@ -50,6 +50,11 @@ export default function MapRoutes() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [stopSearch, setStopSearch] = useState("");
+  const [kindFilter, setKindFilter] = useState<StopKindFilter>("all");
+  // Areas start collapsed — with every stop of every area expanded the list
+  // ran thousands of pixels and pushed "Optimize route" off the page.
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [showUngeocoded, setShowUngeocoded] = useState(false);
 
   const rows: MapRecord[] = useMemo(() => {
     // A lead always has a linked client at the same address (that's the
@@ -87,26 +92,30 @@ export default function MapRoutes() {
       .map(items => ({ label: mostCommonCity(items) || `ZIP ${items[0].zip || "?"}`, items }))
       .sort((a, b) => b.items.length - a.items.length);
   }, [withCoords]);
-  const zipOnlyGroups = useMemo(() => {
-    const groups = groupBy(withoutCoords.filter(r => r.zip), r => (r.zip as string).slice(0, 3) || "Other");
-    return Object.entries(groups).sort((a, b) => b[1].length - a[1].length);
-  }, [withoutCoords]);
 
   const missingCoords = withoutCoords.length;
 
   const activeFilterCount = Object.values(mapFilters).filter(v => v && v !== "all").length;
 
-  const matchesStopSearch = (item: { name?: string; title?: string; city?: string; zip?: string }) => {
-    if (!stopSearch.trim()) return true;
-    const q = stopSearch.trim().toLowerCase();
-    return [(item as any).name, (item as any).title, item.city, item.zip].filter(Boolean).some(v => String(v).toLowerCase().includes(q));
-  };
+  const stageNameById = useMemo(() => new Map(stages.map(st => [st.id, st.name])), [stages]);
+  const kindCounts = useMemo(() => countStopsByKind(filtered), [filtered]);
+  const stopMatches = (item: MapRecord) =>
+    (kindFilter === "all" || item.kind === kindFilter) &&
+    matchesStopQuery(item, stopSearch, item.stage_id ? stageNameById.get(item.stage_id) : undefined);
+  // While searching or filtering by type, every area with a match opens so
+  // the matches are visible without clicking into each one.
+  const narrowing = Boolean(stopSearch.trim()) || kindFilter !== "all";
   const visibleProximityGroups = proximityGroups
-    .map(g => ({ ...g, items: g.items.filter(matchesStopSearch) }))
+    .map(g => ({ ...g, key: `${g.label}|${g.items[0]?.id}`, items: g.items.filter(stopMatches) }))
     .filter(g => g.items.length);
-  const visibleZipOnlyGroups = zipOnlyGroups
-    .map(([region, items]) => [region, items.filter(matchesStopSearch)] as const)
-    .filter(([, items]) => items.length);
+  const visibleUngeocoded = withoutCoords.filter(stopMatches);
+  const visibleStops = visibleProximityGroups.flatMap(g => g.items);
+  const isExpanded = (key: string) => narrowing || visibleProximityGroups.length === 1 || expandedGroups.has(key);
+  const toggleExpanded = (key: string) => setExpandedGroups(prev => {
+    const next = new Set(prev);
+    if (next.has(key)) next.delete(key); else next.add(key);
+    return next;
+  });
 
   const openMapRecord = (record: MapRecord) => openRecordModal(record.kind, record as any);
 
@@ -140,7 +149,9 @@ export default function MapRoutes() {
     });
   };
 
-  const selectAllStops = () => setSelectedIds(new Set(withCoords.map(r => r.id)));
+  // Adds what's currently shown (after search/type filter) to the selection,
+  // so "search Duluth → Select shown" builds a route for just that area.
+  const selectShownStops = () => setSelectedIds(prev => new Set([...prev, ...visibleStops.map(r => r.id)]));
 
   const routeCandidates = selectedIds.size ? withCoords.filter(r => selectedIds.has(r.id)) : withCoords;
   const selectedCount = selectedIds.size || withCoords.length;
@@ -229,59 +240,95 @@ export default function MapRoutes() {
           <div><h3>Plan a route</h3><span className="sub">Choose the stops you want to visit</span></div>
           <div className="inline-actions">
             {selectedIds.size > 0 && <button className="link-btn" onClick={() => setSelectedIds(new Set())}>Clear</button>}
-            <button className="link-btn" onClick={selectAllStops}>Select all</button>
+            <button className="link-btn" onClick={selectShownStops} disabled={!visibleStops.length}>{narrowing ? "Select shown" : "Select all"}</button>
           </div>
         </div>
         <div className="card-b">
-          <div className="sub" style={{ fontWeight: 600, marginBottom: 10 }}>
-            {selectedCount} of {withCoords.length} stop{withCoords.length === 1 ? "" : "s"} selected
+          <input
+            className="map-stop-search"
+            placeholder="Search name, address, ZIP, service, stage..."
+            value={stopSearch}
+            onChange={e => setStopSearch(e.target.value)}
+            aria-label="Search stops"
+          />
+          <div className="stop-kind-filter" role="group" aria-label="Stop type">
+            {(["all", "lead", "customer", "job"] as StopKindFilter[]).map(k => (
+              <button key={k} type="button" className={kindFilter === k ? "active" : ""} aria-pressed={kindFilter === k} onClick={() => setKindFilter(k)}>
+                {k !== "all" && <span className="route-legend-dot" style={{ background: PIN_COLOR[k] }} />}
+                {KIND_LABEL[k]}<span className="count">{kindCounts[k]}</span>
+              </button>
+            ))}
           </div>
-          <input className="map-stop-search" placeholder="Search stops" value={stopSearch} onChange={e => setStopSearch(e.target.value)} />
-          {visibleProximityGroups.length === 0 && visibleZipOnlyGroups.length === 0 && <div className="empty"><MapPinned />No route groups yet</div>}
-          {visibleProximityGroups.map((group, i) => {
-            const regionSelected = group.items.every(item => selectedIds.has(item.id));
-            return (
-            <div className={`route-block${regionSelected ? " selected" : ""}`} key={`geo-${i}`}>
-              <div className="between">
-                <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
-                  <input
-                    type="checkbox"
-                    checked={regionSelected}
-                    onChange={() => toggleRegionSelected(group.items)}
-                  />
-                  <b>{group.label}</b>
-                </label>
-                <span className="pill">{group.items.length} stop{group.items.length === 1 ? "" : "s"}</span>
-              </div>
-              {group.items.map(item => (
-                <label className={`route-stop${selectedIds.has(item.id) ? " selected" : ""}`} key={item.id} style={{ display: "flex", flexDirection: "row", alignItems: "flex-start", gap: 10, cursor: "pointer" }}>
-                  <input
-                    type="checkbox"
-                    style={{ marginTop: 3 }}
-                    checked={selectedIds.has(item.id)}
-                    onChange={() => toggleSelected(item.id)}
-                  />
-                  {routeIndexById?.has(item.id) && <span className="route-order-num" style={{ background: PIN_COLOR[item.kind] }}>{routeIndexById.get(item.id)}</span>}
-                  <span>
-                    <b style={{ display: "block" }}>{(item as any).name || (item as any).title}</b>
-                    <span>{[item.city, item.zip, item.service_type].filter(Boolean).join(" | ")}</span>
-                  </span>
-                </label>
-              ))}
-            </div>
-            );
-          })}
-          {visibleZipOnlyGroups.map(([region, items]) => (
-            <div className="route-block" key={`zip-${region}`}>
-              <div className="between"><b>ZIP {region}xx</b><span className="pill">{items.length} stop{items.length === 1 ? "" : "s"} (not geocoded)</span></div>
-              {items.slice(0, 5).map(item => (
-                <div className="route-stop" key={item.id}>
-                  <b>{(item as any).name || (item as any).title}</b>
-                  <span>{[item.city, item.zip, item.service_type].filter(Boolean).join(" | ")}</span>
+          <div className="sub stop-list-status">
+            <b>{selectedCount}</b> of {withCoords.length} stop{withCoords.length === 1 ? "" : "s"} selected
+            {narrowing && <> · {visibleStops.length + visibleUngeocoded.length} match{visibleStops.length + visibleUngeocoded.length === 1 ? "" : "es"}</>}
+            {narrowing && <button className="link-btn" onClick={() => { setStopSearch(""); setKindFilter("all"); }}>Clear search</button>}
+          </div>
+          <div className="stop-list">
+            {visibleProximityGroups.length === 0 && visibleUngeocoded.length === 0 && (
+              <div className="empty"><MapPinned />{narrowing ? "No stops match this search" : "No route groups yet"}</div>
+            )}
+            {visibleProximityGroups.map(group => {
+              const selectedInGroup = group.items.filter(item => selectedIds.has(item.id)).length;
+              const regionSelected = selectedInGroup === group.items.length;
+              const open = isExpanded(group.key);
+              return (
+                <div className={`route-block${regionSelected ? " selected" : ""}`} key={group.key}>
+                  <div className="stop-group-head">
+                    <input
+                      type="checkbox"
+                      checked={regionSelected}
+                      ref={el => { if (el) el.indeterminate = selectedInGroup > 0 && !regionSelected; }}
+                      onChange={() => toggleRegionSelected(group.items)}
+                      aria-label={`Select all stops in ${group.label}`}
+                    />
+                    <button type="button" className="stop-group-toggle" onClick={() => toggleExpanded(group.key)} aria-expanded={open}>
+                      {open ? <ChevronDown /> : <ChevronRight />}
+                      <b>{group.label}</b>
+                    </button>
+                    <span className="pill">{selectedInGroup > 0 ? `${selectedInGroup}/` : ""}{group.items.length} stop{group.items.length === 1 ? "" : "s"}</span>
+                  </div>
+                  {open && group.items.map(item => (
+                    <label className={`route-stop${selectedIds.has(item.id) ? " selected" : ""}`} key={item.id} style={{ display: "flex", flexDirection: "row", alignItems: "flex-start", gap: 10, cursor: "pointer" }}>
+                      <input
+                        type="checkbox"
+                        style={{ marginTop: 3 }}
+                        checked={selectedIds.has(item.id)}
+                        onChange={() => toggleSelected(item.id)}
+                      />
+                      {routeIndexById?.has(item.id)
+                        ? <span className="route-order-num" style={{ background: PIN_COLOR[item.kind] }}>{routeIndexById.get(item.id)}</span>
+                        : <span className="route-legend-dot" style={{ background: PIN_COLOR[item.kind], marginTop: 6 }} title={KIND_LABEL[item.kind]} />}
+                      <span>
+                        <b style={{ display: "block" }}>{(item as any).name || (item as any).title}</b>
+                        <span>{[item.address, item.city, item.zip, item.service_type].filter(Boolean).join(" | ")}</span>
+                      </span>
+                    </label>
+                  ))}
                 </div>
-              ))}
-            </div>
-          ))}
+              );
+            })}
+            {visibleUngeocoded.length > 0 && (
+              <div className="route-block">
+                <div className="stop-group-head">
+                  <button type="button" className="stop-group-toggle" onClick={() => setShowUngeocoded(v => !v)} aria-expanded={showUngeocoded || narrowing}>
+                    {showUngeocoded || narrowing ? <ChevronDown /> : <ChevronRight />}
+                    <b>Need coordinates</b>
+                  </button>
+                  <span className="pill">{visibleUngeocoded.length}</span>
+                </div>
+                <div className="sub" style={{ marginTop: 6 }}>
+                  Not on the map or routable yet. <button className="link-btn" onClick={geocodeVisible} disabled={geocoding}>{geocoding ? "Geocoding..." : "Geocode now"}</button>
+                </div>
+                {(showUngeocoded || narrowing) && visibleUngeocoded.map(item => (
+                  <div className="route-stop" key={item.id}>
+                    <b>{(item as any).name || (item as any).title}</b>
+                    <span>{[item.address, item.city, item.zip, item.service_type].filter(Boolean).join(" | ")}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
 
           <div className="route-plan-controls">
             <span className="sub" style={{ fontWeight: 600 }}>Start from</span>
@@ -398,6 +445,7 @@ function MapFilterBar({ zips, cities, services, stages, filters, onChange }: {
 }
 
 const PIN_COLOR: Record<MapRecord["kind"], string> = { lead: "#2f6fed", job: "#d89416", customer: "#10b981" };
+const KIND_LABEL: Record<StopKindFilter, string> = { all: "All", lead: "Leads", customer: "Clients", job: "Jobs" };
 
 function pinIcon(color: string, scale: number): google.maps.Symbol {
   return { path: google.maps.SymbolPath.CIRCLE, scale, fillColor: color, fillOpacity: 1, strokeColor: "#fff", strokeWeight: 2 };

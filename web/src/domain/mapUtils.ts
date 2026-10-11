@@ -29,3 +29,28 @@ export function matchesMapFilters(record: MapRecord, filters: MapFilters): boole
   if (filters.date && record.kind !== "job") return false;
   return true;
 }
+
+// ── "Plan a route" stop list ─────────────────────────────────────────────
+export type StopKindFilter = "all" | MapRecord["kind"];
+
+const KIND_WORDS: Record<MapRecord["kind"], string> = { lead: "lead", customer: "client customer", job: "job" };
+
+// Every word typed has to appear somewhere on the stop (name, address, city,
+// ZIP, service, kind, pipeline stage or job status) — "kitchen 30097" finds
+// kitchen jobs in that ZIP, which a single-substring match on name/city/ZIP
+// couldn't.
+export function matchesStopQuery(record: MapRecord & { title?: string }, query: string, stageName?: string): boolean {
+  const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  if (!words.length) return true;
+  const haystack = [
+    record.name, record.title, record.address, record.city, record.state, record.zip,
+    record.service_type, record.status, stageName, KIND_WORDS[record.kind]
+  ].filter(Boolean).join(" ").toLowerCase();
+  return words.every(word => haystack.includes(word));
+}
+
+export function countStopsByKind(records: MapRecord[]): Record<StopKindFilter, number> {
+  const counts: Record<StopKindFilter, number> = { all: records.length, lead: 0, customer: 0, job: 0 };
+  for (const r of records) counts[r.kind] += 1;
+  return counts;
+}

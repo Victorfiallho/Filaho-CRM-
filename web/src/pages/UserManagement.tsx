@@ -1,3 +1,4 @@
+import PageSkeleton from "../components/PageSkeleton";
 import { useQueryClient } from "@tanstack/react-query";
 import { History, Settings2, ShieldAlert, Trash2, UserPlus, X } from "lucide-react";
 import { useState } from "react";
@@ -53,7 +54,7 @@ export default function UserManagement() {
       <div className="empty"><ShieldAlert />{errorMessage(error, "Could not load users.")}</div>
     );
   }
-  if (isLoading || !data) return <div className="empty">Loading users...</div>;
+  if (isLoading || !data) return <PageSkeleton cards={1} rows={8} fullWidth />;
 
   const { authUsers, companies, memberships, profiles } = data;
   const membershipsByUser = new Map<string, AdminMembership[]>();

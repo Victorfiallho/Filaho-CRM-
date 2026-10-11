@@ -2,6 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, ChevronUp, Download, Mail, Phone, Plus, Trash2, Upload, Users, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import PageSkeleton from "../components/PageSkeleton";
 import Select from "../components/Select";
 import { deleteCustomer } from "../data/customers";
 import { useCustomers, usePermissions } from "../data/hooks";
@@ -132,6 +133,8 @@ export default function Customers() {
       setBulkDeleting(false);
     }
   }
+
+  if (isLoading) return <PageSkeleton cards={1} rows={10} fullWidth />;
 
   return (
     <section className="card">

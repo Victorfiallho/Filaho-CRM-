@@ -916,3 +916,9 @@ td a svg{width:14px;height:14px}
 .stop-group-toggle b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .route-block .route-stop:first-of-type{margin-top:8px}
 @media(max-width:760px){.stop-list{max-height:70vh}}
+
+/* ── Stable first paint (2026-10-11) ────────────────────────────────── */
+/* Topbar subtitle keeps its line while counts load, so the title doesn't shift. */
+.topbar .sub{min-height:1.35em}
+.skeleton-nav{display:block;height:36px;border-radius:var(--radius-sm)}
+.sidebar .skeleton-circle{width:40px;height:40px}

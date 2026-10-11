@@ -1,6 +1,7 @@
 import { MarkerClusterer } from "@googlemaps/markerclusterer";
 import { AlertCircle, CheckCircle, ChevronDown, ChevronRight, ChevronUp, MapPin, MapPinned, Maximize2, Navigation, Route, SlidersHorizontal } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import PageSkeleton from "../components/PageSkeleton";
 import Select from "../components/Select";
 import { useCustomers, useIntegrationSettings, useInvalidateCompanyData, useJobs, useLeads } from "../data/hooks";
 import { geocodeRecords } from "../data/geocoding";
@@ -29,9 +30,9 @@ type StartMode = "geolocation" | "first" | "custom";
 // (not just ZIP-prefix) region grouping.
 export default function MapRoutes() {
   const { activeCompanyId, stages, services } = useCompany();
-  const { data: customers = [] } = useCustomers(activeCompanyId);
-  const { data: leads = [] } = useLeads(activeCompanyId);
-  const { data: jobs = [] } = useJobs(activeCompanyId);
+  const { data: customers = [], isLoading: customersLoading } = useCustomers(activeCompanyId);
+  const { data: leads = [], isLoading: leadsLoading } = useLeads(activeCompanyId);
+  const { data: jobs = [], isLoading: jobsLoading } = useJobs(activeCompanyId);
   const { data: settings } = useIntegrationSettings();
   const apiKey = settings?.google_maps.api_key || "";
   const { mapFilters, setMapFilters } = useMapFilters();
@@ -213,6 +214,8 @@ export default function MapRoutes() {
   };
 
   const googleMapsUrl = routeStops ? buildGoogleMapsRouteUrl(routeStops) : "";
+
+  if (customersLoading || leadsLoading || jobsLoading) return <PageSkeleton cards={2} rows={[12, 10]} />;
 
   return (
     <div className="grid map-layout" style={{ alignItems: "start" }}>

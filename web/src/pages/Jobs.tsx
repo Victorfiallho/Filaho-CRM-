@@ -1,6 +1,7 @@
 import { Briefcase, ChevronDown, ChevronUp, DollarSign, Download, FolderOpen, Plus } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import PageSkeleton from "../components/PageSkeleton";
 import Select from "../components/Select";
 import { useCurrentAppUser, useCustomers, useIntegrationSettings, useJobs, usePermissions, useUsers } from "../data/hooks";
 import { toCSV } from "../domain/csv";
@@ -88,6 +89,8 @@ export default function Jobs() {
     const csvRows = rows.map(j => [j.title, j.status || "planned", clientName(j), j.service_type || "", j.scheduled_date || "", String(Number(j.estimated_value || 0)), j.city || ""]);
     downloadText(`${activeCompany?.slug || "jobs"}-jobs.csv`, toCSV(headers, csvRows), "text/csv");
   }
+
+  if (isLoading) return <PageSkeleton cards={1} rows={10} fullWidth />;
 
   return (
     <section className="card">

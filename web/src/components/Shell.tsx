@@ -12,6 +12,7 @@ import { useAuth } from "../state/AuthContext";
 import { useCompany } from "../state/CompanyContext";
 import { useModal } from "../state/ModalContext";
 import { useSearch } from "../state/SearchContext";
+import PageSkeleton from "./PageSkeleton";
 import RecordModal from "./RecordModal";
 
 // Matches on the first path segment so nested routes keep their section's
@@ -25,12 +26,16 @@ function pageTitle(pathname: string) {
 // (which the sidebar already shows) — makes this header line actually say
 // something instead of sitting there static on every page.
 function useTopbarSubtitle(pathname: string, companyId: string | null, companyName: string, stages: PipelineStage[]): string {
-  const { data: customers = [] } = useCustomers(companyId);
-  const { data: leads = [] } = useLeads(companyId);
-  const { data: jobs = [] } = useJobs(companyId);
-  const { data: imports = [] } = useImportsHistory(companyId);
+  const { data: customers = [], isLoading: customersLoading } = useCustomers(companyId);
+  const { data: leads = [], isLoading: leadsLoading } = useLeads(companyId);
+  const { data: jobs = [], isLoading: jobsLoading } = useJobs(companyId);
+  const { data: imports = [], isLoading: importsLoading } = useImportsHistory(companyId);
 
-  switch (pathname.replace(/^\//, "")) {
+  // Blank (the line keeps its height in CSS) until the counts are real —
+  // "0 clients" flashing to "33 clients" read as data appearing out of thin air.
+  if (customersLoading || leadsLoading || jobsLoading || importsLoading) return "";
+
+  switch (pathname.replace(/^\//, "").split("/")[0]) {
     case "pipeline": {
       const open = leads.filter(l => isOpenStage(l.stage_id, stages));
       const value = open.reduce((t, l) => t + Number(l.value || 0), 0);
@@ -61,7 +66,7 @@ export default function Shell() {
   const { session, loading: authLoading, signOut } = useAuth();
   const { activeCompany, activeCompanyId, clearCompany, stages, companiesLoading } = useCompany();
   const { isOwner } = useIsOwner();
-  const { has: hasPermission } = usePermissions();
+  const { has: hasPermission, isLoading: permissionsLoading } = usePermissions();
   const { searchText, setSearchText } = useSearch();
   const { openRecordModal } = useModal();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -144,9 +149,13 @@ export default function Shell() {
   // `activeCompany` is momentarily null on that first render regardless —
   // without waiting it out, a perfectly valid, already-selected session got
   // bounced straight to /companies, discarding whatever page it wanted.
-  if (authLoading || companiesLoading) return <div className="empty">Loading...</div>;
+  if (authLoading || companiesLoading) return <ShellSkeleton collapsed={collapsed} />;
   if (!session) return <Navigate to="/login" replace />;
   if (!activeCompanyId || !activeCompany) return <Navigate to="/companies" replace />;
+  // The nav (Company Financials, Users, Import) and the "New" button depend
+  // on the user's permissions. Painting before they load showed a short menu
+  // that then grew — so the shell waits and shows its own outline instead.
+  if (permissionsLoading) return <ShellSkeleton collapsed={collapsed} />;
 
   const switchCompany = () => {
     clearCompany();
@@ -274,6 +283,32 @@ function NewRecordMenu({ onPick }: { onPick: (type: "lead" | "customer" | "job")
           <button role="menuitem" data-action="new-job" onClick={() => pick("job")}>Job</button>
         </div>
       )}
+    </div>
+  );
+}
+
+// Same outline as the real shell (sidebar width, topbar, content padding) so
+// the swap to real content is a fill-in, not a layout change.
+function ShellSkeleton({ collapsed }: { collapsed: boolean }) {
+  return (
+    <div className="app-shell" aria-busy="true" aria-label="Loading" style={{ ["--sidebar-w" as any]: collapsed ? "96px" : "264px" }}>
+      <aside className={`sidebar${collapsed ? " collapsed" : ""}`}>
+        <div className="brand"><span className="skeleton skeleton-circle" /></div>
+        <div className="nav skeleton-stack">
+          {Array.from({ length: 9 }).map((_, i) => <span key={i} className="skeleton skeleton-nav" />)}
+        </div>
+      </aside>
+      <main className="main">
+        <header className="topbar">
+          <div style={{ flex: 1 }}>
+            <span className="skeleton skeleton-text short" style={{ display: "block", width: 160, height: 18 }} />
+            <span className="skeleton skeleton-text" style={{ display: "block", width: 120, marginTop: 6 }} />
+          </div>
+        </header>
+        <section className="content">
+          <PageSkeleton kpis={4} rows={[5, 5]} />
+        </section>
+      </main>
     </div>
   );
 }

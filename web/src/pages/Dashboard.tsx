@@ -33,14 +33,16 @@ export default function Dashboard() {
   const { data: customers = [], isLoading: customersLoading } = useCustomers(activeCompanyId);
   const { data: leads = [], isLoading: leadsLoading } = useLeads(activeCompanyId);
   const { data: jobs = [], isLoading: jobsLoading } = useJobs(activeCompanyId);
-  const { data: settings } = useIntegrationSettings();
+  const { data: settings, isLoading: settingsLoading } = useIntegrationSettings();
   const navigate = useNavigate();
 
   // Row counts approximate each real card's height (Upcoming jobs' table,
   // Needs attention's short alert list, Pipeline by stage's one row per
   // stage, Recent activity's up to 5 rows) so the page doesn't visibly jump
   // in size the instant these queries resolve.
-  if (customersLoading || leadsLoading || jobsLoading) return <PageSkeleton kpis={4} rows={[5, 3, stages.length || 5, 5]} />;
+  // Settings too: the "Calendar not connected" alert and the integrations
+  // count both read it, and used to pop in a beat after everything else.
+  if (customersLoading || leadsLoading || jobsLoading || settingsLoading) return <PageSkeleton kpis={4} rows={[5, 3, stages.length || 5, 5]} />;
 
   const won = leads.filter(l => isWonStage(l.stage_id, stages));
   const openLeads = leads.filter(l => isOpenStage(l.stage_id, stages));

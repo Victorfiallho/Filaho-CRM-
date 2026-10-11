@@ -12,7 +12,7 @@
 // Getting this close matters: a skeleton much shorter than what replaces it
 // makes the whole page jump/reflow the instant the fetch resolves, which
 // reads as an abrupt cut no matter how the swap itself is eased.
-export default function PageSkeleton({ kpis = 0, cards = 2, rows = 3 }: { kpis?: number; cards?: number; rows?: number | number[] }) {
+export default function PageSkeleton({ kpis = 0, cards = 2, rows = 3, fullWidth = false }: { kpis?: number; cards?: number; rows?: number | number[]; fullWidth?: boolean }) {
   const rowCounts = Array.isArray(rows) ? rows : Array.from({ length: cards }, () => rows);
   return (
     <div aria-busy="true" aria-label="Loading">
@@ -23,7 +23,7 @@ export default function PageSkeleton({ kpis = 0, cards = 2, rows = 3 }: { kpis?:
           ))}
         </div>
       )}
-      <div className="grid two">
+      <div className={fullWidth ? "grid" : "grid two"}>
         {rowCounts.map((n, i) => (
           <section key={i} className="card">
             <div className="card-h"><span className="skeleton skeleton-text short" /></div>

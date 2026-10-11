@@ -1,3 +1,4 @@
+import PageSkeleton from "../components/PageSkeleton";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
@@ -81,7 +82,7 @@ export default function Integrations() {
     return () => window.removeEventListener("message", onOAuthMessage);
   }, [queryClient]);
 
-  if (!settings || !activeCompanyId) return null;
+  if (!settings || !activeCompanyId) return <PageSkeleton cards={2} rows={[6, 6]} />;
   const activeSettings = settings;
   const companyId = activeCompanyId;
 

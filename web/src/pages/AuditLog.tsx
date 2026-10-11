@@ -1,4 +1,4 @@
-import { History, Search } from "lucide-react";
+import { History } from "lucide-react";
 import { useMemo, useState } from "react";
 import Select from "../components/Select";
 import { useAuditLog, useUsers } from "../data/hooks";
@@ -131,7 +131,11 @@ export default function AuditLog() {
           </tbody>
         </table>
       </div>
-      {isLoading && <div className="empty"><Search />Loading...</div>}
+      {isLoading && (
+        <div className="card-b skeleton-stack" aria-busy="true" aria-label="Loading">
+          {Array.from({ length: 8 }).map((_, i) => <span key={i} className="skeleton skeleton-text" />)}
+        </div>
+      )}
     </section>
   );
 }

@@ -15,22 +15,7 @@ import {
   useJobs,
   useVendors
 } from "../data/hooks";
-import {
-  contractRevenue,
-  evaluateProjectHealth,
-  expectedProfit,
-  estimatedTotalCost,
-  forecastFinalCost,
-  forecastProfit,
-  marginPct,
-  minimumProfitForMargin,
-  safeToWithdraw,
-  sumActualNetCost,
-  sumCashPaid,
-  sumCommittedUnpaid,
-  sumEstimatedCost,
-  sumRemainingEstimate
-} from "../domain/costing";
+import { computeProjectFinancials, sumCashPaid, sumCommittedUnpaid, type HealthStatus } from "../domain/costing";
 import { isCustomerPayment, TRANSACTION_TYPE_LABELS } from "../domain/transactions";
 import { formatDay, groupBy, money, titleize } from "../domain/format";
 import { useCompany } from "../state/CompanyContext";
@@ -44,50 +29,49 @@ interface ProjectRollup {
   pf: ProjectFinancials;
   revenue: number;
   paymentsReceived: number;
+  // False until the project has at least one cost item — its forecast
+  // profit/margin are then unknown (not 100%), and it holds no free cash.
+  hasCostData: boolean;
   forecastProfitValue: number;
   forecastMarginValue: number;
   requiredReserve: number;
   safeWithdraw: number;
-  healthStatus: ReturnType<typeof evaluateProjectHealth>["status"];
+  healthStatus: HealthStatus;
   minimumMarginPct: number;
 }
 
+// Same computeProjectFinancials the project screen uses, so a project that
+// shows "$0 safe to withdraw" there can't count as free cash here.
 function rollupProject(job: Job, pf: ProjectFinancials, items: CostLineItem[], approvedChangeOrdersTotal: number, transactions: Transaction[], releasedTotal: number, defaultMinMargin: number, defaultContingency: number): ProjectRollup {
   const minimumMarginPct = pf.minimum_margin_pct ?? defaultMinMargin;
-  const contingencyPct = pf.contingency_pct ?? defaultContingency;
-  const revenue = contractRevenue(pf.original_contract_value, approvedChangeOrdersTotal, pf.customer_fees, pf.discounts);
-
-  const estimatedSum = sumEstimatedCost(items);
-  const contingencyUsd = (estimatedSum * contingencyPct) / 100;
-  const estCost = estimatedTotalCost(items.map(i => Number(i.estimated_cost || 0)), contingencyUsd);
-
-  const actualNet = sumActualNetCost(items);
-  const cashPaid = sumCashPaid(items);
-  const committedUnpaid = sumCommittedUnpaid(items);
-  const remainingEstimate = sumRemainingEstimate(items);
-  const forecastCost = forecastFinalCost(actualNet, committedUnpaid, remainingEstimate);
-
-  const expProfit = expectedProfit(revenue, estCost);
-  const forecastProfitValue = forecastProfit(revenue, forecastCost);
-  const minProfitUsd = pf.minimum_profit_usd ?? minimumProfitForMargin(revenue, minimumMarginPct);
-  const forecastMarginValue = marginPct(forecastProfitValue, revenue);
-
-  const confirmedCustomerPayments = transactions.filter(t => t.status === "confirmed" && isCustomerPayment(t.transaction_type)).reduce((t, x) => t + Number(x.amount || 0), 0);
-  const hasLedgerPayments = transactions.some(t => t.status === "confirmed" && isCustomerPayment(t.transaction_type));
-  const paymentsReceived = hasLedgerPayments ? confirmedCustomerPayments : pf.payments_received_manual;
-  const requiredReserve = committedUnpaid + remainingEstimate + contingencyUsd;
-  const safeWithdraw = safeToWithdraw(paymentsReceived, cashPaid + releasedTotal, committedUnpaid, remainingEstimate, contingencyUsd);
-
-  const health = evaluateProjectHealth({
-    hasEnoughData: revenue > 0,
-    forecastProfitValue,
-    expectedProfitTarget: expProfit,
-    minimumAcceptableProfit: minProfitUsd,
-    forecastMarginPctValue: forecastMarginValue,
-    minimumMarginPct
+  const ledgerPayments = transactions.filter(t => t.status === "confirmed" && isCustomerPayment(t.transaction_type));
+  const summary = computeProjectFinancials({
+    originalContractValue: Number(pf.original_contract_value || 0),
+    discounts: Number(pf.discounts || 0),
+    customerFees: Number(pf.customer_fees || 0),
+    approvedChangeOrdersTotal,
+    minimumMarginPct,
+    contingencyPct: pf.contingency_pct ?? defaultContingency,
+    minimumProfitUsd: pf.minimum_profit_usd,
+    paymentsReceivedManual: Number(pf.payments_received_manual || 0),
+    ledgerPaymentsReceived: ledgerPayments.length ? ledgerPayments.reduce((t, x) => t + Number(x.amount || 0), 0) : null,
+    releasedTotal,
+    items
   });
 
-  return { job, pf, revenue, paymentsReceived, forecastProfitValue, forecastMarginValue, requiredReserve, safeWithdraw, healthStatus: health.status, minimumMarginPct };
+  return {
+    job,
+    pf,
+    revenue: summary.revenue,
+    paymentsReceived: summary.paymentsReceived,
+    hasCostData: summary.hasCostData,
+    forecastProfitValue: summary.forecastProfit,
+    forecastMarginValue: summary.forecastMarginPct,
+    requiredReserve: summary.requiredReserve,
+    safeWithdraw: summary.safeToWithdraw,
+    healthStatus: summary.health.status,
+    minimumMarginPct
+  };
 }
 
 export default function CompanyFinancials() {
@@ -130,7 +114,11 @@ export default function CompanyFinancials() {
   const accountsReceivable = Math.max(0, contractedRevenue - receivedRevenue);
   const costsPaid = sumCashPaid(allItems);
   const costsCommitted = sumCommittedUnpaid(allItems);
-  const forecastProfitTotal = rollups.reduce((t, r) => t + r.forecastProfitValue, 0);
+  // Unpriced projects (no cost items) would add their whole contract as
+  // "profit" — left out of the total and called out in the hint instead.
+  const pricedRollups = rollups.filter(r => r.hasCostData);
+  const unpricedCount = rollups.length - pricedRollups.length;
+  const forecastProfitTotal = pricedRollups.reduce((t, r) => t + r.forecastProfitValue, 0);
   const profitReleased = allReleases.reduce((t, r) => t + Number(r.amount || 0), 0);
   const cashReserved = rollups.reduce((t, r) => t + r.requiredReserve, 0);
   const cashFree = rollups.reduce((t, r) => t + r.safeWithdraw, 0);
@@ -152,7 +140,7 @@ export default function CompanyFinancials() {
     .slice(0, 8);
   const maxCategorySpend = Math.max(1, ...categoryRows.map(c => c.total));
 
-  const belowPolicy = rollups.filter(r => r.forecastMarginValue < r.minimumMarginPct);
+  const belowPolicy = pricedRollups.filter(r => r.forecastMarginValue < r.minimumMarginPct);
 
   return (
     <div className="company-financials">
@@ -167,13 +155,13 @@ export default function CompanyFinancials() {
         </div>
       </div>
 
-      <div className="kpis">
+      <div className="grid kpis">
         <KpiCard label="Contracted Revenue" value={money(contractedRevenue)} hint={`${rollups.length} project${rollups.length === 1 ? "" : "s"} with costing set up`} />
         <KpiCard label="Received Revenue" value={money(receivedRevenue)} hint="Confirmed customer payments (or manual fallback)" />
         <KpiCard label="Accounts Receivable" value={money(accountsReceivable)} hint="Contracted minus received" />
         <KpiCard label="Costs Paid" value={money(costsPaid)} hint="Real cash out, all projects" />
         <KpiCard label="Costs Committed" value={money(costsCommitted)} hint="Ordered/committed, not yet paid" />
-        <KpiCard label="Forecast Profit" value={money(forecastProfitTotal)} hint="Sum across all projects" />
+        <KpiCard label="Forecast Profit" value={money(forecastProfitTotal)} hint={unpricedCount ? `Excludes ${unpricedCount} project${unpricedCount === 1 ? "" : "s"} with no cost estimates` : "Sum across all projects"} />
         <KpiCard label="Profit Released" value={money(profitReleased)} hint="All-time, all projects" />
         <KpiCard label="Cash Reserved" value={money(cashReserved)} hint="Committed + remaining + contingency" />
         <KpiCard label="Cash Free" value={money(cashFree)} hint="Safe to withdraw, summed" />
@@ -209,8 +197,8 @@ export default function CompanyFinancials() {
                   <tr key={r.job.id}>
                     <td><Link to={`/jobs/${r.job.id}/financials`}>{r.job.title}</Link></td>
                     <td>{money(r.revenue)}</td>
-                    <td>{money(r.forecastProfitValue)}</td>
-                    <td>{r.forecastMarginValue.toFixed(1)}%</td>
+                    <td>{r.hasCostData ? money(r.forecastProfitValue) : "—"}</td>
+                    <td>{r.hasCostData ? `${r.forecastMarginValue.toFixed(1)}%` : "No costs yet"}</td>
                     <td><span className={`pill health-pill-${r.healthStatus}`}>{r.healthStatus}</span></td>
                   </tr>
                 ))}

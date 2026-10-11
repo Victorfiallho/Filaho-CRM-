@@ -1,6 +1,7 @@
+import type { ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 
-export default function KpiCard({ label, value, hint, icon: Icon }: { label: string; value: string | number; hint: string; icon?: LucideIcon }) {
+export default function KpiCard({ label, value, hint, icon: Icon }: { label: string; value: string | number; hint: ReactNode; icon?: LucideIcon }) {
   return (
     <section className="card kpi">
       {Icon && <div className="kpi-icon"><Icon /></div>}

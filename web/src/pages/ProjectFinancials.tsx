@@ -1,7 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, ArrowLeft, CheckCircle2, HelpCircle, Plus, Trash2, XCircle } from "lucide-react";
-import { useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { AlertTriangle, ArrowLeft, CheckCircle2, ChevronRight, HelpCircle, Plus, Receipt, Trash2, XCircle } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import KpiCard from "../components/KpiCard";
 import PageSkeleton from "../components/PageSkeleton";
 import Select from "../components/Select";
@@ -10,6 +10,7 @@ import { deleteCostLineItem, insertCostLineItem, updateCostLineItem } from "../d
 import {
   useChangeOrders,
   useCostLineItems,
+  useCustomers,
   useFinanceSettings,
   useJobs,
   useIsOwner,
@@ -24,25 +25,7 @@ import { insertProfitRelease } from "../data/profitReleases";
 import { createProjectFinancials, updateProjectFinancials } from "../data/projectFinancials";
 import { insertRefund, updateRefund } from "../data/refunds";
 import { confirmTransaction, deleteDraftTransaction, insertTransaction, reverseTransaction } from "../data/transactions";
-import {
-  categoryBudgetUsage,
-  contractRevenue,
-  estimatedTotalCost,
-  evaluateProjectHealth,
-  forecastFinalCost,
-  expectedProfit,
-  forecastProfit,
-  marginPct,
-  maxAllowedCost,
-  minimumProfitForMargin,
-  safeToWithdraw,
-  sumActualNetCost,
-  sumCashPaid,
-  sumCommittedUnpaid,
-  sumEstimatedCost,
-  sumRemainingEstimate,
-  type HealthStatus
-} from "../domain/costing";
+import { categoryBudgetUsage, computeProjectFinancials, type HealthStatus, type ProjectFinancialsSummary } from "../domain/costing";
 import { isCustomerPayment, OWNER_AMBIGUOUS_TYPES, TRANSACTION_TYPE_LABELS } from "../domain/transactions";
 import { findOrCreateVendor } from "../data/vendors";
 import { formatDay, money, titleize, uid } from "../domain/format";
@@ -55,6 +38,7 @@ import {
   COST_LINE_ITEM_STATUSES,
   REFUND_STATUSES,
   TRANSACTION_TYPES,
+  type ChangeOrder,
   type CostCategory,
   type CostLineItemStatus,
   type RefundStatus,
@@ -75,15 +59,29 @@ const HEALTH_ICON: Record<HealthStatus, typeof CheckCircle2> = {
   gray: HelpCircle
 };
 
+// Four tabs instead of seven stacked sections: what a person comes here to
+// do (check the state, edit terms, log costs, log money in) each gets one.
+const TABS = [
+  { id: "overview", label: "Overview" },
+  { id: "contract", label: "Contract & Policy" },
+  { id: "costs", label: "Costs & Line Items" },
+  { id: "payments", label: "Payments & Change Orders" }
+] as const;
+type TabId = typeof TABS[number]["id"];
+
+type ContractField = "original_contract_value" | "discounts" | "customer_fees" | "minimum_margin_pct" | "deposit_pct" | "payments_received_manual";
+
 export default function ProjectFinancials() {
   const { jobId } = useParams<{ jobId: string }>();
   const { activeCompanyId } = useCompany();
   const { session } = useAuth();
   const { isOwner } = useIsOwner();
   const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const { data: jobs = [], isLoading: jobsLoading } = useJobs(activeCompanyId);
   const job = jobs.find(j => j.id === jobId);
+  const { data: customers = [] } = useCustomers(activeCompanyId);
 
   const { data: settings, isLoading: settingsLoading } = useFinanceSettings(activeCompanyId);
   const { data: pf, isLoading: pfLoading } = useProjectFinancials(jobId || null);
@@ -97,9 +95,25 @@ export default function ProjectFinancials() {
 
   const [savingSetup, setSavingSetup] = useState(false);
   const [setupContract, setSetupContract] = useState<string>("");
+  // Header shortcuts switch tab, then scroll to + focus that tab's form.
+  const [focusTarget, setFocusTarget] = useState<string | null>(null);
+  const [paymentFormKey, setPaymentFormKey] = useState(0);
+
+  const tabParam = searchParams.get("tab");
+  const activeTab: TabId = TABS.some(t => t.id === tabParam) ? (tabParam as TabId) : "overview";
+  const setTab = (tab: TabId) => setSearchParams(prev => { const next = new URLSearchParams(prev); next.set("tab", tab); return next; }, { replace: true });
+
+  useEffect(() => {
+    if (!focusTarget) return;
+    const el = document.getElementById(focusTarget);
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "start" });
+    el.querySelector<HTMLElement>("input, .cs-trigger")?.focus({ preventScroll: true });
+    setFocusTarget(null);
+  }, [focusTarget, activeTab]);
 
   const loading = jobsLoading || settingsLoading || pfLoading || itemsLoading || coLoading || txnLoading || refundsLoading || releasesLoading;
-  if (loading) return <PageSkeleton kpis={6} rows={[5]} />;
+  if (loading) return <PageSkeleton kpis={4} rows={[5]} />;
 
   if (!job) {
     return (
@@ -128,93 +142,59 @@ export default function ProjectFinancials() {
     }
   }
 
+  const breadcrumb = (
+    <nav className="breadcrumb" aria-label="Breadcrumb">
+      <Link to="/jobs">Jobs</Link><ChevronRight aria-hidden="true" />
+      <span>{job.title}</span><ChevronRight aria-hidden="true" />
+      <span aria-current="page">Financials</span>
+    </nav>
+  );
+
   if (!pf) {
     return (
-      <section className="card">
-        <div className="card-h">
-          <h3>Set up costing for "{job.title}"</h3>
-          <Link className="btn ghost slim" to="/jobs"><ArrowLeft />Back</Link>
-        </div>
-        <div className="card-b">
-          <p className="muted">This project doesn't have costing set up yet. Existing job data (status, schedule, address) is untouched either way.</p>
-          <div className="field">
-            <label>Original contract value</label>
-            <input
-              type="number"
-              placeholder={String(job.estimated_value || 0)}
-              value={setupContract}
-              onChange={e => setSetupContract(e.target.value)}
-            />
+      <div className="project-financials">
+        {breadcrumb}
+        <section className="card" style={{ marginTop: 12 }}>
+          <div className="card-h"><h3>Set up costing for "{job.title}"</h3></div>
+          <div className="card-b">
+            <p className="muted">This project doesn't have costing set up yet. Existing job data (status, schedule, address) is untouched either way.</p>
+            <div className="field">
+              <label>Original contract value</label>
+              <div className="input-affix">
+                <span className="affix">$</span>
+                <input type="number" placeholder={String(job.estimated_value || 0)} value={setupContract} onChange={e => setSetupContract(e.target.value)} />
+              </div>
+            </div>
+            <button className="btn" disabled={savingSetup} onClick={handleSetup}>
+              {savingSetup ? "Setting up..." : "Set up project costing"}
+            </button>
           </div>
-          <button className="btn" disabled={savingSetup} onClick={handleSetup}>
-            {savingSetup ? "Setting up..." : "Set up project costing"}
-          </button>
-        </div>
-      </section>
+        </section>
+      </div>
     );
   }
 
   const minimumMarginPct = pf.minimum_margin_pct ?? settings?.default_minimum_margin_pct ?? 35;
-  const contingencyPct = pf.contingency_pct ?? settings?.default_contingency_pct ?? 10;
-
-  const approvedChangeOrdersTotal = changeOrders.filter(co => co.status === "approved").reduce((t, co) => t + Number(co.amount || 0), 0);
-  const revenue = contractRevenue(pf.original_contract_value, approvedChangeOrdersTotal, pf.customer_fees, pf.discounts);
-
-  const estimatedLineCosts = items.map(i => Number(i.estimated_cost || 0));
-  const estimatedSum = sumEstimatedCost(items);
-  const contingencyUsd = (estimatedSum * contingencyPct) / 100;
-  const estCost = estimatedTotalCost(estimatedLineCosts, contingencyUsd);
-
-  const actualNet = sumActualNetCost(items); // includes internal (owner labor) cost, for true margin
-  const cashPaid = sumCashPaid(items); // real cash out only, for cash-flow math
-  const committedUnpaid = sumCommittedUnpaid(items);
-  const remainingEstimate = sumRemainingEstimate(items);
-  const forecastCost = forecastFinalCost(actualNet, committedUnpaid, remainingEstimate);
-
-  const expProfit = expectedProfit(revenue, estCost);
-  const forecastProfitVal = forecastProfit(revenue, forecastCost);
-  const minProfitUsd = pf.minimum_profit_usd ?? minimumProfitForMargin(revenue, minimumMarginPct);
-  const maxCost = maxAllowedCost(revenue, minimumMarginPct);
-  const expMargin = marginPct(expProfit, revenue);
-  const forecastMarginVal = marginPct(forecastProfitVal, revenue);
-  const remainingBudget = Math.max(0, maxCost - forecastCost);
-
-  // Confirmed customer-payment transactions supersede the Phase 1 manual
-  // field once any exist for this job — see the Phase 2 migration's comment.
-  const confirmedCustomerPayments = transactions
-    .filter(t => t.status === "confirmed" && isCustomerPayment(t.transaction_type))
-    .reduce((total, t) => total + Number(t.amount || 0), 0);
-  const hasLedgerPayments = transactions.some(t => t.status === "confirmed" && isCustomerPayment(t.transaction_type));
-  const paymentsReceived = hasLedgerPayments ? confirmedCustomerPayments : pf.payments_received_manual;
-  const balanceDue = Math.max(0, revenue - paymentsReceived);
-  const requiredReserve = committedUnpaid + remainingEstimate + contingencyUsd;
-  const releasedTotal = profitReleases.reduce((total, r) => total + Number(r.amount || 0), 0);
-  // Cash already handed out as a profit release is no longer sitting in the
-  // account either — folded into the "paid" side of the formula so it can't
-  // be released twice.
-  const safeWithdraw = safeToWithdraw(paymentsReceived, cashPaid + releasedTotal, committedUnpaid, remainingEstimate, contingencyUsd);
-
-  const health = evaluateProjectHealth({
-    hasEnoughData: revenue > 0,
-    forecastProfitValue: forecastProfitVal,
-    expectedProfitTarget: expProfit,
-    minimumAcceptableProfit: minProfitUsd,
-    forecastMarginPctValue: forecastMarginVal,
-    minimumMarginPct
+  const ledgerPayments = transactions.filter(t => t.status === "confirmed" && isCustomerPayment(t.transaction_type));
+  const summary = computeProjectFinancials({
+    originalContractValue: Number(pf.original_contract_value || 0),
+    discounts: Number(pf.discounts || 0),
+    customerFees: Number(pf.customer_fees || 0),
+    approvedChangeOrdersTotal: changeOrders.filter(co => co.status === "approved").reduce((t, co) => t + Number(co.amount || 0), 0),
+    minimumMarginPct,
+    contingencyPct: pf.contingency_pct ?? settings?.default_contingency_pct ?? 10,
+    minimumProfitUsd: pf.minimum_profit_usd,
+    paymentsReceivedManual: Number(pf.payments_received_manual || 0),
+    ledgerPaymentsReceived: ledgerPayments.length ? ledgerPayments.reduce((t, x) => t + Number(x.amount || 0), 0) : null,
+    releasedTotal: profitReleases.reduce((t, r) => t + Number(r.amount || 0), 0),
+    items
   });
-
-  const overBudgetCategories = categoryBudgetUsage(items).filter(c => c.overBy > 0);
-  const alerts = [...health.alerts];
-  for (const cat of overBudgetCategories) {
-    alerts.push(`This project is ${money(cat.overBy)} over the ${titleize(cat.category)} budget.`);
-  }
-  if (safeWithdraw === 0 && (committedUnpaid + remainingEstimate + contingencyUsd) > paymentsReceived - cashPaid) {
-    alerts.push("There is not enough reserved cash to complete this project safely right now.");
-  }
-
+  const { health } = summary;
   const HealthIcon = HEALTH_ICON[health.status];
+  const client = customers.find(c => c.id === job.customer_id);
+  const jobStatus = job.status || "planned";
 
-  async function handleSaveContract(field: "original_contract_value" | "discounts" | "customer_fees" | "minimum_margin_pct" | "deposit_pct" | "payments_received_manual", value: number) {
+  async function handleSaveContract(field: ContractField, value: number) {
     if (!activeCompanyId || !pf) return;
     try {
       await updateProjectFinancials(pf.id, activeCompanyId, { [field]: value });
@@ -224,125 +204,274 @@ export default function ProjectFinancials() {
     }
   }
 
+  function goTo(tab: TabId, target: string) {
+    setTab(tab);
+    setFocusTarget(target);
+  }
+
+  const receivedHint = summary.customerCredit > 0
+    ? <span className="tag-credit">Customer credit: {money(summary.customerCredit)}</span>
+    : summary.balanceDue > 0
+      ? `${money(summary.balanceDue)} still due`
+      : "Paid in full";
+
   return (
     <div className="project-financials">
-      <div className="between" style={{ marginBottom: 16 }}>
-        <Link className="btn ghost slim" to="/jobs"><ArrowLeft />Back to Jobs</Link>
-        <h2 style={{ margin: 0 }}>{job.title} — Financials</h2>
-        <span />
-      </div>
+      {breadcrumb}
 
-      <section className={`health-banner health-${health.status}`}>
+      <header className="pf-header">
+        <div style={{ minWidth: 0 }}>
+          <h2>{job.title}</h2>
+          <div className="pf-meta">
+            <span className={`pill status-${jobStatus.replace(/\s+/g, "-")}`}>{jobStatus}</span>
+            {client && <span>{client.name}</span>}
+            {job.scheduled_date && <span>Scheduled {formatDay(job.scheduled_date)}</span>}
+            {pf.start_date && <span>Start {formatDay(pf.start_date)}</span>}
+            {pf.target_completion_date && <span>Target {formatDay(pf.target_completion_date)}</span>}
+          </div>
+        </div>
+        <div className="inline-actions">
+          <button className="btn ghost slim" onClick={() => goTo("costs", "cost-item-form")}><Plus />Add cost</button>
+          <button className="btn slim" onClick={() => { setPaymentFormKey(k => k + 1); goTo("payments", "payment-form"); }}><Receipt />Log payment</button>
+        </div>
+      </header>
+
+      <section className={`health-banner health-${health.status}`} role="status">
         <HealthIcon />
         <div>
           <b>{HEALTH_LABEL[health.status]}</b>
-          {alerts.map((a, i) => <div key={i} className="health-alert">{a}</div>)}
+          <div className="health-alert">{health.reason}</div>
+          {health.alerts.map((a, i) => <div key={i} className="health-alert">{a}</div>)}
         </div>
       </section>
 
-      <div className="kpis" style={{ marginTop: 16 }}>
-        <KpiCard label="Contract Value" value={money(revenue)} hint={`Original ${money(pf.original_contract_value)}`} />
-        <KpiCard label="Amount Received" value={money(paymentsReceived)} hint={hasLedgerPayments ? "From confirmed customer payments" : "Manual (no confirmed payments logged yet)"} />
-        <KpiCard label="Profit Released" value={money(releasedTotal)} hint={`Safe to release now: ${money(safeWithdraw)}`} />
-        <KpiCard label="Balance Due" value={money(balanceDue)} hint="Contract value minus received" />
-        <KpiCard label="Estimated Cost" value={money(estCost)} hint={`Incl. ${money(contingencyUsd)} contingency`} />
-        <KpiCard label="Actual Net Cost" value={money(actualNet)} hint="Real + internal owner-labor cost" />
-        <KpiCard label="Committed Cost" value={money(committedUnpaid)} hint="Ordered/committed, not yet paid" />
-        <KpiCard label="Forecast Final Cost" value={money(forecastCost)} hint="Actual + committed + remaining" />
-        <KpiCard label="Expected Profit" value={money(expProfit)} hint={`${expMargin.toFixed(1)}% margin`} />
-        <KpiCard label="Forecast Profit" value={money(forecastProfitVal)} hint={`${forecastMarginVal.toFixed(1)}% margin`} />
-        <KpiCard label="Minimum Profit" value={money(minProfitUsd)} hint={`${minimumMarginPct}% minimum margin policy`} />
-        <KpiCard label="Remaining Budget" value={money(remainingBudget)} hint="Spendable before crossing minimum margin" />
-        <KpiCard label="Required Cash Reserve" value={money(requiredReserve)} hint="Committed + remaining + contingency" />
-        <KpiCard label="Safe to Withdraw" value={money(safeWithdraw)} hint={safeWithdraw === 0 ? "Reserved for pending costs" : "After reserves are covered"} />
+      <div className="grid kpis" style={{ marginTop: 16 }}>
+        <KpiCard label="Contract Value" value={money(summary.revenue)} hint={summary.contractNote} />
+        <KpiCard label="Total Received" value={money(summary.paymentsReceived)} hint={receivedHint} />
+        <KpiCard
+          label="Forecast Profit"
+          value={summary.hasCostData ? money(summary.forecastProfit) : "—"}
+          hint={summary.hasCostData ? `${summary.forecastMarginPct.toFixed(1)}% margin (min ${minimumMarginPct}%)` : "Needs cost estimates"}
+        />
+        <KpiCard
+          label="Safe to Withdraw"
+          value={money(summary.safeToWithdraw)}
+          hint={summary.safeToWithdrawNotice ?? (summary.safeToWithdraw === 0 ? "Reserved for pending costs" : "After reserves are covered")}
+        />
       </div>
 
-      <section className="card" style={{ marginTop: 16 }}>
-        <div className="card-h"><h3>Contract & margin policy</h3></div>
-        <div className="card-b">
-          <div className="form-row">
-            <NumberField label="Original contract value" value={pf.original_contract_value} onSave={v => handleSaveContract("original_contract_value", v)} />
-            <NumberField label="Discounts" value={pf.discounts} onSave={v => handleSaveContract("discounts", v)} />
-            <NumberField label="Customer fees" value={pf.customer_fees} onSave={v => handleSaveContract("customer_fees", v)} />
-            {isOwner ? (
-              <NumberField label={`Minimum margin % (company default ${settings?.default_minimum_margin_pct ?? 35}%)`} value={pf.minimum_margin_pct ?? ""} onSave={v => handleSaveContract("minimum_margin_pct", v)} />
-            ) : (
-              <div className="field">
-                <label>Minimum margin %</label>
-                <input value={pf.minimum_margin_pct ?? `${settings?.default_minimum_margin_pct ?? 35} (company default)`} disabled />
-              </div>
-            )}
-            <NumberField label="Deposit %" value={pf.deposit_pct} onSave={v => handleSaveContract("deposit_pct", v)} />
-            <NumberField label="Payments received (manual)" value={pf.payments_received_manual} onSave={v => handleSaveContract("payments_received_manual", v)} />
-          </div>
+      <details className="kpi-details">
+        <summary>Show details (10 more metrics)</summary>
+        <div className="grid kpis">
+          <KpiCard label="Balance Due" value={money(summary.balanceDue)} hint="Contract value minus received" />
+          <KpiCard label="Estimated Cost" value={money(summary.estimatedCost)} hint={`Incl. ${money(summary.contingencyUsd)} contingency`} />
+          <KpiCard label="Actual Net Cost" value={money(summary.actualNetCost)} hint="Real + internal owner-labor cost" />
+          <KpiCard label="Committed Cost" value={money(summary.committedUnpaid)} hint="Ordered/committed, not yet paid" />
+          <KpiCard label="Forecast Final Cost" value={money(summary.forecastCost)} hint="Actual + committed + remaining" />
+          <KpiCard label="Expected Profit" value={money(summary.expectedProfit)} hint={`${summary.expectedMarginPct.toFixed(1)}% margin on estimate`} />
+          <KpiCard label="Minimum Profit" value={money(summary.minimumProfit)} hint={`${minimumMarginPct}% minimum margin policy`} />
+          <KpiCard label="Remaining Budget" value={money(summary.remainingBudget)} hint="Spendable before crossing minimum margin" />
+          <KpiCard label="Required Cash Reserve" value={money(summary.requiredReserve)} hint="Committed + remaining + contingency" />
+          <KpiCard label="Profit Released" value={money(summary.releasedTotal)} hint="All releases on this project" />
         </div>
-      </section>
+      </details>
 
-      <ChangeOrdersCard
-        jobId={job.id}
-        companyId={activeCompanyId!}
-        changeOrders={changeOrders}
-        approverId={session?.user.id || null}
-        onChanged={() => queryClient.invalidateQueries({ queryKey: ["change-orders", job.id] })}
-      />
+      <div className="pf-tabs" role="tablist" aria-label="Project financials sections">
+        {TABS.map(t => (
+          <button
+            key={t.id}
+            role="tab"
+            id={`tab-${t.id}`}
+            aria-selected={activeTab === t.id}
+            aria-controls={`panel-${t.id}`}
+            className={activeTab === t.id ? "active" : ""}
+            onClick={() => setTab(t.id)}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
 
-      <CostLineItemsCard
-        jobId={job.id}
-        companyId={activeCompanyId!}
-        items={items}
-        vendors={vendors}
-        users={users}
-        onChanged={() => queryClient.invalidateQueries({ queryKey: ["cost-line-items", job.id] })}
-      />
+      <div role="tabpanel" id={`panel-${activeTab}`} aria-labelledby={`tab-${activeTab}`}>
+        {activeTab === "overview" && (
+          <>
+            <OverviewCard summary={summary} changeOrders={changeOrders} items={items} />
+            <ProfitReleaseCard
+              jobId={job.id}
+              companyId={activeCompanyId!}
+              releases={profitReleases}
+              health={health}
+              safeToWithdrawAmount={summary.safeToWithdraw}
+              safeToWithdrawNotice={summary.safeToWithdrawNotice}
+              stageRequired={pf.profit_release_stage}
+              currentStage={job.status}
+              isOwnerUser={isOwner}
+              onChanged={() => queryClient.invalidateQueries({ queryKey: ["profit-releases", job.id] })}
+            />
+          </>
+        )}
 
-      <TransactionLedgerCard
-        jobId={job.id}
-        companyId={activeCompanyId!}
-        clientId={job.customer_id}
-        transactions={transactions}
-        vendors={vendors}
-        approverId={session?.user.id || null}
-        canReverse={isOwner}
-        onChanged={() => queryClient.invalidateQueries({ queryKey: ["transactions-job", job.id] })}
-      />
+        {activeTab === "contract" && (
+          <section className="card" style={{ marginTop: 16 }}>
+            <div className="card-h"><h3>Contract & margin policy</h3></div>
+            <div className="card-b">
+              <div className="form-row">
+                <NumberField label="Original contract value" prefix="$" value={pf.original_contract_value} onSave={v => handleSaveContract("original_contract_value", v)} />
+                <NumberField label="Discounts" prefix="$" value={pf.discounts} onSave={v => handleSaveContract("discounts", v)} />
+                <NumberField label="Customer fees" prefix="$" value={pf.customer_fees} onSave={v => handleSaveContract("customer_fees", v)} />
+                {isOwner ? (
+                  <NumberField label={`Minimum margin (company default ${settings?.default_minimum_margin_pct ?? 35}%)`} suffix="%" value={pf.minimum_margin_pct ?? ""} onSave={v => handleSaveContract("minimum_margin_pct", v)} />
+                ) : (
+                  <div className="field">
+                    <label>Minimum margin</label>
+                    <div className="input-affix">
+                      <input value={pf.minimum_margin_pct ?? `${settings?.default_minimum_margin_pct ?? 35} (company default)`} disabled />
+                      <span className="affix">%</span>
+                    </div>
+                  </div>
+                )}
+                <NumberField label="Deposit" suffix="%" value={pf.deposit_pct} onSave={v => handleSaveContract("deposit_pct", v)} />
+              </div>
+              <p className="sub" style={{ marginTop: 10 }}>Contract value: {money(summary.revenue)} ({summary.contractNote}). Changes save when you leave a field.</p>
+            </div>
+          </section>
+        )}
 
-      <RefundsCard
-        jobId={job.id}
-        companyId={activeCompanyId!}
-        refunds={refunds}
-        costLineItems={items}
-        onChanged={() => {
-          queryClient.invalidateQueries({ queryKey: ["refunds", job.id] });
-          queryClient.invalidateQueries({ queryKey: ["cost-line-items", job.id] });
-        }}
-      />
+        {activeTab === "costs" && (
+          <>
+            <section className="card pf-cost-summary" style={{ marginTop: 16 }}>
+              <div><span className="label">Estimated</span><b>{money(summary.estimatedCost - summary.contingencyUsd)}</b></div>
+              <div><span className="label">+ {pf.contingency_pct ?? settings?.default_contingency_pct ?? 10}% contingency</span><b>{money(summary.contingencyUsd)}</b></div>
+              <div><span className="label">= Estimated total</span><b>{money(summary.estimatedCost)}</b></div>
+              <div><span className="label">Actual net</span><b>{money(summary.actualNetCost)}</b></div>
+              <div><span className="label">Committed, unpaid</span><b>{money(summary.committedUnpaid)}</b></div>
+            </section>
+            <CostLineItemsCard
+              jobId={job.id}
+              companyId={activeCompanyId!}
+              items={items}
+              vendors={vendors}
+              users={users}
+              onChanged={() => queryClient.invalidateQueries({ queryKey: ["cost-line-items", job.id] })}
+            />
+            <RefundsCard
+              jobId={job.id}
+              companyId={activeCompanyId!}
+              refunds={refunds}
+              costLineItems={items}
+              onChanged={() => {
+                queryClient.invalidateQueries({ queryKey: ["refunds", job.id] });
+                queryClient.invalidateQueries({ queryKey: ["cost-line-items", job.id] });
+              }}
+            />
+          </>
+        )}
 
-      <ProfitReleaseCard
-        jobId={job.id}
-        companyId={activeCompanyId!}
-        releases={profitReleases}
-        health={health}
-        safeToWithdrawAmount={safeWithdraw}
-        stageRequired={pf.profit_release_stage}
-        currentStage={job.status}
-        isOwnerUser={isOwner}
-        onChanged={() => queryClient.invalidateQueries({ queryKey: ["profit-releases", job.id] })}
-      />
+        {activeTab === "payments" && (
+          <>
+            <section className="card" style={{ marginTop: 16 }}>
+              <div className="card-h"><h3>Payments received</h3></div>
+              <div className="card-b">
+                <div className="form-row">
+                  <NumberField
+                    label="Payments received (manual entry)"
+                    prefix="$"
+                    value={pf.payments_received_manual}
+                    onSave={v => handleSaveContract("payments_received_manual", v)}
+                  />
+                </div>
+                <p className="sub" style={{ marginTop: 8 }}>
+                  {summary.paymentsFromLedger
+                    ? `Using ${money(summary.paymentsReceived)} from confirmed ledger payments below — the manual entry is ignored while any exist.`
+                    : "Used until a customer payment is confirmed in the ledger below."}
+                </p>
+              </div>
+            </section>
+            <TransactionLedgerCard
+              key={paymentFormKey}
+              jobId={job.id}
+              companyId={activeCompanyId!}
+              clientId={job.customer_id}
+              transactions={transactions}
+              vendors={vendors}
+              approverId={session?.user.id || null}
+              canReverse={isOwner}
+              defaultType={paymentFormKey > 0 ? (summary.paymentsReceived > 0 ? "progress_payment" : "customer_deposit") : undefined}
+              onChanged={() => queryClient.invalidateQueries({ queryKey: ["transactions-job", job.id] })}
+            />
+            <ChangeOrdersCard
+              jobId={job.id}
+              companyId={activeCompanyId!}
+              changeOrders={changeOrders}
+              approverId={session?.user.id || null}
+              onChanged={() => queryClient.invalidateQueries({ queryKey: ["change-orders", job.id] })}
+            />
+          </>
+        )}
+      </div>
     </div>
   );
 }
 
-function NumberField({ label, value, onSave }: { label: string; value: number | string; onSave: (v: number) => void }) {
+// Plain-language summary of where the project stands, plus cost by category
+// against its budget once costs exist.
+function OverviewCard({ summary, changeOrders, items }: { summary: ProjectFinancialsSummary; changeOrders: ChangeOrder[]; items: import("../domain/types").CostLineItem[] }) {
+  const pendingChangeOrders = changeOrders.filter(co => co.status === "draft").length;
+  const lines = [
+    summary.customerCredit > 0
+      ? `Paid in full, with ${money(summary.customerCredit)} of customer credit to refund or apply.`
+      : summary.balanceDue > 0
+        ? `${money(summary.paymentsReceived)} of ${money(summary.revenue)} received — ${money(summary.balanceDue)} still due.`
+        : `Paid in full (${money(summary.paymentsReceived)}).`,
+    summary.hasCostData
+      ? `Forecast cost ${money(summary.forecastCost)} against ${money(summary.estimatedCost)} estimated; ${money(summary.remainingBudget)} left before the minimum margin.`
+      : "No costs estimated yet — add them under Costs & Line Items to see profit and what can be withdrawn.",
+    pendingChangeOrders > 0 ? `${pendingChangeOrders} change order${pendingChangeOrders === 1 ? " is" : "s are"} waiting for approval.` : null
+  ].filter(Boolean) as string[];
+  const categories = categoryBudgetUsage(items);
+
+  return (
+    <section className="card" style={{ marginTop: 16 }}>
+      <div className="card-h"><h3>Summary</h3></div>
+      <div className="card-b">
+        <ul className="pf-summary">{lines.map(line => <li key={line}>{line}</li>)}</ul>
+        {categories.length > 0 && (
+          <div className="table-wrap" style={{ marginTop: 12 }}>
+            <table>
+              <thead><tr><th>Category</th><th>Estimated</th><th>Actual</th><th>Difference</th></tr></thead>
+              <tbody>
+                {categories.map(c => (
+                  <tr key={c.category}>
+                    <td>{titleize(c.category)}</td>
+                    <td>{money(c.estimated)}</td>
+                    <td>{money(c.actual)}</td>
+                    <td className={c.overBy > 0 ? "text-danger" : ""}>{c.overBy > 0 ? `${money(c.overBy)} over` : `${money(-c.overBy)} under`}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function NumberField({ label, value, onSave, prefix, suffix }: { label: string; value: number | string; onSave: (v: number) => void; prefix?: string; suffix?: string }) {
   const [draft, setDraft] = useState(String(value ?? ""));
   return (
     <div className="field">
       <label>{label}</label>
-      <input
-        type="number"
-        value={draft}
-        onChange={e => setDraft(e.target.value)}
-        onBlur={() => { const n = Number(draft); if (Number.isFinite(n) && n !== Number(value || 0)) onSave(n); }}
-      />
+      <div className={prefix || suffix ? "input-affix" : undefined}>
+        {prefix && <span className="affix">{prefix}</span>}
+        <input
+          type="number"
+          value={draft}
+          onChange={e => setDraft(e.target.value)}
+          onBlur={() => { const n = Number(draft); if (Number.isFinite(n) && n !== Number(value || 0)) onSave(n); }}
+        />
+        {suffix && <span className="affix">{suffix}</span>}
+      </div>
     </div>
   );
 }
@@ -511,7 +640,7 @@ function CostLineItemsCard({ jobId, companyId, items, vendors, users, onChanged 
           </table>
         </div>
 
-        <div className="form-row" style={{ marginTop: 12 }}>
+        <div className="form-row" id="cost-item-form" style={{ marginTop: 12 }}>
           <div className="field">
             <label>Category</label>
             <Select value={form.category} onChange={v => set("category", v as CostCategory)} options={COST_CATEGORIES.map(c => ({ value: c, label: titleize(c) }))} />
@@ -535,7 +664,7 @@ function CostLineItemsCard({ jobId, companyId, items, vendors, users, onChanged 
             />
           </div>
         </div>
-        <button className="btn ghost slim" style={{ marginTop: 8 }} disabled={saving} onClick={addItem}><Plus />Add cost item</button>
+        <button className="btn slim" style={{ marginTop: 8 }} disabled={saving} onClick={addItem}><Plus />Add Cost Item</button>
       </div>
     </section>
   );
@@ -543,7 +672,7 @@ function CostLineItemsCard({ jobId, companyId, items, vendors, users, onChanged 
 
 const EMPTY_TXN_FORM = { transaction_type: "material_purchase" as TransactionType, payee_name: "", description: "", amount: "", sales_tax: "", transaction_date: new Date().toISOString().slice(0, 10), payment_method: "", account: "" };
 
-function TransactionLedgerCard({ jobId, companyId, clientId, transactions, vendors, approverId, canReverse, onChanged }: {
+function TransactionLedgerCard({ jobId, companyId, clientId, transactions, vendors, approverId, canReverse, defaultType, onChanged }: {
   jobId: string;
   companyId: string;
   clientId: string | null;
@@ -551,9 +680,10 @@ function TransactionLedgerCard({ jobId, companyId, clientId, transactions, vendo
   vendors: import("../domain/types").Vendor[];
   approverId: string | null;
   canReverse: boolean;
+  defaultType?: TransactionType;
   onChanged: () => void;
 }) {
-  const [form, setForm] = useState(EMPTY_TXN_FORM);
+  const [form, setForm] = useState(() => (defaultType ? { ...EMPTY_TXN_FORM, transaction_type: defaultType } : EMPTY_TXN_FORM));
   const [saving, setSaving] = useState(false);
 
   function set<K extends keyof typeof EMPTY_TXN_FORM>(key: K, value: typeof EMPTY_TXN_FORM[K]) {
@@ -655,7 +785,7 @@ function TransactionLedgerCard({ jobId, companyId, clientId, transactions, vendo
           </table>
         </div>
 
-        <div className="form-row" style={{ marginTop: 12 }}>
+        <div className="form-row" id="payment-form" style={{ marginTop: 12 }}>
           <div className="field">
             <label>Type</label>
             <Select
@@ -786,12 +916,13 @@ function RefundsCard({ jobId, companyId, refunds, costLineItems, onChanged }: {
   );
 }
 
-function ProfitReleaseCard({ jobId, companyId, releases, health, safeToWithdrawAmount, stageRequired, currentStage, isOwnerUser, onChanged }: {
+function ProfitReleaseCard({ jobId, companyId, releases, health, safeToWithdrawAmount, safeToWithdrawNotice, stageRequired, currentStage, isOwnerUser, onChanged }: {
   jobId: string;
   companyId: string;
   releases: import("../domain/types").ProfitRelease[];
   health: { status: HealthStatus };
   safeToWithdrawAmount: number;
+  safeToWithdrawNotice: string | null;
   stageRequired: string;
   currentStage: string;
   isOwnerUser: boolean;
@@ -827,7 +958,9 @@ function ProfitReleaseCard({ jobId, companyId, releases, health, safeToWithdrawA
           <p className="health-alert">
             {!isOwnerUser
               ? "Only a company owner can release profit."
-              : stageBlocked
+              : safeToWithdrawNotice
+                ? `${safeToWithdrawNotice} — with no costs entered, any withdrawal could be money the project still needs.`
+                : stageBlocked
                 ? `Profit release is gated on this project reaching the "${stageRequired}" stage (currently "${currentStage}").`
                 : health.status === "red"
                   ? "This project's profit or margin is below the minimum policy — resolve that before releasing profit."

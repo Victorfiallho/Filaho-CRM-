@@ -14,8 +14,10 @@ import { useModal } from "../state/ModalContext";
 import { useSearch } from "../state/SearchContext";
 import RecordModal from "./RecordModal";
 
+// Matches on the first path segment so nested routes keep their section's
+// title — /jobs/:id/financials used to fall through to "Dashboard".
 function pageTitle(pathname: string) {
-  const id = pathname.replace(/^\//, "");
+  const id = pathname.replace(/^\//, "").split("/")[0];
   return (MODULES.find(m => m[0] === id) || MODULES[0])[1];
 }
 

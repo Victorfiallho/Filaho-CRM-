@@ -870,3 +870,33 @@ td a svg{width:14px;height:14px}
 /* Follow-up badges on Pipeline cards (M2). */
 .follow-up-overdue{color:var(--red);font-weight:700}
 .follow-up-today{color:var(--yellow);font-weight:700}
+
+/* ── Project financials refactor (2026-10-11) ───────────────────────── */
+.breadcrumb{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:12.5px;color:var(--muted);margin-bottom:8px}
+.breadcrumb a{color:var(--muted);font-weight:600}
+.breadcrumb a:hover{color:var(--ink)}
+.breadcrumb svg{width:13px;height:13px;color:var(--muted-soft)}
+.breadcrumb [aria-current="page"]{color:var(--ink);font-weight:600}
+.pf-header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:16px}
+.pf-header h2{margin:0;font-size:22px;letter-spacing:-.01em;overflow-wrap:anywhere}
+.pf-meta{display:flex;align-items:center;gap:6px 14px;flex-wrap:wrap;margin-top:6px;color:var(--muted);font-size:13px}
+.tag-credit{display:inline-block;background:var(--success-soft);color:#047857;font-weight:700;border-radius:999px;padding:2px 9px}
+.kpi-details{margin-top:10px}
+.kpi-details summary{cursor:pointer;color:var(--brand);font-weight:700;font-size:13px;padding:6px 0;width:max-content}
+.kpi-details[open] summary{margin-bottom:10px}
+.pf-tabs{display:flex;gap:4px;margin-top:20px;border-bottom:1px solid var(--line-strong);overflow-x:auto}
+.pf-tabs button{background:transparent;border:0;border-bottom:2px solid transparent;margin-bottom:-1px;padding:10px 14px;font-weight:600;color:var(--muted);white-space:nowrap}
+.pf-tabs button:hover{color:var(--ink)}
+.pf-tabs button.active{color:var(--ink);border-bottom-color:var(--brand)}
+.pf-summary{margin:0;padding-left:18px;display:grid;gap:6px;color:var(--ink-soft)}
+.pf-cost-summary{display:flex;flex-wrap:wrap;gap:12px 28px;padding:16px 20px}
+.pf-cost-summary .label{display:block;font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+.pf-cost-summary b{font-size:17px}
+.input-affix{display:flex;align-items:stretch}
+.input-affix input{flex:1;min-width:0}
+.input-affix .affix{display:flex;align-items:center;padding:0 10px;background:var(--soft);border:1px solid var(--line-strong);color:var(--muted);font-weight:700}
+.input-affix .affix:first-child{border-right:0;border-radius:var(--radius-sm) 0 0 var(--radius-sm)}
+.input-affix .affix:last-child{border-left:0;border-radius:0 var(--radius-sm) var(--radius-sm) 0}
+.input-affix .affix:first-child + input{border-top-left-radius:0;border-bottom-left-radius:0}
+.input-affix input:has(+ .affix){border-top-right-radius:0;border-bottom-right-radius:0}
+.text-danger{color:var(--red);font-weight:700}

@@ -146,7 +146,11 @@ export function sumRemainingEstimate(items: CostLineItem[]): number {
 export type HealthStatus = "green" | "yellow" | "red" | "gray";
 
 export interface ProjectHealthInput {
-  hasEnoughData: boolean;
+  revenue: number;
+  // Health is only meaningful once costs are estimated: with zero cost items
+  // the forecast cost is $0, the forecast margin is 100%, and the light
+  // would turn green on a project nobody has priced yet.
+  costItemCount: number;
   forecastProfitValue: number;
   expectedProfitTarget: number;
   minimumAcceptableProfit: number;
@@ -156,29 +160,189 @@ export interface ProjectHealthInput {
 
 export interface ProjectHealthResult {
   status: HealthStatus;
+  // One sentence that always states the rule behind the status, so the
+  // banner never shows a bare "On track" with nothing to back it up.
+  reason: string;
   alerts: string[];
 }
+
+const fmtUsd = (n: number) => "$" + Math.round(n).toLocaleString("en-US");
+const fmtPct = (n: number) => `${n.toFixed(1)}%`;
 
 // Yellow when forecast profit dips below target but still clears the dollar
 // floor; red when it falls below the floor OR the margin falls below policy
 // (a margin breach is always red, even if the dollar floor is still met —
 // per spec: "mesmo que o limite manual em dólares ainda esteja sendo atendido").
 export function evaluateProjectHealth(input: ProjectHealthInput): ProjectHealthResult {
-  if (!input.hasEnoughData) return { status: "gray", alerts: [] };
+  if (input.revenue <= 0) {
+    return { status: "gray", reason: "Set a contract value to calculate project health.", alerts: [] };
+  }
+  if (input.costItemCount === 0) {
+    return { status: "gray", reason: "Add cost estimates to calculate project health.", alerts: [] };
+  }
 
+  const marginLine = `Forecast margin ${fmtPct(input.forecastMarginPctValue)} vs ${input.minimumMarginPct}% minimum.`;
   const alerts: string[] = [];
   let status: HealthStatus = "green";
+  let reason = marginLine;
 
   if (input.forecastProfitValue < input.minimumAcceptableProfit) {
     status = "red";
+    reason = `Forecast profit ${fmtUsd(input.forecastProfitValue)} is below the ${fmtUsd(input.minimumAcceptableProfit)} minimum. ${marginLine}`;
   } else if (input.forecastProfitValue < input.expectedProfitTarget) {
     status = "yellow";
+    reason = `Forecast profit ${fmtUsd(input.forecastProfitValue)} is below the ${fmtUsd(input.expectedProfitTarget)} estimate. ${marginLine}`;
   }
 
   if (input.forecastMarginPctValue < input.minimumMarginPct) {
     status = "red";
-    alerts.push(`This expense trend has reduced the forecast margin to ${input.forecastMarginPctValue.toFixed(1)}%, below the ${input.minimumMarginPct}% minimum policy.`);
+    reason = marginLine;
+    alerts.push(`This expense trend has reduced the forecast margin to ${fmtPct(input.forecastMarginPctValue)}, below the ${input.minimumMarginPct}% minimum policy.`);
   }
 
-  return { status, alerts };
+  return { status, reason, alerts };
+}
+
+// ── Whole-project summary ────────────────────────────────────────────────
+// Every number the project screen (and each row of Company Financials)
+// shows, computed in one place so both screens apply the same safety rules.
+
+export interface ProjectFinancialsInput {
+  originalContractValue: number;
+  discounts: number;
+  customerFees: number;
+  approvedChangeOrdersTotal: number;
+  minimumMarginPct: number;
+  contingencyPct: number;
+  minimumProfitUsd: number | null;
+  paymentsReceivedManual: number;
+  // Sum of confirmed customer-payment transactions, or null when the ledger
+  // has none yet (then the manual field is used — Phase 2 migration rule).
+  ledgerPaymentsReceived: number | null;
+  releasedTotal: number;
+  items: CostLineItem[];
+}
+
+export interface ProjectFinancialsSummary {
+  revenue: number;
+  contractNote: string;
+  hasCostData: boolean;
+  contingencyUsd: number;
+  estimatedCost: number;
+  actualNetCost: number;
+  cashPaid: number;
+  committedUnpaid: number;
+  remainingEstimate: number;
+  forecastCost: number;
+  expectedProfit: number;
+  expectedMarginPct: number;
+  forecastProfit: number;
+  forecastMarginPct: number;
+  minimumProfit: number;
+  remainingBudget: number;
+  paymentsReceived: number;
+  paymentsFromLedger: boolean;
+  balanceDue: number;
+  customerCredit: number;
+  requiredReserve: number;
+  releasedTotal: number;
+  safeToWithdraw: number;
+  safeToWithdrawNotice: string | null;
+  health: ProjectHealthResult;
+}
+
+// "$1,000 − $10 discount + $2 fees" — the arithmetic behind the contract
+// value, so a number that differs from the original contract explains itself.
+export function contractNote(original: number, discounts: number, fees: number, approvedChangeOrders: number): string {
+  const parts = [fmtUsd(original)];
+  if (discounts) parts.push(`− ${fmtUsd(discounts)} discount`);
+  if (fees) parts.push(`+ ${fmtUsd(fees)} fees`);
+  if (approvedChangeOrders) parts.push(`${approvedChangeOrders < 0 ? "−" : "+"} ${fmtUsd(Math.abs(approvedChangeOrders))} change orders`);
+  return parts.length === 1 ? "Original contract, no adjustments" : parts.join(" ");
+}
+
+export const NO_COST_DATA_NOTICE = "Estimate costs before releasing profit";
+
+export function computeProjectFinancials(input: ProjectFinancialsInput): ProjectFinancialsSummary {
+  const { items } = input;
+  const revenue = contractRevenue(input.originalContractValue, input.approvedChangeOrdersTotal, input.customerFees, input.discounts);
+  const hasCostData = items.length > 0;
+
+  const estimatedSum = sumEstimatedCost(items);
+  const contingencyUsd = (estimatedSum * input.contingencyPct) / 100;
+  const estCost = estimatedTotalCost(items.map(i => Number(i.estimated_cost || 0)), contingencyUsd);
+
+  const actualNetCost = sumActualNetCost(items); // includes internal (owner labor) cost, for true margin
+  const cashPaid = sumCashPaid(items); // real cash out only, for cash-flow math
+  const committedUnpaid = sumCommittedUnpaid(items);
+  const remainingEstimate = sumRemainingEstimate(items);
+  const forecastCost = forecastFinalCost(actualNetCost, committedUnpaid, remainingEstimate);
+
+  const expProfit = expectedProfit(revenue, estCost);
+  const forecastProfitValue = forecastProfit(revenue, forecastCost);
+  const minimumProfit = input.minimumProfitUsd ?? minimumProfitForMargin(revenue, input.minimumMarginPct);
+  const forecastMarginPct = marginPct(forecastProfitValue, revenue);
+
+  const paymentsFromLedger = input.ledgerPaymentsReceived !== null;
+  const paymentsReceived = paymentsFromLedger ? Number(input.ledgerPaymentsReceived) : input.paymentsReceivedManual;
+  // Signed difference, not a floor at zero: an overpayment is money owed
+  // back to the customer and must show up, not vanish into "$0 due".
+  const diff = paymentsReceived - revenue;
+  const balanceDue = diff < 0 ? Math.abs(diff) : 0;
+  const customerCredit = diff > 0 ? diff : 0;
+
+  const requiredReserve = committedUnpaid + remainingEstimate + contingencyUsd;
+  // Cash already handed out as a profit release is no longer sitting in the
+  // account either — folded into the "paid" side so it can't be released
+  // twice. With no cost data at all, nothing is reserved for costs that just
+  // haven't been entered yet, so withdrawal is held at $0.
+  const safe = hasCostData
+    ? safeToWithdraw(paymentsReceived, cashPaid + input.releasedTotal, committedUnpaid, remainingEstimate, contingencyUsd)
+    : 0;
+
+  const health = evaluateProjectHealth({
+    revenue,
+    costItemCount: items.length,
+    forecastProfitValue,
+    expectedProfitTarget: expProfit,
+    minimumAcceptableProfit: minimumProfit,
+    forecastMarginPctValue: forecastMarginPct,
+    minimumMarginPct: input.minimumMarginPct
+  });
+  if (hasCostData) {
+    for (const cat of categoryBudgetUsage(items).filter(c => c.overBy > 0)) {
+      health.alerts.push(`This project is ${fmtUsd(cat.overBy)} over the ${cat.category.replace(/_/g, " ")} budget.`);
+    }
+    if (safe === 0 && requiredReserve > paymentsReceived - cashPaid) {
+      health.alerts.push("There is not enough reserved cash to complete this project safely right now.");
+    }
+  }
+
+  return {
+    revenue,
+    contractNote: contractNote(input.originalContractValue, input.discounts, input.customerFees, input.approvedChangeOrdersTotal),
+    hasCostData,
+    contingencyUsd,
+    estimatedCost: estCost,
+    actualNetCost,
+    cashPaid,
+    committedUnpaid,
+    remainingEstimate,
+    forecastCost,
+    expectedProfit: expProfit,
+    expectedMarginPct: marginPct(expProfit, revenue),
+    forecastProfit: forecastProfitValue,
+    forecastMarginPct,
+    minimumProfit,
+    remainingBudget: Math.max(0, maxAllowedCost(revenue, input.minimumMarginPct) - forecastCost),
+    paymentsReceived,
+    paymentsFromLedger,
+    balanceDue,
+    customerCredit,
+    requiredReserve,
+    releasedTotal: input.releasedTotal,
+    safeToWithdraw: safe,
+    safeToWithdrawNotice: hasCostData ? null : NO_COST_DATA_NOTICE,
+    health
+  };
 }

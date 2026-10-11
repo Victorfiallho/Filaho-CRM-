@@ -25,7 +25,7 @@ import { cleanCustomer, cleanJob, leadFromCustomer } from "../domain/records";
 import type { Customer, Job } from "../domain/types";
 import { errorMessage } from "../lib/errorMessage";
 import { connectGoogleWorkspace, googleAccessTokenFor } from "../lib/googleOAuth";
-import { toast } from "../lib/toast";
+import { toast, toastError } from "../lib/toast";
 import { useCompany } from "../state/CompanyContext";
 
 type CustomerPreviewRow = {
@@ -137,7 +137,7 @@ export default function ImportCenter() {
         const text = await extractFirstIcsFromZip(await file.arrayBuffer());
         await loadICS(text, file.name);
       } catch {
-        toast("Could not read that ZIP. Upload the .ics file inside it.");
+        toastError("Could not read that ZIP. Upload the .ics file inside it.");
       }
       return;
     }
@@ -152,7 +152,7 @@ export default function ImportCenter() {
   async function loadGoogleSheetCsv() {
     if (!sheetUrl.trim() || !activeCompanyId || !settings) { toast("Paste a Google Sheet URL first."); return; }
     const csvUrl = toGoogleSheetCsvUrl(sheetUrl.trim());
-    if (!csvUrl) { toast("Could not read that Google Sheet URL."); return; }
+    if (!csvUrl) { toastError("Could not read that Google Sheet URL."); return; }
     try {
       const nextSettings = { ...settings, google_sheets: { ...settings.google_sheets, source_urls: { ...settings.google_sheets.source_urls, [activeCompanyId]: sheetUrl.trim() } } };
       await saveIntegrationSettings(nextSettings);
@@ -170,7 +170,7 @@ export default function ImportCenter() {
       setPreview([]);
       toast("Google Sheet loaded. Review mapping.");
     } catch {
-      toast("Could not load Sheet. Publish it as CSV or share it publicly first.");
+      toastError("Could not load Sheet. Publish it as CSV or share it publicly first.");
     }
   }
 
@@ -181,7 +181,7 @@ export default function ImportCenter() {
   async function loadPrivateGoogleSheet() {
     if (!sheetUrl.trim() || !activeCompanyId || !settings) { toast("Paste a Google Sheet URL first."); return; }
     const spreadsheetId = extractSpreadsheetId(sheetUrl.trim());
-    if (!spreadsheetId) { toast("Could not read that Google Sheet URL."); return; }
+    if (!spreadsheetId) { toastError("Could not read that Google Sheet URL."); return; }
     if (!settings.google_oauth.client_id) { toast("Import the Google OAuth JSON in Integrations first."); return; }
     setConnectingSheet(true);
     try {
@@ -203,7 +203,7 @@ export default function ImportCenter() {
       setPreview([]);
       toast("Private Google Sheet loaded. Review mapping.");
     } catch (error) {
-      toast(errorMessage(error, "Could not load that private Sheet."));
+      toastError(errorMessage(error, "Could not load that private Sheet."));
     } finally {
       setConnectingSheet(false);
     }
@@ -305,7 +305,7 @@ export default function ImportCenter() {
       invalidate();
       toast(`${created} created, ${updated} updated, ${skipped} skipped.`);
     } catch (error) {
-      toast(errorMessage(error, "Could not save the import."));
+      toastError(errorMessage(error, "Could not save the import."));
     } finally {
       setCommitting(false);
     }

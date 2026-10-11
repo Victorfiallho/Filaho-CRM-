@@ -1,18 +1,20 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { Award, AlertTriangle, Clock, Inbox, MapPin, Plus, Settings, Target, Wallet } from "lucide-react";
+import { Award, AlertTriangle, CalendarClock, Clock, Inbox, MapPin, Plus, Settings, Target, Wallet } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import KpiCard from "../components/KpiCard";
 import PageSkeleton from "../components/PageSkeleton";
 import Select from "../components/Select";
 import StagesEditor from "../components/StagesEditor";
 import { updateLead } from "../data/leads";
-import { useJobs, useLeads, useStagnantLeads } from "../data/hooks";
+import { useCurrentAppUser, useJobs, useLeads, useStagnantLeads, useUsers } from "../data/hooks";
 import { filterRowsBySearch } from "../domain/search";
-import { initials, money, relativeDate, unique } from "../domain/format";
+import { formatDay, initials, money, relativeDate, unique } from "../domain/format";
+import { followUpStatus, type FollowUpStatus } from "../domain/followUp";
+import { localToday } from "../domain/jobFilters";
 import { findJobForLead, jobDraftFromLead } from "../domain/leadConversion";
-import { isOpenStage, isWonStage } from "../domain/pipelineStages";
+import { isLostStage, isOpenStage, isWonStage } from "../domain/pipelineStages";
 import { errorMessage } from "../lib/errorMessage";
-import { toast } from "../lib/toast";
+import { toast, toastError } from "../lib/toast";
 import type { Lead } from "../domain/types";
 import { useCompany } from "../state/CompanyContext";
 import { useModal } from "../state/ModalContext";
@@ -37,6 +39,9 @@ export default function Pipeline() {
   const { data: allLeads = [], isLoading } = useLeads(activeCompanyId);
   const { data: stagnantLeads = [] } = useStagnantLeads(activeCompanyId);
   const { data: jobs = [] } = useJobs(activeCompanyId);
+  const { data: users = [] } = useUsers();
+  const { data: currentAppUser } = useCurrentAppUser();
+  const today = localToday();
   const stagnantById = useMemo(() => new Map(stagnantLeads.map(s => [s.lead_id, s])), [stagnantLeads]);
   const { searchText } = useSearch();
   const { openRecordModal } = useModal();
@@ -46,9 +51,16 @@ export default function Pipeline() {
   const [dragOverStage, setDragOverStage] = useState<string | null>(null);
   const [editingStages, setEditingStages] = useState(false);
   const [sourceFilter, setSourceFilter] = useState("all");
+  const [ownerFilter, setOwnerFilter] = useState("all");
 
   const sources = useMemo(() => unique(leads.map(l => l.source).filter(Boolean) as string[]), [leads]);
-  const filteredLeads = sourceFilter === "all" ? leads : leads.filter(l => l.source === sourceFilter);
+  const filteredLeads = leads.filter(l => {
+    if (sourceFilter !== "all" && l.source !== sourceFilter) return false;
+    if (ownerFilter === "mine") return Boolean(currentAppUser) && l.owner_user_id === currentAppUser?.id;
+    if (ownerFilter === "unassigned") return !l.owner_user_id;
+    if (ownerFilter !== "all") return l.owner_user_id === ownerFilter;
+    return true;
+  });
 
   // Matches whatever the board is actually showing (search + source filter)
   // instead of always totaling every lead regardless of the filter above —
@@ -75,9 +87,14 @@ export default function Pipeline() {
       if (isWonStage(stageId, stages) && !findJobForLead(leadId, jobs)) {
         toast("Lead won — confirm the new job.");
         openRecordModal("job", undefined, { ...jobDraftFromLead(lead) });
+      } else if (isLostStage(stageId, stages) && !lead.lost_reason) {
+        // Ask why while it's fresh — the lead form shows the reason picker
+        // for leads in a lost stage.
+        toast("Lead lost — pick a reason so Reports can show why.");
+        openRecordModal("lead", { ...lead, stage_id: stageId });
       }
     } catch (error) {
-      toast(errorMessage(error, "Could not move the lead."));
+      toastError(errorMessage(error, "Could not move the lead."));
     } finally {
       queryClient.invalidateQueries({ queryKey: ["leads", activeCompanyId] });
     }
@@ -121,6 +138,18 @@ export default function Pipeline() {
               options={[{ value: "all", label: "All sources" }, ...sources.map(s => ({ value: s, label: s }))]}
             />
           </div>
+          <div className="field" style={{ margin: 0, minWidth: 180 }}>
+            <Select
+              value={ownerFilter}
+              onChange={setOwnerFilter}
+              options={[
+                { value: "all", label: "All owners" },
+                { value: "mine", label: "My leads" },
+                { value: "unassigned", label: "Unassigned" },
+                ...users.map(u => ({ value: u.id, label: u.name }))
+              ]}
+            />
+          </div>
           <span className="sub">{stages.length} stage{stages.length === 1 ? "" : "s"}</span>
         </div>
         <button className="btn ghost slim" onClick={() => setEditingStages(true)}><Settings />Edit stages</button>
@@ -158,6 +187,7 @@ export default function Pipeline() {
                     lead={lead}
                     color={stage.color || "var(--muted)"}
                     stagnantDays={stagnantById.get(lead.id)?.days_in_stage}
+                    followUp={followUpStatus(lead, stages, today)}
                     dragging={draggingId === lead.id}
                     onClick={() => openRecordModal("lead", lead)}
                     onDragStart={e => { e.dataTransfer.setData("text/plain", lead.id); e.dataTransfer.effectAllowed = "move"; setDraggingId(lead.id); }}
@@ -197,8 +227,8 @@ export default function Pipeline() {
 const TOUCH_LONG_PRESS_MS = 260;
 const TOUCH_CANCEL_THRESHOLD_PX = 10;
 
-function LeadCard({ lead, color, stagnantDays, dragging, onClick, onDragStart, onDragEnd, onTouchDragStart, onTouchDragOver, onTouchDrop }: {
-  lead: Lead; color: string; stagnantDays?: number; dragging: boolean; onClick: () => void;
+function LeadCard({ lead, color, stagnantDays, followUp, dragging, onClick, onDragStart, onDragEnd, onTouchDragStart, onTouchDragOver, onTouchDrop }: {
+  lead: Lead; color: string; stagnantDays?: number; followUp: FollowUpStatus | null; dragging: boolean; onClick: () => void;
   onDragStart: (e: React.DragEvent) => void; onDragEnd: () => void;
   onTouchDragStart: () => void;
   onTouchDragOver: (clientX: number, clientY: number) => void;
@@ -278,6 +308,13 @@ function LeadCard({ lead, color, stagnantDays, dragging, onClick, onDragStart, o
       </div>
       {(lead.city || lead.zip) && <div className="lead-card-meta"><MapPin />{[lead.city, lead.zip].filter(Boolean).join(" ")}</div>}
       {lead.updated_at && <div className="lead-card-meta"><Clock />Updated {relativeDate(lead.updated_at)}</div>}
+      {followUp && (
+        <div className={`lead-card-meta follow-up-${followUp}`}>
+          <CalendarClock />
+          {followUp === "overdue" ? "Overdue: " : followUp === "today" ? "Today: " : `${formatDay(lead.next_action_date)}: `}
+          {lead.next_action || "follow up"}
+        </div>
+      )}
       {stagnantDays !== undefined && (
         <div className="lead-card-meta stagnant-badge" title="No movement in this stage for a while">
           <AlertTriangle />{Math.floor(stagnantDays)}d stuck in stage

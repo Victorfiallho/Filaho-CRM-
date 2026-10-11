@@ -47,3 +47,17 @@ export function relativeDate(iso: string, now: Date = new Date()): string {
   if (d.toDateString() === yesterday.toDateString()) return "Yesterday";
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
+
+// For date-only YYYY-MM-DD values (jobs.scheduled_date, leads.next_action_date).
+// `new Date("2026-10-20")` parses as UTC midnight, which every US time zone
+// renders as Oct 19 — so the parts are read as a local calendar date instead.
+// Same "Oct 20" style the rest of the app uses; the year only when it isn't
+// the current one.
+export function formatDay(ymd: string | null | undefined, now: Date = new Date()): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(ymd || "");
+  if (!m) return "";
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  return d.toLocaleDateString("en-US", {
+    month: "short", day: "numeric", ...(d.getFullYear() !== now.getFullYear() ? { year: "numeric" } : {})
+  });
+}

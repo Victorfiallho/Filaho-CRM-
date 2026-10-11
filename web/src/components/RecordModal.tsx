@@ -16,12 +16,14 @@ import { deleteNote, insertNote } from "../data/notes";
 import { createProjectFinancials } from "../data/projectFinancials";
 import { now, uid } from "../domain/format";
 import { titleize } from "../domain/format";
+import { LOST_REASONS } from "../domain/followUp";
 import { findJobForLead, jobDraftFromLead } from "../domain/leadConversion";
+import { isLostStage } from "../domain/pipelineStages";
 import { PROJECT_DRIVE_SUBFOLDERS } from "../domain/types";
 import { errorMessage } from "../lib/errorMessage";
 import { openDrivePicker } from "../lib/googleDrivePicker";
 import { connectGoogleWorkspace, googleAccessTokenFor } from "../lib/googleOAuth";
-import { toast } from "../lib/toast";
+import { toast, toastError } from "../lib/toast";
 import { useAuth } from "../state/AuthContext";
 import { useCompany } from "../state/CompanyContext";
 import { useModal } from "../state/ModalContext";
@@ -115,7 +117,11 @@ function RecordModalContent() {
     drive_folder_url: r.drive_folder_url || "",
     lat: r.lat ?? "",
     lng: r.lng ?? "",
-    notes: r.notes || ""
+    notes: r.notes || "",
+    owner_user_id: r.owner_user_id || "",
+    next_action: r.next_action || "",
+    next_action_date: r.next_action_date || "",
+    lost_reason: r.lost_reason || ""
   }));
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -156,6 +162,11 @@ function RecordModalContent() {
   }
 
   const set = (field: string, value: string) => setForm(f => ({ ...f, [field]: value }));
+  // A new lead/job with no owner picked is owned by whoever creates it — the
+  // "Mine" filters would otherwise start out empty for everyone.
+  const ownerForSave = form.owner_user_id || (isEdit ? "" : currentAppUser?.id || "");
+  const ownerOptions = [{ value: "", label: "— Unassigned —" }, ...users.map(u => ({ value: u.id, label: u.name }))];
+  const leadIsLost = type === "lead" && isLostStage(form.stage_id, stages);
 
   const pickExistingClient = (clientId: string) => {
     setPickedClientId(clientId);
@@ -254,6 +265,7 @@ function RecordModalContent() {
           state: jobCustomer?.state || "",
           zip: jobCustomer?.zip || "",
           drive_folder_url: form.drive_folder_url,
+          owner_user_id: ownerForSave,
           lat: Number(jobCustomer?.lat || 0) || "",
           lng: Number(jobCustomer?.lng || 0) || ""
         };
@@ -268,10 +280,10 @@ function RecordModalContent() {
           // lead's value as the contract, so Project Financials isn't blank.
           if (leadId) {
             createProjectFinancials({ company_id: activeCompanyId, job_id: newJobId, original_contract_value: data.estimated_value })
-              .catch(error => toast(errorMessage(error, "Job saved, but its financials could not be set up — open Costing to start them.")));
+              .catch(error => toastError(errorMessage(error, "Job saved, but its financials could not be set up — open Costing to start them.")));
           }
           provisionDriveFolder(activeCompanyId, "job", newJobId).catch(error =>
-            toast(errorMessage(error, "Job saved, but its Drive folder could not be created automatically — use \"Create/locate Drive folder\" on the job later."))
+            toastError(errorMessage(error, "Job saved, but its Drive folder could not be created automatically — use \"Create/locate Drive folder\" on the job later."))
           );
         }
         queryClient.invalidateQueries({ queryKey: ["jobs", activeCompanyId] });
@@ -303,6 +315,11 @@ function RecordModalContent() {
           const matchedCampaign = campaignOptions.find(([id]) => id === form.campaign_id);
           data.campaign_id = form.campaign_id || null;
           data.campaign_name = matchedCampaign?.[1] || null;
+          data.owner_user_id = ownerForSave;
+          data.next_action = form.next_action;
+          data.next_action_date = form.next_action_date;
+          // A reason only means something while the lead sits in a lost stage.
+          data.lost_reason = leadIsLost ? form.lost_reason : "";
         }
         if (type === "customer") {
           data.status = form.status;
@@ -342,7 +359,7 @@ function RecordModalContent() {
           } else {
             await insertCustomer(data as any);
             provisionDriveFolder(activeCompanyId, "client", data.id).catch(error =>
-              toast(errorMessage(error, "Client saved, but their Drive folder could not be created automatically — use \"Create/locate Drive folder\" on the client later."))
+              toastError(errorMessage(error, "Client saved, but their Drive folder could not be created automatically — use \"Create/locate Drive folder\" on the client later."))
             );
           }
           queryClient.invalidateQueries({ queryKey: ["customers", activeCompanyId] });
@@ -351,7 +368,7 @@ function RecordModalContent() {
       closeModal();
       toast("Record saved.");
     } catch (error) {
-      toast(errorMessage(error, "Could not save record."));
+      toastError(errorMessage(error, "Could not save record."));
     } finally {
       setSaving(false);
     }
@@ -376,7 +393,7 @@ function RecordModalContent() {
       closeModal();
       toast("Record deleted.");
     } catch (error) {
-      toast(errorMessage(error, "Could not delete record."));
+      toastError(errorMessage(error, "Could not delete record."));
     } finally {
       setDeleting(false);
     }
@@ -390,7 +407,7 @@ function RecordModalContent() {
       setNewNoteBody("");
       queryClient.invalidateQueries({ queryKey: ["notes", activeCompanyId, type, r.id] });
     } catch (error) {
-      toast(errorMessage(error, "Could not add note."));
+      toastError(errorMessage(error, "Could not add note."));
     } finally {
       setAddingNote(false);
     }
@@ -402,7 +419,7 @@ function RecordModalContent() {
       await deleteNote(id, activeCompanyId);
       queryClient.invalidateQueries({ queryKey: ["notes", activeCompanyId, type, r.id] });
     } catch (error) {
-      toast(errorMessage(error, "Could not delete note."));
+      toastError(errorMessage(error, "Could not delete note."));
     }
   }
 
@@ -415,7 +432,7 @@ function RecordModalContent() {
       setNewFileUrl("");
       queryClient.invalidateQueries({ queryKey: ["files", activeCompanyId, type, r.id] });
     } catch (error) {
-      toast(errorMessage(error, "Could not add file link."));
+      toastError(errorMessage(error, "Could not add file link."));
     } finally {
       setAddingFile(false);
     }
@@ -427,7 +444,7 @@ function RecordModalContent() {
       await deleteFile(id, activeCompanyId);
       queryClient.invalidateQueries({ queryKey: ["files", activeCompanyId, type, r.id] });
     } catch (error) {
-      toast(errorMessage(error, "Could not remove file link."));
+      toastError(errorMessage(error, "Could not remove file link."));
     }
   }
 
@@ -458,7 +475,7 @@ function RecordModalContent() {
       if (!res.ok) throw new Error((await res.json().catch(() => null))?.error || "Failed to send.");
       toast("Reminder sent.");
     } catch (error) {
-      toast(errorMessage(error, "Could not send reminder."));
+      toastError(errorMessage(error, "Could not send reminder."));
     }
   }
 
@@ -468,7 +485,7 @@ function RecordModalContent() {
     try {
       setAiSummary(await summarizeJob(r.id));
     } catch (error) {
-      toast(errorMessage(error, "Could not generate a summary."));
+      toastError(errorMessage(error, "Could not generate a summary."));
     } finally {
       setSummarizing(false);
     }
@@ -496,7 +513,7 @@ function RecordModalContent() {
       await insertFile({ company_id: activeCompanyId, entity_type: type, entity_id: r.id, name: picked.name, url: picked.url, provider: "google_drive" });
       queryClient.invalidateQueries({ queryKey: ["files", activeCompanyId, type, r.id] });
     } catch (error) {
-      toast(errorMessage(error, "Could not attach that Drive file."));
+      toastError(errorMessage(error, "Could not attach that Drive file."));
     } finally {
       setAddingFile(false);
     }
@@ -514,7 +531,7 @@ function RecordModalContent() {
       queryClient.invalidateQueries({ queryKey: [type === "job" ? "jobs" : "customers", activeCompanyId] });
       toast("Drive folder ready.");
     } catch (error) {
-      toast(errorMessage(error, "Could not create/locate the Drive folder."));
+      toastError(errorMessage(error, "Could not create/locate the Drive folder."));
     } finally {
       setProvisioningFolder(false);
     }
@@ -538,7 +555,7 @@ function RecordModalContent() {
       queryClient.invalidateQueries({ queryKey: ["files", activeCompanyId, type, r.id] });
       toast("Uploaded to Drive.");
     } catch (error) {
-      toast(errorMessage(error, "Could not upload that file to Drive."));
+      toastError(errorMessage(error, "Could not upload that file to Drive."));
     } finally {
       setUploadingFile(false);
     }
@@ -566,6 +583,10 @@ function RecordModalContent() {
               </div>
               <SelectField label="Status" value={form.status} options={["planned", "scheduled", "in progress", "complete"]} onChange={v => set("status", v)} />
               <SelectField label="Service" value={form.service_type} options={services} onChange={v => set("service_type", v)} />
+              <div className="field">
+                <label>Owner</label>
+                <Select value={ownerForSave} onChange={v => set("owner_user_id", v)} options={ownerOptions} />
+              </div>
               <Field label="Scheduled date" value={form.scheduled_date} onChange={v => set("scheduled_date", v)} type="date" />
               <Field label="Estimated value" value={String(form.estimated_value)} onChange={v => set("estimated_value", v)} type="number" />
               <div className="field">
@@ -645,6 +666,29 @@ function RecordModalContent() {
                     />
                   </div>
                 )}
+                {type === "lead" && (
+                  <>
+                    <div className="field">
+                      <label>Owner</label>
+                      <Select value={ownerForSave} onChange={v => set("owner_user_id", v)} options={ownerOptions} />
+                    </div>
+                    {leadIsLost ? (
+                      <div className="field">
+                        <label>Lost reason</label>
+                        <Select
+                          value={form.lost_reason}
+                          onChange={v => set("lost_reason", v)}
+                          options={[{ value: "", label: "— Pick a reason —" }, ...LOST_REASONS.map(reason => ({ value: reason, label: reason }))]}
+                        />
+                      </div>
+                    ) : (
+                      <>
+                        <Field label="Next step" value={form.next_action} onChange={v => set("next_action", v)} />
+                        <Field label="Next step date" value={form.next_action_date} onChange={v => set("next_action_date", v)} type="date" />
+                      </>
+                    )}
+                  </>
+                )}
                 <Field label="Address" value={form.address} onChange={v => set("address", v)} />
                 <Field label="City" value={form.city} onChange={v => set("city", v)} />
                 <Field label="State" value={form.state} onChange={v => set("state", v)} />
@@ -662,9 +706,16 @@ function RecordModalContent() {
                     </div>
                   </div>
                 )}
-                <Field label="Latitude" value={String(form.lat)} onChange={v => set("lat", v)} type="number" />
-                <Field label="Longitude" value={String(form.lng)} onChange={v => set("lng", v)} type="number" />
               </div>
+              {/* Coordinates are filled automatically from the address on save,
+                  so they're tucked away for the rare manual correction. */}
+              <details className="advanced-fields">
+                <summary>Map coordinates (filled automatically)</summary>
+                <div className="grid two">
+                  <Field label="Latitude" value={String(form.lat)} onChange={v => set("lat", v)} type="number" />
+                  <Field label="Longitude" value={String(form.lng)} onChange={v => set("lng", v)} type="number" />
+                </div>
+              </details>
               {type === "lead" && isEdit && (
                 <div className="inline-actions" style={{ marginBottom: 12 }}>
                   {linkedJob ? (

@@ -5,8 +5,9 @@ import KpiCard from "../components/KpiCard";
 import PageSkeleton from "../components/PageSkeleton";
 import TrendLineChart from "../components/TrendLineChart";
 import { useCustomers, useIntegrationSettings, useJobs, useLeads } from "../data/hooks";
-import { money } from "../domain/format";
+import { formatDay, money } from "../domain/format";
 import { isOpenStage, isWonStage } from "../domain/pipelineStages";
+import { dueFollowUps, leadsWithoutNextStep } from "../domain/followUp";
 import { localToday, upcomingJobs } from "../domain/jobFilters";
 import { weeklyTrend } from "../domain/trend";
 import { useCompany } from "../state/CompanyContext";
@@ -57,7 +58,13 @@ export default function Dashboard() {
   const unscheduledJobs = jobs.filter(j => !j.scheduled_date && j.status !== "complete");
   const noContactLeads = leads.filter(l => !l.phone && !l.email);
   const calendarConnected = Boolean(settings?.google_calendar.enabled);
+  const { overdue: overdueFollowUps, dueToday: followUpsToday } = dueFollowUps(leads, stages, localToday());
+  const noNextStep = leadsWithoutNextStep(leads, stages);
+  const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
   const alerts = [
+    overdueFollowUps.length > 0 && { text: `${plural(overdueFollowUps.length, "follow-up is", "follow-ups are")} overdue`, action: "Review", to: "/pipeline" },
+    followUpsToday.length > 0 && { text: `${plural(followUpsToday.length, "follow-up", "follow-ups")} due today`, action: "Review", to: "/pipeline" },
+    noNextStep.length > 0 && { text: `${plural(noNextStep.length, "open lead has", "open leads have")} no next step`, action: "Review", to: "/pipeline" },
     unscheduledJobs.length > 0 && { text: `${unscheduledJobs.length} job${unscheduledJobs.length === 1 ? "" : "s"} need${unscheduledJobs.length === 1 ? "s" : ""} scheduling`, action: "Review", to: "/jobs" },
     noContactLeads.length > 0 && { text: `${noContactLeads.length} lead${noContactLeads.length === 1 ? "" : "s"} have no contact info`, action: "Review", to: "/pipeline" },
     !calendarConnected && { text: "Google Calendar not connected", action: "Connect", to: "/integrations" }
@@ -131,7 +138,7 @@ export default function Dashboard() {
                       const status = job.status || "planned";
                       return (
                         <tr key={job.id} className="row-clickable" onClick={() => navigate("/calendar")}>
-                          <td>{job.scheduled_date}</td>
+                          <td>{formatDay(job.scheduled_date)}</td>
                           <td>{job.customer_name || "—"}</td>
                           <td>{job.title}</td>
                           <td>{job.city || "—"}</td>

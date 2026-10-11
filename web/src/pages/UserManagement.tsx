@@ -19,7 +19,7 @@ import {
 import { useAdminUsers, useIsOwner } from "../data/hooks";
 import { relativeDate } from "../domain/format";
 import { errorMessage } from "../lib/errorMessage";
-import { toast } from "../lib/toast";
+import { toast, toastError } from "../lib/toast";
 import { useAuth } from "../state/AuthContext";
 
 const PERMISSIONS: [string, string][] = [
@@ -185,7 +185,7 @@ function InviteUserModal({ companies, onClose }: { companies: AdminCompany[]; on
       toast(`Invite sent to ${email.trim()}.`);
       onClose();
     } catch (err) {
-      toast(errorMessage(err, "Could not send that invite."));
+      toastError(errorMessage(err, "Could not send that invite."));
     } finally {
       setSending(false);
     }
@@ -301,7 +301,7 @@ function ManageUserModal({
       toast(`Access updated for ${authUser.email}.`);
       onClose();
     } catch (err) {
-      toast(errorMessage(err, "Could not update this user."));
+      toastError(errorMessage(err, "Could not update this user."));
     } finally {
       setSaving(false);
     }
@@ -317,7 +317,7 @@ function ManageUserModal({
       toast(`${authUser.email}'s account was deleted.`);
       onClose();
     } catch (err) {
-      toast(errorMessage(err, "Could not delete this account."));
+      toastError(errorMessage(err, "Could not delete this account."));
     } finally {
       setDeleting(false);
     }

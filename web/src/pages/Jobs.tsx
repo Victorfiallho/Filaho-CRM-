@@ -2,10 +2,10 @@ import { Briefcase, ChevronDown, ChevronUp, DollarSign, Download, FolderOpen, Pl
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import Select from "../components/Select";
-import { useCustomers, useIntegrationSettings, useJobs, usePermissions } from "../data/hooks";
+import { useCurrentAppUser, useCustomers, useIntegrationSettings, useJobs, usePermissions, useUsers } from "../data/hooks";
 import { toCSV } from "../domain/csv";
 import { filterRowsBySearch } from "../domain/search";
-import { money, unique } from "../domain/format";
+import { formatDay, money, unique } from "../domain/format";
 import { filterJobs, localToday, sortJobs, type JobSortKey, type JobWhen } from "../domain/jobFilters";
 import type { Job } from "../domain/types";
 import { downloadText } from "../lib/downloadText";
@@ -36,6 +36,9 @@ export default function Jobs() {
   const { searchText } = useSearch();
   const { openRecordModal } = useModal();
   const { has: hasPermission } = usePermissions();
+  const { data: users = [] } = useUsers();
+  const { data: currentAppUser } = useCurrentAppUser();
+  const [ownerFilter, setOwnerFilter] = useState("all");
   const driveRootUrl = activeCompanyId ? settings?.google_drive.folder_urls?.[activeCompanyId] : undefined;
 
   const [statusFilter, setStatusFilter] = useState("all");
@@ -51,12 +54,17 @@ export default function Jobs() {
   const services = useMemo(() => unique(allRows.map(j => j.service_type).filter(Boolean) as string[]), [allRows]);
 
   const rows = useMemo(() => {
-    const searched = filterRowsBySearch(allRows, searchText);
+    const searched = filterRowsBySearch(allRows, searchText).filter(j => {
+      if (ownerFilter === "mine") return Boolean(currentAppUser) && j.owner_user_id === currentAppUser?.id;
+      if (ownerFilter === "unassigned") return !j.owner_user_id;
+      if (ownerFilter !== "all") return j.owner_user_id === ownerFilter;
+      return true;
+    });
     const filtered = filterJobs(searched, { status: statusFilter, service: serviceFilter, when: whenFilter }, localToday());
     return sortJobs(filtered, sortKey, sortDir, j => clientNameById.get(j.customer_id || "") || "");
-  }, [allRows, searchText, statusFilter, serviceFilter, whenFilter, sortKey, sortDir, clientNameById]);
+  }, [allRows, searchText, ownerFilter, currentAppUser, statusFilter, serviceFilter, whenFilter, sortKey, sortDir, clientNameById]);
 
-  useEffect(() => { setPage(1); }, [searchText, statusFilter, serviceFilter, whenFilter, pageSize]);
+  useEffect(() => { setPage(1); }, [searchText, ownerFilter, statusFilter, serviceFilter, whenFilter, pageSize]);
 
   const pageSizeNum = Number(pageSize);
   const totalPages = Math.max(1, Math.ceil(rows.length / pageSizeNum));
@@ -94,6 +102,17 @@ export default function Jobs() {
         </div>
       </div>
       <div className="card-b table-filters">
+        <Select
+          id="job-owner-filter"
+          value={ownerFilter}
+          onChange={setOwnerFilter}
+          options={[
+            { value: "all", label: "All owners" },
+            { value: "mine", label: "My jobs" },
+            { value: "unassigned", label: "Unassigned" },
+            ...users.map(u => ({ value: u.id, label: u.name }))
+          ]}
+        />
         <Select id="job-when-filter" value={whenFilter} onChange={v => setWhenFilter(v as JobWhen)} options={WHEN_OPTIONS} />
         <Select
           id="job-status-filter"
@@ -130,7 +149,7 @@ export default function Jobs() {
                   <td><b>{j.title}</b><div className="sub">{j.service_type || ""}</div></td>
                   <td><span className={`pill status-${status.replace(/\s+/g, "-")}`}>{status}</span></td>
                   <td>{dash(clientName(j))}</td>
-                  <td>{dash(j.scheduled_date || "")}</td>
+                  <td>{dash(formatDay(j.scheduled_date))}</td>
                   <td>{money(j.estimated_value)}</td>
                   <td onClick={e => e.stopPropagation()}>
                     {j.drive_folder_url

@@ -11,7 +11,7 @@ import { filterRowsBySearch } from "../domain/search";
 import type { Customer } from "../domain/types";
 import { downloadText } from "../lib/downloadText";
 import { errorMessage } from "../lib/errorMessage";
-import { toast } from "../lib/toast";
+import { toast, toastError } from "../lib/toast";
 import { useCompany } from "../state/CompanyContext";
 import { useModal } from "../state/ModalContext";
 import { useSearch } from "../state/SearchContext";
@@ -126,7 +126,7 @@ export default function Customers() {
       queryClient.invalidateQueries({ queryKey: ["customers", activeCompanyId] });
       toast("Selected clients deleted.");
     } catch (error) {
-      toast(errorMessage(error, "Could not delete every selected client."));
+      toastError(errorMessage(error, "Could not delete every selected client."));
       queryClient.invalidateQueries({ queryKey: ["customers", activeCompanyId] });
     } finally {
       setBulkDeleting(false);

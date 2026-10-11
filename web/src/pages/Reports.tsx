@@ -10,6 +10,7 @@ import {
 } from "../data/hooks";
 import { money } from "../domain/format";
 import { isWonStage } from "../domain/pipelineStages";
+import { lostReasonCounts } from "../domain/followUp";
 import { useCompany } from "../state/CompanyContext";
 
 const ROI_PERIODS = [
@@ -49,6 +50,8 @@ export default function Reports() {
   if (customersLoading || leadsLoading || jobsLoading || importsLoading) return <PageSkeleton kpis={4} cards={2} />;
 
   const won = leads.filter(l => isWonStage(l.stage_id, stages));
+  const lostReasons = lostReasonCounts(leads, stages);
+  const maxLostReason = Math.max(1, ...lostReasons.map(r => r.count));
   const jobValue = jobs.reduce((t, j) => t + Number(j.estimated_value || 0), 0);
   const byService: Record<string, number> = {};
   leads.forEach(l => {
@@ -93,6 +96,16 @@ export default function Reports() {
               <BarRow key={k} label={k} magnitude={v} max={maxServiceRevenue} valueLabel={<span className="muted">{money(v)}</span>} />
             ))
             : <div className="empty"><BarChart3 />No revenue yet</div>}
+        </div>
+      </section>
+      <section className="card" style={{ marginTop: 14 }}>
+        <div className="card-h"><h3>Why leads are lost</h3><span className="sub">Leads in a lost stage, by reason — all time</span></div>
+        <div className="card-b">
+          {lostReasons.length
+            ? lostReasons.map(r => (
+              <BarRow key={r.reason} label={r.reason} magnitude={r.count} max={maxLostReason} valueLabel={<span className="pill">{r.count}</span>} />
+            ))
+            : <div className="empty"><Target />No lost leads yet</div>}
         </div>
       </section>
       <section className="card" style={{ marginTop: 14 }}>

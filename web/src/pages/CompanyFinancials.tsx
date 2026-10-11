@@ -32,7 +32,7 @@ import {
   sumRemainingEstimate
 } from "../domain/costing";
 import { isCustomerPayment, TRANSACTION_TYPE_LABELS } from "../domain/transactions";
-import { groupBy, money, titleize } from "../domain/format";
+import { formatDay, groupBy, money, titleize } from "../domain/format";
 import { useCompany } from "../state/CompanyContext";
 import type { CostLineItem, Job, ProjectFinancials, Transaction } from "../domain/types";
 
@@ -244,7 +244,7 @@ export default function CompanyFinancials() {
               <tbody>
                 {confirmedInRange.slice(0, 20).map(t => (
                   <tr key={t.id}>
-                    <td>{t.transaction_date}</td>
+                    <td>{formatDay(t.transaction_date)}</td>
                     <td>{TRANSACTION_TYPE_LABELS[t.transaction_type]}</td>
                     <td>{jobs.find(j => j.id === t.job_id)?.title || "—"}</td>
                     <td>{money(t.amount)}</td>

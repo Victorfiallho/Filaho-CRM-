@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { groupBy, initials, money, normAddress, normEmail, normKey, normName, normPhone, normZip, relativeDate, titleize, unique } from "./format";
+import { groupBy, initials, money, normAddress, normEmail, normKey, normName, normPhone, normZip, formatDay, relativeDate, titleize, unique } from "./format";
 
 describe("money", () => {
   it("formats and rounds", () => {
@@ -90,5 +90,21 @@ describe("relativeDate", () => {
   });
   it("returns empty string for no timestamp", () => {
     expect(relativeDate("", now)).toBe("");
+  });
+});
+
+describe("formatDay", () => {
+  const now = new Date(2026, 9, 11);
+  it("reads YYYY-MM-DD as a local calendar day (no UTC shift)", () => {
+    expect(formatDay("2026-10-20", now)).toBe("Oct 20");
+    expect(formatDay("2026-01-01", now)).toBe("Jan 1");
+  });
+  it("adds the year outside the current one", () => {
+    expect(formatDay("2025-12-31", now)).toBe("Dec 31, 2025");
+  });
+  it("returns empty for blank or malformed input", () => {
+    expect(formatDay("", now)).toBe("");
+    expect(formatDay(null, now)).toBe("");
+    expect(formatDay("soon", now)).toBe("");
   });
 });

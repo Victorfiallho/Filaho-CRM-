@@ -53,6 +53,15 @@ export const MODULES: [string, string][] = [
   ["users", "Users & Access"]
 ];
 
+// Sidebar sections — 12 flat items were hard to scan. Every MODULES id
+// belongs to exactly one group (constants.test.ts checks that).
+export const NAV_GROUPS: [string, string[]][] = [
+  ["Sales", ["dashboard", "pipeline", "customers"]],
+  ["Operations", ["jobs", "calendar", "map"]],
+  ["Finance", ["company-financials", "reports"]],
+  ["Admin", ["import", "integrations", "audit-log", "users"]]
+];
+
 // "users" is filtered out of Shell's rendered nav for anyone who isn't a
 // company owner (see Shell.tsx's useIsOwner check) — it stays in MODULES
 // itself so pageTitle() still resolves a real label for owners who do

@@ -14,3 +14,11 @@ export function toNumericOrNull(value: unknown): number | null {
 export function toDateOrNull(value: unknown): string | null {
   return value === "" || value === null || value === undefined ? null : String(value);
 }
+
+// Optional text/foreign-key columns (e.g. leads.owner_user_id, which
+// references users.id): an unselected dropdown is "", which would fail the
+// foreign key — store NULL instead.
+export function toTextOrNull(value: unknown): string | null {
+  const s = value === null || value === undefined ? "" : String(value).trim();
+  return s ? s : null;
+}

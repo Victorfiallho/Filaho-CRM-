@@ -7,7 +7,7 @@ import { now } from "../domain/format";
 import type { IntegrationSettings } from "../domain/types";
 import { errorMessage } from "../lib/errorMessage";
 import { clearGoogleSession, connectGoogleWorkspace, isGoogleSessionConnected, mergeScopes, startGoogleCalendarAuth } from "../lib/googleOAuth";
-import { toast } from "../lib/toast";
+import { toast, toastError } from "../lib/toast";
 import { useAuth } from "../state/AuthContext";
 import { useCompany } from "../state/CompanyContext";
 
@@ -55,7 +55,7 @@ export default function Integrations() {
         return;
       }
       if (connected === "calendar") toast("Google Calendar connected — background sync will pick up scheduled jobs.");
-      else if (calendarError) toast(`Google Calendar connection failed: ${calendarError}`);
+      else if (calendarError) toastError(`Google Calendar connection failed: ${calendarError}`);
       searchParams.delete("connected");
       searchParams.delete("calendar_error");
       setSearchParams(searchParams, { replace: true });
@@ -74,7 +74,7 @@ export default function Integrations() {
         queryClient.invalidateQueries({ queryKey: ["integration_settings"] });
         toast("Google Calendar connected — background sync will pick up scheduled jobs.");
       } else if (e.data.error) {
-        toast(`Google Calendar connection failed: ${e.data.error}`);
+        toastError(`Google Calendar connection failed: ${e.data.error}`);
       }
     }
     window.addEventListener("message", onOAuthMessage);
@@ -100,7 +100,7 @@ export default function Integrations() {
       else location.href = url; // popup blocked — fall back to the old same-tab redirect
     } catch (err) {
       popup?.close();
-      toast(errorMessage(err, "Could not start the Google connection."));
+      toastError(errorMessage(err, "Could not start the Google connection."));
     }
   }
 
@@ -176,7 +176,7 @@ export default function Integrations() {
         }));
         toast("Google OAuth config imported. Client secret was ignored.");
       } catch {
-        toast("Could not read that OAuth JSON.");
+        toastError("Could not read that OAuth JSON.");
       }
     };
     reader.readAsText(file);

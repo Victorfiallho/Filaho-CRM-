@@ -3,7 +3,7 @@ import { useState, type FormEvent } from "react";
 import { Navigate } from "react-router-dom";
 import { requestPasswordReset } from "../data/auth";
 import { errorMessage } from "../lib/errorMessage";
-import { toast } from "../lib/toast";
+import { toast, toastError } from "../lib/toast";
 import { useAuth } from "../state/AuthContext";
 
 // Google's official multi-color "G" mark — standard usage for a
@@ -37,7 +37,7 @@ export default function Login() {
     try {
       await signIn(email, password, rememberMe);
     } catch (error) {
-      toast(errorMessage(error, "Could not sign in."));
+      toastError(errorMessage(error, "Could not sign in."));
     } finally {
       setSubmitting(false);
     }
@@ -48,7 +48,7 @@ export default function Login() {
     try {
       await signInWithGoogle();
     } catch (error) {
-      toast(errorMessage(error, "Could not sign in with Google."));
+      toastError(errorMessage(error, "Could not sign in with Google."));
       setGoogleSubmitting(false);
     }
   };
@@ -60,7 +60,7 @@ export default function Login() {
       await requestPasswordReset(email.trim());
       toast(`Password reset link sent to ${email.trim()}.`);
     } catch (error) {
-      toast(errorMessage(error, "Could not send the reset link."));
+      toastError(errorMessage(error, "Could not send the reset link."));
     } finally {
       setResetting(false);
     }

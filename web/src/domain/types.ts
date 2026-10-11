@@ -61,6 +61,11 @@ export interface Lead {
   source: string;
   campaign_id?: string | null;
   campaign_name?: string | null;
+  // Phase 1 (migration 2026-10-11_10): owner, next step, lost reason.
+  owner_user_id?: string | null;
+  next_action?: string | null;
+  next_action_date?: string | null;
+  lost_reason?: string | null;
   lat: number | "" | null;
   lng: number | "" | null;
   created_at: string;
@@ -88,6 +93,7 @@ export interface Job {
   customer_name?: string;
   google_event_id?: string | null;
   closed_at?: string | null;
+  owner_user_id?: string | null;
   lat: number | "" | null;
   lng: number | "" | null;
   created_at: string;

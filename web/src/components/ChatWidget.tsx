@@ -2,7 +2,7 @@ import { MessageCircle, Send, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { sendChatMessage, type ChatTurn } from "../data/chatAgent";
 import { errorMessage } from "../lib/errorMessage";
-import { toast } from "../lib/toast";
+import { toastError } from "../lib/toast";
 import { useCompany } from "../state/CompanyContext";
 
 // Global support-style assistant, mounted once in Shell.tsx so it floats
@@ -34,7 +34,7 @@ export default function ChatWidget() {
       const reply = await sendChatMessage(activeCompanyId, history, text);
       setMessages(m => [...m, { role: "assistant", text: reply }]);
     } catch (error) {
-      toast(errorMessage(error, "Could not reach the assistant."));
+      toastError(errorMessage(error, "Could not reach the assistant."));
       setMessages(m => [...m, { role: "assistant", text: "Sorry, I couldn't respond right now. Please try again in a moment." }]);
     } finally {
       setSending(false);

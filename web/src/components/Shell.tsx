@@ -1,10 +1,10 @@
-import { LogOut, PanelLeftClose, PanelLeftOpen, Plus, RefreshCw } from "lucide-react";
+import { ChevronDown, LogOut, PanelLeftClose, PanelLeftOpen, Plus, RefreshCw } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Navigate, Outlet, useLocation, useNavigate } from "react-router-dom";
 import ChatWidget from "./ChatWidget";
 import CompanyLogo from "./CompanyLogo";
 import { useCustomers, useImportsHistory, useIsOwner, useJobs, useLeads, usePermissions } from "../data/hooks";
-import { MODULE_ICONS, MODULES } from "../domain/constants";
+import { MODULE_ICONS, MODULES, NAV_GROUPS } from "../domain/constants";
 import { money } from "../domain/format";
 import { isOpenStage } from "../domain/pipelineStages";
 import type { PipelineStage } from "../domain/types";
@@ -179,20 +179,30 @@ export default function Shell() {
         </button>
         <nav className="nav" ref={navRef}>
           <span className="nav-indicator" style={{ transform: `translateY(${indicator.top}px)`, height: indicator.height }} />
-          {MODULES.filter(([id]) => (id !== "users" || isOwner) && (id !== "company-financials" || isOwner) && (id !== "import" || canImport)).map(([id, label]) => {
-            const Icon = MODULE_ICONS[id];
+          {/* Group labels are plain siblings of the buttons (not wrappers) so
+              each button's offsetTop stays relative to the nav, which the
+              sliding active indicator above is positioned from. */}
+          {NAV_GROUPS.map(([group, ids]) => {
+            const visible = MODULES.filter(([id]) => ids.includes(id) && (id !== "users" || isOwner) && (id !== "company-financials" || isOwner) && (id !== "import" || canImport));
+            if (!visible.length) return null;
             const showLabel = !collapsed || sidebarOpen;
-            return (
-              <button
-                key={id}
-                className={location.pathname === `/${id}` ? "active" : ""}
-                onClick={() => { navigate(`/${id}`); setSidebarOpen(false); }}
-                title={showLabel ? undefined : label}
-              >
-                {Icon && <Icon />}
-                {showLabel && label}
-              </button>
-            );
+            return [
+              showLabel ? <span key={`group-${group}`} className="nav-group">{group}</span> : <span key={`group-${group}`} className="nav-group-rule" aria-hidden="true" />,
+              ...visible.map(([id, label]) => {
+                const Icon = MODULE_ICONS[id];
+                return (
+                  <button
+                    key={id}
+                    className={location.pathname === `/${id}` ? "active" : ""}
+                    onClick={() => { navigate(`/${id}`); setSidebarOpen(false); }}
+                    title={showLabel ? undefined : label}
+                  >
+                    {Icon && <Icon />}
+                    {showLabel && label}
+                  </button>
+                );
+              })
+            ];
           })}
         </nav>
         <div className="side-foot">
@@ -214,13 +224,7 @@ export default function Shell() {
           <div className="search">
             <input placeholder="Search this company..." value={searchText} onChange={e => setSearchText(e.target.value)} />
           </div>
-          {hasPermission("create") && (
-            <>
-              <button className="btn ghost" data-action="new-lead" onClick={() => openRecordModal("lead")}>New lead</button>
-              <button className="btn ghost" data-action="new-customer" onClick={() => openRecordModal("customer")}>New client</button>
-              <button className="btn" data-action="new-job" onClick={() => openRecordModal("job")}><Plus />New job</button>
-            </>
-          )}
+          {hasPermission("create") && <NewRecordMenu onPick={type => openRecordModal(type)} />}
         </header>
         <section className="content" id="view">
           {/* Keyed on the route so this div actually remounts on every
@@ -235,6 +239,39 @@ export default function Shell() {
       </main>
       <RecordModal />
       <ChatWidget />
+    </div>
+  );
+}
+
+// One "New" button with a menu instead of three side-by-side buttons, which
+// crowded the topbar (and wrapped on narrow screens).
+function NewRecordMenu({ onPick }: { onPick: (type: "lead" | "customer" | "job") => void }) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: PointerEvent) => { if (!wrapRef.current?.contains(e.target as Node)) setOpen(false); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    document.addEventListener("pointerdown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => { document.removeEventListener("pointerdown", onDown); document.removeEventListener("keydown", onKey); };
+  }, [open]);
+
+  const pick = (type: "lead" | "customer" | "job") => { setOpen(false); onPick(type); };
+
+  return (
+    <div className="new-menu" ref={wrapRef}>
+      <button className="btn" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(v => !v)}>
+        <Plus />New<ChevronDown />
+      </button>
+      {open && (
+        <div className="new-menu-list" role="menu">
+          <button role="menuitem" data-action="new-lead" onClick={() => pick("lead")}>Lead</button>
+          <button role="menuitem" data-action="new-customer" onClick={() => pick("customer")}>Client</button>
+          <button role="menuitem" data-action="new-job" onClick={() => pick("job")}>Job</button>
+        </div>
+      )}
     </div>
   );
 }

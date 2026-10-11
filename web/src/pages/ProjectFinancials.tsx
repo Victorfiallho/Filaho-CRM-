@@ -45,9 +45,9 @@ import {
 } from "../domain/costing";
 import { isCustomerPayment, OWNER_AMBIGUOUS_TYPES, TRANSACTION_TYPE_LABELS } from "../domain/transactions";
 import { findOrCreateVendor } from "../data/vendors";
-import { money, titleize, uid } from "../domain/format";
+import { formatDay, money, titleize, uid } from "../domain/format";
 import { errorMessage } from "../lib/errorMessage";
-import { toast } from "../lib/toast";
+import { toast, toastError } from "../lib/toast";
 import { useAuth } from "../state/AuthContext";
 import { useCompany } from "../state/CompanyContext";
 import {
@@ -122,7 +122,7 @@ export default function ProjectFinancials() {
       queryClient.invalidateQueries({ queryKey: ["project-financials", job.id] });
       toast("Project costing set up.");
     } catch (error) {
-      toast(errorMessage(error, "Could not set up project financials."));
+      toastError(errorMessage(error, "Could not set up project financials."));
     } finally {
       setSavingSetup(false);
     }
@@ -220,7 +220,7 @@ export default function ProjectFinancials() {
       await updateProjectFinancials(pf.id, activeCompanyId, { [field]: value });
       queryClient.invalidateQueries({ queryKey: ["project-financials", pf.job_id] });
     } catch (error) {
-      toast(errorMessage(error, "Could not save."));
+      toastError(errorMessage(error, "Could not save."));
     }
   }
 
@@ -362,7 +362,7 @@ function ChangeOrdersCard({ jobId, companyId, changeOrders, approverId, onChange
       setDescription(""); setAmount("");
       onChanged();
     } catch (error) {
-      toast(errorMessage(error, "Could not add change order."));
+      toastError(errorMessage(error, "Could not add change order."));
     } finally {
       setSaving(false);
     }
@@ -459,7 +459,7 @@ function CostLineItemsCard({ jobId, companyId, items, vendors, users, onChanged 
       setForm(EMPTY_ITEM_FORM);
       onChanged();
     } catch (error) {
-      toast(errorMessage(error, "Could not add cost item."));
+      toastError(errorMessage(error, "Could not add cost item."));
     } finally {
       setSaving(false);
     }
@@ -584,7 +584,7 @@ function TransactionLedgerCard({ jobId, companyId, clientId, transactions, vendo
       setForm(EMPTY_TXN_FORM);
       onChanged();
     } catch (error) {
-      toast(errorMessage(error, "Could not add transaction."));
+      toastError(errorMessage(error, "Could not add transaction."));
     } finally {
       setSaving(false);
     }
@@ -595,7 +595,7 @@ function TransactionLedgerCard({ jobId, companyId, clientId, transactions, vendo
       await confirmTransaction(id, companyId, approverId);
       onChanged();
     } catch (error) {
-      toast(errorMessage(error, "Could not confirm transaction."));
+      toastError(errorMessage(error, "Could not confirm transaction."));
     }
   }
 
@@ -607,7 +607,7 @@ function TransactionLedgerCard({ jobId, companyId, clientId, transactions, vendo
       toast("Reversal created as a draft — review and confirm it below.");
       onChanged();
     } catch (error) {
-      toast(errorMessage(error, "Could not create reversal."));
+      toastError(errorMessage(error, "Could not create reversal."));
     }
   }
 
@@ -630,7 +630,7 @@ function TransactionLedgerCard({ jobId, companyId, clientId, transactions, vendo
                 const vendor = vendors.find(v => v.id === t.vendor_id);
                 return (
                   <tr key={t.id}>
-                    <td>{t.transaction_date}</td>
+                    <td>{formatDay(t.transaction_date)}</td>
                     <td>{TRANSACTION_TYPE_LABELS[t.transaction_type]}</td>
                     <td>{t.payee_name || vendor?.canonical_name || "—"}</td>
                     <td>{t.description}{t.reversal_of && <div className="sub">Reversal of {t.reversal_of}</div>}</td>
@@ -715,7 +715,7 @@ function RefundsCard({ jobId, companyId, refunds, costLineItems, onChanged }: {
       setDescription(""); setAmount(""); setCostLineItemId("");
       onChanged();
     } catch (error) {
-      toast(errorMessage(error, "Could not add refund."));
+      toastError(errorMessage(error, "Could not add refund."));
     } finally {
       setSaving(false);
     }
@@ -733,7 +733,7 @@ function RefundsCard({ jobId, companyId, refunds, costLineItems, onChanged }: {
       }
       onChanged();
     } catch (error) {
-      toast(errorMessage(error, "Could not update refund."));
+      toastError(errorMessage(error, "Could not update refund."));
     }
   }
 
@@ -813,7 +813,7 @@ function ProfitReleaseCard({ jobId, companyId, releases, health, safeToWithdrawA
       setAmount(""); setNotes("");
       onChanged();
     } catch (error) {
-      toast(errorMessage(error, "Could not release profit."));
+      toastError(errorMessage(error, "Could not release profit."));
     } finally {
       setSaving(false);
     }

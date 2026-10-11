@@ -2,7 +2,7 @@ import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { updatePassword } from "../data/auth";
 import { errorMessage } from "../lib/errorMessage";
-import { toast } from "../lib/toast";
+import { toast, toastError } from "../lib/toast";
 import { useAuth } from "../state/AuthContext";
 
 // Landing page for the email link from requestPasswordReset() (Login.tsx's
@@ -29,7 +29,7 @@ export default function ResetPassword() {
       setDone(true);
       toast("Password updated.");
     } catch (error) {
-      toast(errorMessage(error, "Could not update the password."));
+      toastError(errorMessage(error, "Could not update the password."));
     } finally {
       setSubmitting(false);
     }

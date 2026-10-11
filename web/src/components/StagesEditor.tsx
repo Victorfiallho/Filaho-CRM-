@@ -7,7 +7,7 @@ import { countLeadsInStage, deleteStage, insertStage, updateStage } from "../dat
 import { STAGE_TYPES, slugifyStageId, type StageType } from "../domain/pipelineStages";
 import type { PipelineStage } from "../domain/types";
 import { errorMessage } from "../lib/errorMessage";
-import { toast } from "../lib/toast";
+import { toast, toastError } from "../lib/toast";
 
 interface DraftStage extends PipelineStage {
   isNew?: boolean;
@@ -111,7 +111,7 @@ export default function StagesEditor({ companyId, stages, onClose }: { companyId
       toast("Pipeline stages updated.");
       onClose();
     } catch (error) {
-      toast(errorMessage(error, "Could not save pipeline stages."));
+      toastError(errorMessage(error, "Could not save pipeline stages."));
     } finally {
       setSaving(false);
     }

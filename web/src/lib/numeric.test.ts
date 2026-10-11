@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { toDateOrNull, toNumericOrNull } from "./numeric";
+import { toDateOrNull, toNumericOrNull, toTextOrNull } from "./numeric";
 
 describe("toNumericOrNull", () => {
   it("converts blank/missing values to null (not empty string) for numeric DB columns", () => {
@@ -28,5 +28,17 @@ describe("toDateOrNull", () => {
 
   it("passes a real date string through unchanged", () => {
     expect(toDateOrNull("2024-02-01")).toBe("2024-02-01");
+  });
+});
+
+describe("toTextOrNull", () => {
+  it("turns blank and missing values into null", () => {
+    expect(toTextOrNull("")).toBeNull();
+    expect(toTextOrNull("   ")).toBeNull();
+    expect(toTextOrNull(undefined)).toBeNull();
+    expect(toTextOrNull(null)).toBeNull();
+  });
+  it("keeps real text, trimmed", () => {
+    expect(toTextOrNull(" usr_1 ")).toBe("usr_1");
   });
 });

@@ -109,6 +109,12 @@ describe("mergeClientData", () => {
     expect(merged.phone).toBe("9998887777");
   });
 
+  it("keeps the existing client's source over a later lead's", () => {
+    const merged = mergeClientData(customer({ source: "Meta Ads" }), { source: "Manual" });
+    expect(merged.source).toBe("Meta Ads");
+    expect(mergeClientData(customer({ source: "" } as any), { source: "CSV upload" }).source).toBe("CSV upload");
+  });
+
   it("falls back to existing status/source, defaulting to active/Lead", () => {
     const existing = customer({ status: "past", source: "Referral" });
     const merged = mergeClientData(existing, {});

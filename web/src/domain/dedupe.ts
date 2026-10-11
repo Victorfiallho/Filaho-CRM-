@@ -42,6 +42,9 @@ export function mergeClientData(existing: Customer, patch: Partial<Customer>): P
       if ((merged[field] === "" || merged[field] == null) && existing[field]) (merged as any)[field] = existing[field];
     });
   merged.status = patch.status || existing.status || "active";
-  merged.source = patch.source || existing.source || "Lead";
+  // A client's source is how they first came in — a later lead or import
+  // for the same person must not overwrite it (that erased real sources
+  // like Meta Ads every time a linked lead was edited).
+  merged.source = existing.source || patch.source || "Lead";
   return merged;
 }

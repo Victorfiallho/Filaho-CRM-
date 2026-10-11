@@ -319,7 +319,10 @@ function RecordModalContent() {
             // so the lead form's Notes text still carries over to the linked
             // client, same as app.js, even though it's stripped from `data`
             // before that's sent to the (notes-less) `leads` table below.
-            const client = await upsertClientFromLead({ ...data, notes: form.notes }, activeCompanyId, services[0] || "", r.customer_id);
+            // Pass the lead's existing source through: without it the client
+            // sync falls back to "Lead" and overwrites the linked client's
+            // real source (Meta Ads, import...) on every lead edit.
+            const client = await upsertClientFromLead({ ...data, source: r.source, notes: form.notes }, activeCompanyId, services[0] || "", r.customer_id);
             data.customer_id = client?.id || r.customer_id || "";
             await updateLead(r.id, activeCompanyId, data as any);
             queryClient.invalidateQueries({ queryKey: ["leads", activeCompanyId] });

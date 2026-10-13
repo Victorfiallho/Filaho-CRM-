@@ -1019,12 +1019,12 @@ h1,h2,h3{font-weight:600;letter-spacing:-.01em;color:var(--ink)}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 
 /* ── One link style everywhere (no default blue underline) ── */
-.link-btn,.content a:not(.btn):not(.day-row):not(.popover-item):not(.cell-link){
+.link-btn,.content a:not(.btn):not(.day-row):not(.popover-item):not(.cell-link):not(.action-pill){
   color:var(--ink);font-weight:500;text-decoration:underline;text-decoration-color:rgba(17,17,17,.2);
   text-underline-offset:3px;background:transparent;padding:0;font-size:inherit;
   transition:text-decoration-color var(--dur) var(--ease);
 }
-.link-btn:hover,.content a:not(.btn):not(.day-row):not(.popover-item):not(.cell-link):hover{text-decoration-color:currentColor}
+.link-btn:hover,.content a:not(.btn):not(.day-row):not(.popover-item):not(.cell-link):not(.action-pill):hover{text-decoration-color:currentColor}
 .card-h .link-btn{font-size:13px;color:var(--muted)}
 .card-h .link-btn:hover{color:var(--ink)}
 
@@ -1545,3 +1545,15 @@ tr:hover td{background:rgba(255,255,255,.55)}
 .cs-sheet .cs-list{overflow-y:auto;overscroll-behavior:contain}
 .cs-sheet .cs-option{min-height:52px;font-size:16px;padding:0 16px;white-space:normal}
 @media(prefers-reduced-motion:reduce){.cs-menu,.cs-sheet,.cs-sheet-backdrop{animation:none}}
+
+/* Small action pills inside table rows / cards (Jobs: Folder, Costing). */
+.action-pills{display:inline-flex;flex-wrap:wrap;gap:6px}
+.content a.action-pill,.action-pill{
+  display:inline-flex;align-items:center;gap:5px;height:30px;padding:0 11px;border-radius:var(--radius-pill);
+  background:rgba(255,255,255,.9);border:1px solid rgba(17,17,17,.09);color:var(--ink-soft);font-size:12.5px;font-weight:500;text-decoration:none;white-space:nowrap;
+}
+.content a.action-pill:hover,.action-pill:hover{background:#fff;border-color:rgba(17,17,17,.18);color:var(--ink);text-decoration:none}
+.action-pill svg{width:13px;height:13px;color:var(--muted)}
+.lead-avatar svg{width:15px;height:15px}
+.num-strong{font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums}
+@media(max-width:900px){.action-pill{height:36px}}

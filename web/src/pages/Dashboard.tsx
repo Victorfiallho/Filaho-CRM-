@@ -1,10 +1,12 @@
-import { AlertCircle, Briefcase, Calendar, CalendarClock, DollarSign, History, Target, Users } from "lucide-react";
+import { AlertCircle, Calendar, CalendarClock, DollarSign, History } from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import BarRow from "../components/BarRow";
-import KpiCard from "../components/KpiCard";
+import EmptyState from "../components/EmptyState";
+import KpiStrip from "../components/KpiStrip";
 import PageSkeleton from "../components/PageSkeleton";
+import ProgressPill from "../components/ProgressPill";
 import TrendLineChart from "../components/TrendLineChart";
+import { activityWhen, useActivityFeed } from "../data/activityFeed";
 import {
   useAuditLog,
   useCompanyChangeOrders,
@@ -18,10 +20,8 @@ import {
   useIntegrationSettings,
   useIsOwner,
   useJobs,
-  useLeads,
-  useUsers
+  useLeads
 } from "../data/hooks";
-import { describeActivity, isFinanceActivity } from "../domain/activity";
 import { formatDay, money } from "../domain/format";
 import { isOpenStage, isWonStage } from "../domain/pipelineStages";
 import { leadsWithoutNextStep } from "../domain/followUp";
@@ -29,19 +29,10 @@ import { localToday, upcomingJobs } from "../domain/jobFilters";
 import { myDay } from "../domain/myDay";
 import { rollupCompanyProjects, type ProjectRollup } from "../domain/projectRollup";
 import { weeklyTrend } from "../domain/trend";
-import type { AuditLogEntry, Customer, Job, Lead, PipelineStage } from "../domain/types";
+import type { Customer, Job, Lead, PipelineStage } from "../domain/types";
+import { stageTone } from "../domain/visual";
 import { useCompany } from "../state/CompanyContext";
 import { useModal } from "../state/ModalContext";
-
-function activityWhen(iso: string): string {
-  const d = new Date(iso);
-  const now = new Date();
-  if (d.toDateString() === now.toDateString()) return `Today, ${d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}`;
-  const yesterday = new Date(now);
-  yesterday.setDate(now.getDate() - 1);
-  if (d.toDateString() === yesterday.toDateString()) return "Yesterday";
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-}
 
 // Stable reference: the filters object is part of the audit-log query key.
 // Extra rows because noise-only updates are dropped before showing 8.
@@ -63,9 +54,9 @@ export default function Dashboard() {
   const { data: leads = [], isLoading: leadsLoading } = useLeads(activeCompanyId);
   const { data: jobs = [], isLoading: jobsLoading } = useJobs(activeCompanyId);
   const { data: settings, isLoading: settingsLoading } = useIntegrationSettings();
-  const { data: users = [], isLoading: usersLoading } = useUsers();
   const { data: currentAppUser } = useCurrentAppUser();
-  const { data: auditRows = [], isLoading: auditLoading } = useAuditLog(activeCompanyId, ACTIVITY_FILTERS);
+  // Same query (same filters) the Activity card reads through useActivityFeed.
+  const { isLoading: auditLoading } = useAuditLog(activeCompanyId, ACTIVITY_FILTERS);
   const { data: financeSettings, isLoading: fsLoading } = useFinanceSettings(ownerCompanyId);
   const { data: financials = [], isLoading: pfLoading } = useCompanyProjectFinancials(ownerCompanyId);
   const { data: costItems = [], isLoading: itemsLoading } = useCompanyCostLineItems(ownerCompanyId);
@@ -76,7 +67,7 @@ export default function Dashboard() {
 
   // Everything the page shows waits together, so panels don't pop in one by
   // one; disabled (non-owner) finance queries report not-loading.
-  const loading = customersLoading || leadsLoading || jobsLoading || settingsLoading || usersLoading || auditLoading ||
+  const loading = customersLoading || leadsLoading || jobsLoading || settingsLoading || auditLoading ||
     fsLoading || pfLoading || itemsLoading || coLoading || txnLoading || releasesLoading;
   if (loading) return <PageSkeleton kpis={4} rows={[6, 4, 5, 6]} />;
 
@@ -104,6 +95,9 @@ export default function Dashboard() {
   const stageCounts = stages.map(stage => ({ stage, count: leads.filter(l => l.stage_id === stage.id).length }));
   const maxStageCount = Math.max(1, ...stageCounts.map(s => s.count));
   const leadsPerWeek = weeklyTrend(leads, l => l.created_at, () => 1, 12);
+  // Dot-matrix trends for the KPI strip: last 10 weeks of new records.
+  const weekly = <T,>(rows: T[], dateOf: (r: T) => string, valueOf: (r: T) => number = () => 1) =>
+    weeklyTrend(rows, dateOf, valueOf, 10).map(p => p.value);
 
   const rollups = isOwner
     ? rollupCompanyProjects({
@@ -124,31 +118,31 @@ export default function Dashboard() {
 
   return (
     <div className="view-enter">
-      <div className="grid kpis">
-        <KpiCard icon={Users} label="Clients" value={customers.length} hint="active company records" />
-        <KpiCard icon={Target} label="Open leads" value={openLeads.length} hint={`${won.length} won`} />
-        <KpiCard icon={Briefcase} label="Active jobs" value={activeJobs.length} hint={`${scheduledJobs.length} scheduled`} />
-        <KpiCard icon={DollarSign} label="Pipeline" value={money(pipelineValue)} hint="estimated value" />
-      </div>
+      <KpiStrip items={[
+        { label: "Clients", value: customers.length, hint: "active records", tone: "amber", series: weekly(customers, c => c.created_at), seriesLabel: "New clients per week, last 10 weeks" },
+        { label: "Open leads", value: openLeads.length, hint: `${won.length} won`, tone: "blue", series: weekly(leads, l => l.created_at), seriesLabel: "New leads per week, last 10 weeks" },
+        { label: "Active jobs", value: activeJobs.length, hint: `${scheduledJobs.length} scheduled`, tone: "coral", series: weekly(jobs, j => j.created_at), seriesLabel: "New jobs per week, last 10 weeks" },
+        { label: "Pipeline", value: money(pipelineValue), hint: "open lead value", tone: "green", series: weekly(leads, l => l.created_at, l => Number(l.value || 0)), seriesLabel: "Lead value added per week, last 10 weeks" }
+      ]} />
 
-      <div className="grid two" style={{ marginTop: 14 }}>
+      <div className="grid two" style={{ marginTop: 20 }}>
         <MyDayCard leads={leads} jobs={jobs} customers={customers} stages={stages} today={today} myUserId={currentAppUser?.id ?? null} />
         <section className="card">
-          <div className="card-h"><h3>Needs attention</h3><span className="pill">{alerts.length}</span></div>
+          <div className="card-h"><h3>Needs attention</h3>{alerts.length > 0 && <span className="badge-tone tone-amber">{alerts.length}</span>}</div>
           <div className="card-b">
             {alerts.length ? alerts.map(a => (
               <div className="attention-row" key={a.text}>
                 <span>{a.text}</span>
                 <button className="link-btn" onClick={() => navigate(a.to)}>{a.action}</button>
               </div>
-            )) : <div className="empty"><AlertCircle />All caught up</div>}
+            )) : <EmptyState icon={AlertCircle}>All caught up</EmptyState>}
           </div>
         </section>
       </div>
 
       {isOwner && <MoneyCard rollups={rollups} />}
 
-      <section className="card" style={{ marginTop: 14 }}>
+      <section className="card" style={{ marginTop: 20 }}>
         <div className="card-h">
           <h3>New leads</h3>
           <span className="sub">Last 12 weeks</span>
@@ -158,7 +152,7 @@ export default function Dashboard() {
         </div>
       </section>
 
-      <div className="grid two" style={{ marginTop: 14 }}>
+      <div className="grid two" style={{ marginTop: 20 }}>
         <section className="card">
           <div className="card-h">
             <h3>Upcoming jobs</h3>
@@ -185,7 +179,7 @@ export default function Dashboard() {
                   </tbody>
                 </table>
               </div>
-            ) : <div className="empty"><Calendar />No scheduled jobs yet</div>}
+            ) : <EmptyState icon={Calendar}>No upcoming jobs scheduled</EmptyState>}
           </div>
         </section>
         <section className="card">
@@ -194,23 +188,23 @@ export default function Dashboard() {
             <button className="link-btn" onClick={() => navigate("/pipeline")}>View pipeline</button>
           </div>
           <div className="card-b">
-            {stageCounts.map(({ stage, count }) => (
-              <BarRow
-                key={stage.id}
-                label={stage.name}
-                magnitude={count}
-                max={maxStageCount}
-                color={stage.color || undefined}
-                valueLabel={<span className="pill">{count}</span>}
-              />
-            ))}
+            {stageCounts.map(({ stage, count }, i) => {
+              const tone = stageTone(stage, i);
+              return (
+                <div className={`stage-meter tone-${tone}`} key={stage.id}>
+                  <span className="stage-meter-name">{stage.name}</span>
+                  <ProgressPill value={count} max={maxStageCount} tone={tone} label={`${stage.name}: ${count} leads`} />
+                  <span className="stage-meter-count">{count}</span>
+                </div>
+              );
+            })}
           </div>
         </section>
       </div>
 
-      <ActivityCard rows={isOwner ? auditRows : auditRows.filter(r => !isFinanceActivity(r))} leads={leads} jobs={jobs} customers={customers} stages={stages} users={users} />
+      <ActivityCard />
 
-      <p className="sub" style={{ marginTop: 14 }}>
+      <p className="dash-foot">
         Integrations: {integrationsConnected} of 6 connected · <button className="link-btn" onClick={() => navigate("/integrations")}>Manage integrations</button>
       </p>
     </div>
@@ -241,7 +235,7 @@ function MyDayCard({ leads, jobs, customers, stages, today, myUserId }: {
       </div>
       <div className="card-b">
         {followUps.length === 0 && jobsToday.length === 0 && (
-          <div className="empty"><CalendarClock />Nothing due {scope === "mine" ? "for you " : ""}today</div>
+          <EmptyState icon={CalendarClock}>Nothing due {scope === "mine" ? "for you " : ""}today</EmptyState>
         )}
         {followUps.length > 0 && (
           <>
@@ -299,14 +293,14 @@ function MoneyCard({ rollups }: { rollups: ProjectRollup[] }) {
     .slice(0, 3);
 
   return (
-    <section className="card" style={{ marginTop: 14 }}>
+    <section className="card" style={{ marginTop: 20 }}>
       <div className="card-h">
         <div><h3>Money</h3><span className="sub">{plural(rollups.length, "project", "projects")} with costing · owner only</span></div>
         <Link className="link-btn" to="/company-financials">Company Financials</Link>
       </div>
       <div className="card-b">
         {rollups.length === 0 ? (
-          <div className="empty"><DollarSign />No projects have costing set up yet — open a job's Costing to start.</div>
+          <EmptyState icon={DollarSign}>No projects have costing set up yet — open a job's Costing to start.</EmptyState>
         ) : (
           <>
             <div className="money-stats">
@@ -345,46 +339,21 @@ function MoneyCard({ rollups }: { rollups: ProjectRollup[] }) {
 }
 
 // Who did what, from audit_log (now also covering leads — migration 09).
-function ActivityCard({ rows, leads, jobs, customers, stages, users }: {
-  rows: AuditLogEntry[]; leads: Lead[]; jobs: Job[]; customers: Customer[]; stages: PipelineStage[];
-  users: { id: string; name: string; auth_user_id: string | null }[];
-}) {
-  const names: Record<string, Map<string, string>> = {
-    leads: new Map(leads.map(l => [l.id, l.name])),
-    jobs: new Map(jobs.map(j => [j.id, j.title])),
-    customers: new Map(customers.map(c => [c.id, c.name])),
-    pipeline_stages: new Map(stages.map(s => [s.id, s.name]))
-  };
-  const stageName = new Map(stages.map(s => [s.id, s.name]));
-  const userByAppId = new Map(users.map(u => [u.id, u.name]));
-  // audit_log.user_id is the auth uuid, not users.id.
-  const userByAuthId = new Map(users.filter(u => u.auth_user_id).map(u => [u.auth_user_id as string, u.name]));
-
-  const items = rows
-    .map(row => ({
-      row,
-      text: describeActivity(row, {
-        nameFor: (entity, id) => names[entity]?.get(id),
-        stageName: id => stageName.get(id),
-        userName: id => userByAppId.get(id)
-      })
-    }))
-    .filter((x): x is { row: AuditLogEntry; text: string } => Boolean(x.text))
-    .slice(0, ACTIVITY_SHOWN);
-
+function ActivityCard() {
+  const { items } = useActivityFeed(ACTIVITY_SHOWN);
   return (
-    <section className="card" style={{ marginTop: 14 }}>
+    <section className="card" style={{ marginTop: 20 }}>
       <div className="card-h">
         <h3>Activity</h3>
         <Link className="link-btn" to="/audit-log">Full audit log</Link>
       </div>
       <div className="card-b">
-        {items.length ? items.map(({ row, text }) => (
+        {items.length ? items.map(({ row, actor, text }) => (
           <div className="activity-row" key={row.id}>
-            <span><b>{row.entity === "booking_requests" ? "New online booking" : userByAuthId.get(row.user_id || "") || "System"}</b> {text}</span>
+            <span><b>{actor}</b> {text}</span>
             <span className="sub" style={{ whiteSpace: "nowrap" }}>{activityWhen(row.created_at)}</span>
           </div>
-        )) : <div className="empty"><History />No activity yet</div>}
+        )) : <EmptyState icon={History}>No activity yet</EmptyState>}
       </div>
     </section>
   );

@@ -1630,3 +1630,68 @@ tr:hover td{background:rgba(255,255,255,.55)}
   .login-hero{display:none}
   .company-panel-tools{width:100%;justify-content:space-between}
 }
+
+/* ── Calendar ── */
+.calendar-layout{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:20px;margin-top:20px;align-items:start}
+.calendar-head{flex-wrap:wrap}
+.calendar-month{font-size:20px;font-weight:500}
+.calendar-nav{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.calendar-nav .round-btn{width:36px;height:36px}
+.calendar-grid{gap:6px;background:transparent;border:0;border-radius:0;margin-top:4px}
+.cal-head{background:transparent;padding:4px 6px 8px;text-transform:capitalize;font-weight:600;letter-spacing:.02em;font-size:12px}
+.cal-cell{min-height:108px;border-radius:14px;background:rgba(255,255,255,.7);border:1px solid rgba(17,17,17,.04);padding:8px;cursor:pointer;transition:background var(--dur) var(--ease),box-shadow var(--dur) var(--ease)}
+.cal-cell:hover{background:#fff;box-shadow:var(--shadow-xs)}
+.cal-cell:focus-visible{outline:2px solid var(--ink);outline-offset:1px}
+.cal-cell.pad{background:transparent;border:0;cursor:default;box-shadow:none}
+.cal-cell.past{background:rgba(255,255,255,.4)}
+.cal-cell.past .cal-day{color:var(--muted-soft)}
+.cal-cell.today{background:#fff;box-shadow:inset 0 0 0 2px var(--selected)}
+.cal-day{font-weight:600;font-size:13px;color:var(--ink)}
+.cal-cell.today .cal-day{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;background:var(--selected);color:#fff}
+.cal-job{width:100%;text-align:left;font-size:11.5px;font-weight:500;border-radius:8px;padding:4px 7px;background:var(--tone-bg);color:var(--tone-fg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
+.cal-job:hover{filter:brightness(.97)}
+.cal-more{font-size:11.5px;color:var(--muted)}
+.upcoming-list{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:minmax(0,1fr)}
+.upcoming-item{display:flex;align-items:flex-start;gap:12px;padding:12px 0;border-top:1px solid var(--line)}
+.upcoming-item:first-child{border-top:0;padding-top:0}
+.upcoming-date{flex:0 0 auto;width:48px;padding:6px 0;border-radius:14px;display:grid;justify-items:center;background:var(--tone-bg);color:var(--tone-fg)}
+.upcoming-date span{font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.06em}
+.upcoming-date b{font-size:19px;font-weight:600;line-height:1.1}
+.upcoming-body{flex:1;min-width:0;display:grid;gap:3px}
+.upcoming-title-row{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.upcoming-title-row b{font-size:14px;font-weight:600;color:var(--ink);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.upcoming-title-row .pill{flex:0 0 auto}
+.upcoming-meta{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:12.5px;min-width:0;margin:0}
+.upcoming-meta svg{width:13px;height:13px;flex:0 0 auto}
+.upcoming-actions{flex:0 0 auto;display:flex;flex-direction:column;gap:6px}
+.upcoming-actions .round-btn{width:34px;height:34px}
+.upcoming-actions .round-btn svg{width:15px;height:15px}
+@media(max-width:1180px){.calendar-layout{grid-template-columns:minmax(0,1fr)}}
+.card-h .btn{white-space:nowrap}
+@media(max-width:760px){
+  /* Overrides the old mobile rule that turned the month into 2 columns and
+     hid the weekday row (which also pushed the page sideways). */
+  .calendar-grid{grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
+  .cal-head{display:block;font-size:10.5px;padding:2px;text-align:center}
+  .cal-cell.pad{display:block}
+  .cal-cell{min-height:64px;padding:5px;border-radius:10px}
+  .cal-job{font-size:10px;padding:2px 4px}
+  .upcoming-title-row{flex-wrap:wrap;justify-content:flex-start}
+  .upcoming-title-row b{white-space:normal}
+  .upcoming-actions .round-btn{width:44px;height:44px}
+}
+
+/* ── Company Financials ── */
+.page-toolbar{display:flex;justify-content:flex-end;gap:8px;margin:-8px 0 14px}
+.more-metrics{padding:0}
+.more-metrics > summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px;padding:14px 22px;font-weight:600;color:var(--ink)}
+.more-metrics > summary::-webkit-details-marker{display:none}
+.more-metrics > summary::after{content:"";width:8px;height:8px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(45deg);margin-left:4px;transition:transform var(--dur) var(--ease)}
+.more-metrics[open] > summary::after{transform:rotate(225deg)}
+.more-metrics .mini-stats{padding:0 16px 16px}
+.mini-stats.six{grid-template-columns:repeat(3,minmax(0,1fr))}
+.attention-card .card-h h3{display:flex;align-items:center;gap:8px}
+.attention-card .card-h h3 svg{width:18px;height:18px;color:var(--tone-amber-fg)}
+.attention-card .attention-row{align-items:center}
+.cell-strong{font-weight:600;color:var(--ink)}
+@media(max-width:900px){.mini-stats.six{grid-template-columns:repeat(2,minmax(0,1fr))}.page-toolbar{justify-content:stretch}.page-toolbar .pill-select{flex:1}.page-toolbar .cs{width:100%}}

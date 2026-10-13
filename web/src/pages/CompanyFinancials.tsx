@@ -1,7 +1,9 @@
+import { AlertTriangle, Briefcase, Layers, Receipt, Store } from "lucide-react";
 import { useState } from "react";
-import { Link, Navigate } from "react-router-dom";
-import BarRow from "../components/BarRow";
-import KpiCard from "../components/KpiCard";
+import { Link, Navigate, useNavigate } from "react-router-dom";
+import EmptyState from "../components/EmptyState";
+import KpiStrip from "../components/KpiStrip";
+import MeterRow from "../components/MeterRow";
 import PageSkeleton from "../components/PageSkeleton";
 import Select from "../components/Select";
 import {
@@ -15,17 +17,23 @@ import {
   useJobs,
   useVendors
 } from "../data/hooks";
-import { sumCashPaid, sumCommittedUnpaid } from "../domain/costing";
+import { sumCashPaid, sumCommittedUnpaid, type HealthStatus } from "../domain/costing";
 import { rollupCompanyProjects } from "../domain/projectRollup";
-import { TRANSACTION_TYPE_LABELS } from "../domain/transactions";
-import { formatDay, groupBy, money, titleize } from "../domain/format";
+import { formatDay, groupBy, money } from "../domain/format";
+import { TONES, type Tone } from "../domain/visual";
+import { useT } from "../i18n/I18nContext";
+import { en, type MessageKey } from "../i18n/messages";
 import { useCompany } from "../state/CompanyContext";
 
 const OWNER_DRAW_TYPES = ["owner_draw"];
 const PAYROLL_TYPES = ["labor_payment", "subcontractor_payment", "employee_payment", "owner_labor_payment"];
+// Categorical tones in fixed order (never by rank changes mid-list).
+const SERIES_TONES = TONES.filter(t => t !== "slate");
 
 export default function CompanyFinancials() {
-  const { activeCompanyId, activeCompany } = useCompany();
+  const { activeCompanyId } = useCompany();
+  const { t, tn, locale } = useT();
+  const navigate = useNavigate();
   const { isOwner, isLoading: ownerLoading } = useIsOwner();
   const { data: jobs = [], isLoading: jobsLoading } = useJobs(activeCompanyId);
   const { data: settings, isLoading: settingsLoading } = useFinanceSettings(activeCompanyId);
@@ -45,15 +53,15 @@ export default function CompanyFinancials() {
   const defaultMinMargin = settings?.default_minimum_margin_pct ?? 35;
   const defaultContingency = settings?.default_contingency_pct ?? 10;
   const cutoff = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
-  const confirmedInRange = allTransactions.filter(t => t.status === "confirmed" && t.transaction_date >= cutoff);
+  const confirmedInRange = allTransactions.filter(tx => tx.status === "confirmed" && tx.transaction_date >= cutoff);
 
   const rollups = rollupCompanyProjects({
     jobs, financials: allFinancials, items: allItems, changeOrders: allChangeOrders,
     transactions: allTransactions, releases: allReleases, defaultMinMargin, defaultContingency
   });
 
-  const contractedRevenue = rollups.reduce((t, r) => t + r.revenue, 0);
-  const receivedRevenue = rollups.reduce((t, r) => t + r.paymentsReceived, 0);
+  const contractedRevenue = rollups.reduce((sum, r) => sum + r.revenue, 0);
+  const receivedRevenue = rollups.reduce((sum, r) => sum + r.paymentsReceived, 0);
   const accountsReceivable = Math.max(0, contractedRevenue - receivedRevenue);
   const costsPaid = sumCashPaid(allItems);
   const costsCommitted = sumCommittedUnpaid(allItems);
@@ -61,132 +69,146 @@ export default function CompanyFinancials() {
   // "profit" — left out of the total and called out in the hint instead.
   const pricedRollups = rollups.filter(r => r.hasCostData);
   const unpricedCount = rollups.length - pricedRollups.length;
-  const forecastProfitTotal = pricedRollups.reduce((t, r) => t + r.forecastProfitValue, 0);
-  const profitReleased = allReleases.reduce((t, r) => t + Number(r.amount || 0), 0);
-  const cashReserved = rollups.reduce((t, r) => t + r.requiredReserve, 0);
-  const cashFree = rollups.reduce((t, r) => t + r.safeWithdraw, 0);
+  const forecastProfitTotal = pricedRollups.reduce((sum, r) => sum + r.forecastProfitValue, 0);
+  const profitReleased = allReleases.reduce((sum, r) => sum + Number(r.amount || 0), 0);
+  const cashReserved = rollups.reduce((sum, r) => sum + r.requiredReserve, 0);
+  const cashFree = rollups.reduce((sum, r) => sum + r.safeWithdraw, 0);
 
-  const ownerDraws = confirmedInRange.filter(t => OWNER_DRAW_TYPES.includes(t.transaction_type)).reduce((t, x) => t + Number(x.amount || 0), 0);
-  const payroll = confirmedInRange.filter(t => PAYROLL_TYPES.includes(t.transaction_type)).reduce((t, x) => t + Number(x.amount || 0), 0);
+  const ownerDraws = confirmedInRange.filter(tx => OWNER_DRAW_TYPES.includes(tx.transaction_type)).reduce((sum, x) => sum + Number(x.amount || 0), 0);
+  const payroll = confirmedInRange.filter(tx => PAYROLL_TYPES.includes(tx.transaction_type)).reduce((sum, x) => sum + Number(x.amount || 0), 0);
 
   const vendorSpend = groupBy(allItems.filter(i => i.vendor_id), i => i.vendor_id!);
   const vendorRows = Object.entries(vendorSpend)
-    .map(([vendorId, items]) => ({ name: vendors.find(v => v.id === vendorId)?.canonical_name || "Unknown vendor", total: items.reduce((t, i) => t + Number(i.net_cost || 0) + Number(i.internal_cost || 0), 0) }))
+    .map(([vendorId, items]) => ({ name: vendors.find(v => v.id === vendorId)?.canonical_name || t("fin.unknownVendor"), total: items.reduce((sum, i) => sum + Number(i.net_cost || 0) + Number(i.internal_cost || 0), 0) }))
     .sort((a, b) => b.total - a.total)
     .slice(0, 8);
   const maxVendorSpend = Math.max(1, ...vendorRows.map(v => v.total));
 
   const categorySpend = groupBy(allItems, i => i.category);
   const categoryRows = Object.entries(categorySpend)
-    .map(([category, items]) => ({ name: titleize(category), total: items.reduce((t, i) => t + Number(i.net_cost || 0) + Number(i.internal_cost || 0), 0) }))
+    .map(([category, items]) => ({ name: `cat.${category}` in en ? t(`cat.${category}` as MessageKey) : category, total: items.reduce((sum, i) => sum + Number(i.net_cost || 0) + Number(i.internal_cost || 0), 0) }))
     .sort((a, b) => b.total - a.total)
     .slice(0, 8);
   const maxCategorySpend = Math.max(1, ...categoryRows.map(c => c.total));
 
   const belowPolicy = pricedRollups.filter(r => r.forecastMarginValue < r.minimumMarginPct);
+  const periodLabel = t(`fin.period.${days}` as MessageKey).toLowerCase();
+  const healthTone: Record<HealthStatus, Tone> = { green: "green", yellow: "amber", red: "rose", gray: "slate" };
+  const typeLabel = (type: string) => (`txn.${type}` in en ? t(`txn.${type}` as MessageKey) : type);
+  const capitalize = (s: string) => s.charAt(0).toLocaleUpperCase(locale) + s.slice(1);
 
   return (
     <div className="company-financials">
-      <div className="between" style={{ marginBottom: 16 }}>
-        <h2 style={{ margin: 0 }}>{activeCompany?.name} — Company Financials</h2>
-        <div style={{ minWidth: 160 }}>
+      <div className="page-toolbar">
+        <div className="pill-select">
           <Select
             value={String(days)}
             onChange={v => setDays(Number(v))}
-            options={[{ value: "30", label: "Last 30 days" }, { value: "90", label: "Last 90 days" }, { value: "365", label: "Last 365 days" }]}
+            aria-label={t("fin.period.90")}
+            options={["30", "90", "365"].map(d => ({ value: d, label: t(`fin.period.${d}` as MessageKey) }))}
           />
         </div>
       </div>
 
-      <div className="grid kpis">
-        <KpiCard label="Contracted Revenue" value={money(contractedRevenue)} hint={`${rollups.length} project${rollups.length === 1 ? "" : "s"} with costing set up`} />
-        <KpiCard label="Received Revenue" value={money(receivedRevenue)} hint="Confirmed customer payments (or manual fallback)" />
-        <KpiCard label="Accounts Receivable" value={money(accountsReceivable)} hint="Contracted minus received" />
-        <KpiCard label="Costs Paid" value={money(costsPaid)} hint="Real cash out, all projects" />
-        <KpiCard label="Costs Committed" value={money(costsCommitted)} hint="Ordered/committed, not yet paid" />
-        <KpiCard label="Forecast Profit" value={money(forecastProfitTotal)} hint={unpricedCount ? `Excludes ${unpricedCount} project${unpricedCount === 1 ? "" : "s"} with no cost estimates` : "Sum across all projects"} />
-        <KpiCard label="Profit Released" value={money(profitReleased)} hint="All-time, all projects" />
-        <KpiCard label="Cash Reserved" value={money(cashReserved)} hint="Committed + remaining + contingency" />
-        <KpiCard label="Cash Free" value={money(cashFree)} hint="Safe to withdraw, summed" />
-        <KpiCard label="Owner Draws" value={money(ownerDraws)} hint={`Confirmed, last ${days} days`} />
-        <KpiCard label="Payroll / Labor" value={money(payroll)} hint={`Confirmed, last ${days} days`} />
-      </div>
+      <KpiStrip items={[
+        { label: t("fin.contracted"), value: money(contractedRevenue), hint: tn("fin.contractedHint", rollups.length), tone: "blue" },
+        { label: t("fin.received"), value: money(receivedRevenue), hint: t("fin.receivedHint"), tone: "green" },
+        { label: t("fin.receivable"), value: money(accountsReceivable), hint: t("fin.receivableHint"), tone: "amber" },
+        { label: t("fin.forecastProfit"), value: money(forecastProfitTotal), hint: unpricedCount ? tn("fin.forecastExcludes", unpricedCount) : t("fin.forecastHint"), tone: "purple" },
+        { label: t("fin.cashFree"), value: money(cashFree), hint: t("fin.cashFreeHint"), tone: "teal" }
+      ]} />
 
-      <div className="two" style={{ marginTop: 16, display: "grid", gap: 16 }}>
-        <section className="card">
-          <div className="card-h"><h3>Spending by vendor</h3></div>
-          <div className="card-b">
-            {vendorRows.length === 0 && <p className="muted">No vendor spending recorded yet.</p>}
-            {vendorRows.map(v => <BarRow key={v.name} label={v.name} magnitude={v.total} max={maxVendorSpend} valueLabel={money(v.total)} />)}
-          </div>
-        </section>
-        <section className="card">
-          <div className="card-h"><h3>Spending by category</h3></div>
-          <div className="card-b">
-            {categoryRows.length === 0 && <p className="muted">No cost items recorded yet.</p>}
-            {categoryRows.map(c => <BarRow key={c.name} label={c.name} magnitude={c.total} max={maxCategorySpend} valueLabel={money(c.total)} />)}
-          </div>
-        </section>
-      </div>
-
-      <section className="card" style={{ marginTop: 16 }}>
-        <div className="card-h"><h3>Profitability by project</h3></div>
-        <div className="card-b">
-          <div className="table-wrap">
-            <table>
-              <thead><tr><th>Project</th><th>Contract</th><th>Forecast Profit</th><th>Forecast Margin</th><th>Health</th></tr></thead>
-              <tbody>
-                {rollups.map(r => (
-                  <tr key={r.job.id}>
-                    <td><Link to={`/jobs/${r.job.id}/financials`}>{r.job.title}</Link></td>
-                    <td>{money(r.revenue)}</td>
-                    <td>{r.hasCostData ? money(r.forecastProfitValue) : "—"}</td>
-                    <td>{r.hasCostData ? `${r.forecastMarginValue.toFixed(1)}%` : "No costs yet"}</td>
-                    <td><span className={`pill health-pill-${r.healthStatus}`}>{r.healthStatus}</span></td>
-                  </tr>
-                ))}
-                {rollups.length === 0 && <tr><td colSpan={5} className="muted">No projects have costing set up yet.</td></tr>}
-              </tbody>
-            </table>
-          </div>
+      <details className="card more-metrics" style={{ marginTop: 16 }}>
+        <summary>{t("fin.moreMetrics")}</summary>
+        <div className="mini-stats six">
+          <div><span className="label">{t("fin.costsPaid")}</span><b>{money(costsPaid)}</b><span className="sub">{t("fin.costsPaidHint")}</span></div>
+          <div><span className="label">{t("fin.costsCommitted")}</span><b>{money(costsCommitted)}</b><span className="sub">{t("fin.costsCommittedHint")}</span></div>
+          <div><span className="label">{t("fin.profitReleased")}</span><b>{money(profitReleased)}</b><span className="sub">{t("fin.profitReleasedHint")}</span></div>
+          <div><span className="label">{t("fin.cashReserved")}</span><b>{money(cashReserved)}</b><span className="sub">{t("fin.cashReservedHint")}</span></div>
+          <div><span className="label">{t("fin.ownerDraws")}</span><b>{money(ownerDraws)}</b><span className="sub">{t("fin.inPeriod", { period: periodLabel })}</span></div>
+          <div><span className="label">{t("fin.payroll")}</span><b>{money(payroll)}</b><span className="sub">{t("fin.inPeriod", { period: periodLabel })}</span></div>
         </div>
-      </section>
+      </details>
+
+      <div className="grid two" style={{ marginTop: 20 }}>
+        <section className="card">
+          <div className="card-h"><h3>{t("fin.byVendor")}</h3></div>
+          <div className="card-b">
+            {vendorRows.length === 0 && <EmptyState icon={Store}>{t("fin.noVendor")}</EmptyState>}
+            {vendorRows.map((v, i) => <MeterRow key={v.name} label={v.name} value={v.total} max={maxVendorSpend} tone={SERIES_TONES[i % SERIES_TONES.length]} valueLabel={money(v.total)} ariaLabel={`${v.name}: ${money(v.total)}`} />)}
+          </div>
+        </section>
+        <section className="card">
+          <div className="card-h"><h3>{t("fin.byCategory")}</h3></div>
+          <div className="card-b">
+            {categoryRows.length === 0 && <EmptyState icon={Layers}>{t("fin.noCategory")}</EmptyState>}
+            {categoryRows.map((c, i) => <MeterRow key={c.name} label={c.name} value={c.total} max={maxCategorySpend} tone={SERIES_TONES[i % SERIES_TONES.length]} valueLabel={money(c.total)} ariaLabel={`${c.name}: ${money(c.total)}`} />)}
+          </div>
+        </section>
+      </div>
 
       {belowPolicy.length > 0 && (
-        <section className="card" style={{ marginTop: 16 }}>
-          <div className="card-h"><h3>Projects below minimum margin policy</h3></div>
+        <section className="card attention-card" style={{ marginTop: 20 }}>
+          <div className="card-h"><h3><AlertTriangle aria-hidden="true" />{t("fin.belowPolicy")}</h3></div>
           <div className="card-b">
             {belowPolicy.map(r => (
               <div key={r.job.id} className="attention-row">
-                <span>{r.job.title} — {r.forecastMarginValue.toFixed(1)}% (min {r.minimumMarginPct}%)</span>
-                <Link className="link-btn" to={`/jobs/${r.job.id}/financials`}>Review</Link>
+                <span><b>{r.job.title}</b> — {t("fin.belowLine", { margin: r.forecastMarginValue.toFixed(1), min: r.minimumMarginPct })}</span>
+                <Link className="action-pill" to={`/jobs/${r.job.id}/financials`}>{t("common.review")}</Link>
               </div>
             ))}
           </div>
         </section>
       )}
 
-      <section className="card" style={{ marginTop: 16 }}>
-        <div className="card-h"><h3>Recent transactions ({days} days)</h3></div>
-        <div className="card-b">
+      <section className="card table-card" style={{ marginTop: 20 }}>
+        <div className="card-h"><h3>{t("fin.byProject")}</h3></div>
+        {rollups.length === 0 ? (
+          <div className="card-b"><EmptyState icon={Briefcase}>{t("fin.noProjects")}</EmptyState></div>
+        ) : (
           <div className="table-wrap">
-            <table>
-              <thead><tr><th>Date</th><th>Type</th><th>Project</th><th>Amount</th><th>Status</th></tr></thead>
+            <table className="data-table">
+              <thead>
+                <tr><th>{t("fin.col.project")}</th><th className="num">{t("fin.col.contract")}</th><th className="num">{t("fin.col.profit")}</th><th className="num">{t("fin.col.margin")}</th><th>{t("fin.col.health")}</th></tr>
+              </thead>
               <tbody>
-                {confirmedInRange.slice(0, 20).map(t => (
-                  <tr key={t.id}>
-                    <td>{formatDay(t.transaction_date)}</td>
-                    <td>{TRANSACTION_TYPE_LABELS[t.transaction_type]}</td>
-                    <td>{jobs.find(j => j.id === t.job_id)?.title || "—"}</td>
-                    <td>{money(t.amount)}</td>
-                    <td><span className={`pill status-${t.status}`}>{t.status}</span></td>
+                {rollups.map(r => (
+                  <tr key={r.job.id} className="row-clickable" onClick={() => navigate(`/jobs/${r.job.id}/financials`)}>
+                    <td><b className="cell-strong">{r.job.title}</b></td>
+                    <td className="num">{money(r.revenue)}</td>
+                    <td className="num">{r.hasCostData ? money(r.forecastProfitValue) : "—"}</td>
+                    <td className="num">{r.hasCostData ? `${r.forecastMarginValue.toFixed(1)}%` : <span className="cell-missing">{t("fin.noCostsYet")}</span>}</td>
+                    <td><span className={`badge-tone tone-${healthTone[r.healthStatus]}`}>{t(`health.${r.healthStatus}` as MessageKey)}</span></td>
                   </tr>
                 ))}
-                {confirmedInRange.length === 0 && <tr><td colSpan={5} className="muted">No confirmed transactions in this period.</td></tr>}
               </tbody>
             </table>
           </div>
-        </div>
+        )}
+      </section>
+
+      <section className="card table-card" style={{ marginTop: 20 }}>
+        <div className="card-h"><div><h3>{t("fin.recent")}</h3><span className="sub">{capitalize(periodLabel)}</span></div></div>
+        {confirmedInRange.length === 0 ? (
+          <div className="card-b"><EmptyState icon={Receipt}>{t("fin.noTransactions")}</EmptyState></div>
+        ) : (
+          <div className="table-wrap">
+            <table className="data-table">
+              <thead><tr><th>{t("fin.col.date")}</th><th>{t("fin.col.type")}</th><th>{t("fin.col.project")}</th><th className="num">{t("fin.col.amount")}</th><th>{t("fin.col.status")}</th></tr></thead>
+              <tbody>
+                {confirmedInRange.slice(0, 20).map(tx => (
+                  <tr key={tx.id}>
+                    <td>{formatDay(tx.transaction_date, undefined, locale)}</td>
+                    <td>{capitalize(typeLabel(tx.transaction_type))}</td>
+                    <td>{jobs.find(j => j.id === tx.job_id)?.title || "—"}</td>
+                    <td className="num">{money(tx.amount)}</td>
+                    <td><span className={`pill status-${tx.status === "confirmed" ? "active" : "draft"}`}>{t(`txnStatus.${tx.status}` as MessageKey)}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
     </div>
   );

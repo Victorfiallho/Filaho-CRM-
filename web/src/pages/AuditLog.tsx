@@ -1,143 +1,183 @@
-import { History } from "lucide-react";
+import { Bot, ChevronDown, History } from "lucide-react";
 import { useMemo, useState } from "react";
+import EmptyState from "../components/EmptyState";
 import Select from "../components/Select";
-import { useAuditLog, useUsers } from "../data/hooks";
-import { formatDateTime, titleize } from "../domain/format";
+import { useActivityContext } from "../data/activityFeed";
+import { useAuditLog, useIsOwner } from "../data/hooks";
+import { describeActivity, fieldLabel, isFinanceActivity, NOISE_FIELDS, type ActivityContext } from "../domain/activity";
+import { formatDay, initials, relativeDate } from "../domain/format";
+import type { AuditLogEntry } from "../domain/types";
 import { useT } from "../i18n/I18nContext";
+import { en, type MessageKey } from "../i18n/messages";
 import { useCompany } from "../state/CompanyContext";
 
-const ENTITY_OPTIONS = ["customers", "jobs", "pipeline_stages", "company_access", "user_account", "user_permissions"];
+const ENTITY_OPTIONS = ["customers", "leads", "jobs", "pipeline_stages", "booking_requests", "transactions", "cost_line_items", "change_orders", "company_access", "user_account", "user_permissions"];
+const FINANCE_OPTIONS = new Set(["transactions", "cost_line_items", "change_orders"]);
 const ACTION_OPTIONS = ["insert", "update", "delete"];
+const PERIODS = ["7", "30", "90", "all"] as const;
+const ACTION_TONE: Record<string, string> = { insert: "green", update: "amber", delete: "rose" };
 
-// Noisy on every single update (bumped by the app on virtually every save)
-// and never itself the change someone's reviewing the audit log to find.
-const DIFF_HIDDEN_FIELDS = new Set(["updated_at"]);
+type Change = { old: unknown; new: unknown };
+const isChange = (v: unknown): v is Change =>
+  Boolean(v) && typeof v === "object" && !Array.isArray(v) && "old" in (v as object) && "new" in (v as object);
 
-function formatDiffValue(value: unknown): string {
-  if (value === null || value === undefined || value === "") return "—";
-  if (typeof value === "object") return JSON.stringify(value);
-  return String(value);
-}
-
-function isChangePair(value: unknown): value is { old: unknown; new: unknown } {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value) &&
-    Object.keys(value as object).length === 2 && "old" in (value as object) && "new" in (value as object);
-}
-
-// Readable "field: old -> new" (update) or "field: value" (insert/delete)
-// list instead of a raw JSON.stringify dump — the trigger that populates
-// audit_log (record_audit_log() in supabase/migrations/2026-08-31_04_audit_log.sql)
-// already shapes an UPDATE's diff as {field: {old, new}} and an INSERT/
-// DELETE's as a flat column->value snapshot; this just renders that shape
-// instead of asking the reader to parse JSON by eye.
-function DiffView({ diff }: { diff: Record<string, unknown> }) {
-  const entries = Object.entries(diff || {}).filter(([field]) => !DIFF_HIDDEN_FIELDS.has(field));
-  if (entries.length === 0) return <span className="muted">—</span>;
-  return (
-    <div className="diff-list">
-      {entries.map(([field, value]) => (
-        <div className="diff-row" key={field}>
-          <span className="diff-field">{titleize(field)}</span>
-          {isChangePair(value) ? (
-            <span className="diff-change">
-              <span className="diff-old">{formatDiffValue(value.old)}</span>
-              <span className="diff-arrow">→</span>
-              <span className="diff-new">{formatDiffValue(value.new)}</span>
-            </span>
-          ) : (
-            <span className="diff-value">{formatDiffValue(value)}</span>
-          )}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// Read-only view over audit_log — there's no create/edit here, only
-// filtering what already happened. Populated by the record_audit_log() DB
-// trigger for customers/jobs/pipeline_stages (see
-// supabase/migrations/2026-08-31_04_audit_log.sql), and written directly by
-// web/api/admin-users.js for company_access/user_account/user_permissions
-// (company_members/users have no trigger of their own).
+// Read-only, human view over audit_log: one sentence per event (the same
+// wording as the Dashboard feed), grouped by day, with the raw field-level
+// changes and record id tucked behind "Details". Updates that only touched
+// bookkeeping (calendar-sync event ids, geocoded coordinates, timestamps)
+// are hidden unless asked for — they were most of the list.
+// Populated by the record_audit_log() trigger and web/api/admin-users.js.
 export default function AuditLog() {
   const { activeCompanyId } = useCompany();
-  const { locale } = useT();
-  const { data: users = [] } = useUsers();
+  const { isOwner } = useIsOwner();
+  const { t, tn, locale } = useT();
+  const { ctx, actorFor } = useActivityContext();
   const [entityFilter, setEntityFilter] = useState("all");
   const [actionFilter, setActionFilter] = useState("all");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const [period, setPeriod] = useState<(typeof PERIODS)[number]>("30");
+  const [showAuto, setShowAuto] = useState(false);
+  const [openId, setOpenId] = useState<string | null>(null);
 
-  const filters = useMemo(
-    () => ({
-      entity: entityFilter === "all" ? undefined : entityFilter,
-      action: actionFilter === "all" ? undefined : actionFilter,
-      dateFrom: dateFrom || undefined,
-      dateTo: dateTo || undefined
-    }),
-    [entityFilter, actionFilter, dateFrom, dateTo]
-  );
-  const { data: rows = [], isLoading } = useAuditLog(activeCompanyId, filters);
+  const filters = useMemo(() => ({
+    entity: entityFilter === "all" ? undefined : entityFilter,
+    action: actionFilter === "all" ? undefined : actionFilter,
+    // Day-rounded so the query key doesn't change on every render.
+    dateFrom: period === "all" ? undefined : new Date(new Date().setHours(0, 0, 0, 0) - (Number(period) - 1) * 86400000).toISOString()
+  }), [entityFilter, actionFilter, period]);
+  const { data: rawRows = [], isLoading } = useAuditLog(activeCompanyId, filters);
 
-  // audit_log.user_id is an auth.users uuid, not the app-profile `users.id`
-  // that userNameById maps elsewhere (RecordModal notes) — match on
-  // auth_user_id instead.
-  const userNameByAuthId = new Map(users.filter(u => u.auth_user_id).map(u => [u.auth_user_id as string, u.name]));
+  const events = rawRows
+    .filter(row => isOwner || !isFinanceActivity(row))
+    .map(row => {
+      const sentence = describeActivity(row, ctx);
+      return { row, actor: actorFor(row), sentence, auto: sentence === null };
+    });
+  const autoCount = events.filter(e => e.auto).length;
+  const visible = events.filter(e => showAuto || !e.auto);
+
+  // Group by *local* calendar day, newest first (rows already arrive newest
+  // first). Not created_at.slice(0, 10): that's the UTC date, which puts a
+  // 10pm Atlanta event under the next day.
+  const groups: { day: string; label: string; items: typeof visible }[] = [];
+  for (const e of visible) {
+    const day = new Date(e.row.created_at).toDateString();
+    const last = groups[groups.length - 1];
+    if (last && last.day === day) last.items.push(e);
+    else groups.push({ day, label: relativeDate(e.row.created_at, new Date(), locale), items: [e] });
+  }
+
+  const entityOptions = ENTITY_OPTIONS.filter(e => isOwner || !FINANCE_OPTIONS.has(e));
 
   return (
-    <section className="card">
-      <div className="card-h">
-        <div>
-          <h3>Audit log</h3>
-          <div className="sub">{rows.length} event{rows.length === 1 ? "" : "s"}{rows.length === 200 ? " (showing most recent 200 — narrow the filters to see further back)" : ""}</div>
+    <section className="card table-card">
+      <div className="table-toolbar">
+        <div className="table-toolbar-filters">
+          <div className="pill-select">
+            <Select id="entity-filter" value={entityFilter} onChange={setEntityFilter}
+              options={[{ value: "all", label: t("audit.allEntities") }, ...entityOptions.map(e => ({ value: e, label: t(`audit.entity.${e}` as MessageKey) }))]} />
+          </div>
+          <div className="pill-select">
+            <Select id="action-filter" value={actionFilter} onChange={setActionFilter}
+              options={[{ value: "all", label: t("audit.allActions") }, ...ACTION_OPTIONS.map(a => ({ value: a, label: t(`audit.action.${a}` as MessageKey) }))]} />
+          </div>
+          <div className="pill-select">
+            <Select id="period-filter" value={period} onChange={v => setPeriod(v as (typeof PERIODS)[number])}
+              options={PERIODS.map(p => ({ value: p, label: t(`audit.period.${p}` as MessageKey) }))} />
+          </div>
+          <span className="sub">{tn("audit.events", visible.length)}</span>
         </div>
+        {autoCount > 0 && (
+          <label className="switch-row" title={t("audit.autoHint")}>
+            <input type="checkbox" role="switch" checked={showAuto} onChange={e => setShowAuto(e.target.checked)} />
+            <span className="switch" aria-hidden="true" />
+            <span>{t("audit.showAuto", { count: autoCount })}</span>
+          </label>
+        )}
       </div>
-      <div className="card-b table-filters">
-        <Select
-          id="entity-filter"
-          value={entityFilter}
-          onChange={setEntityFilter}
-          options={[{ value: "all", label: "All entities" }, ...ENTITY_OPTIONS.map(e => ({ value: e, label: titleize(e) }))]}
-        />
-        <Select
-          id="action-filter"
-          value={actionFilter}
-          onChange={setActionFilter}
-          options={[{ value: "all", label: "All actions" }, ...ACTION_OPTIONS.map(a => ({ value: a, label: titleize(a) }))]}
-        />
-        <label className="field" style={{ margin: 0 }}>
-          <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} aria-label="From date" />
-        </label>
-        <label className="field" style={{ margin: 0 }}>
-          <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} aria-label="To date" />
-        </label>
-      </div>
-      <div className="table-wrap">
-        <table>
-          <thead>
-            <tr><th>When</th><th>Who</th><th>Entity</th><th>Action</th><th>Changes</th></tr>
-          </thead>
-          <tbody>
-            {rows.map(row => (
-              <tr key={row.id}>
-                <td className="sub">{formatDateTime(row.created_at, locale)}</td>
-                <td>{userNameByAuthId.get(row.user_id || "") || "System"}</td>
-                <td>{titleize(row.entity)} <span className="sub">{row.entity_id}</span></td>
-                <td><span className={`pill status-${row.action === "delete" ? "lost" : row.action === "insert" ? "active" : "in-progress"}`}>{row.action}</span></td>
-                <td><DiffView diff={row.diff} /></td>
-              </tr>
-            ))}
-            {!isLoading && rows.length === 0 && (
-              <tr><td colSpan={5}><div className="empty"><History />No audit events match these filters</div></td></tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-      {isLoading && (
-        <div className="card-b skeleton-stack" aria-busy="true" aria-label="Loading">
+
+      {rawRows.length === 200 && <p className="sub audit-capped">{t("audit.capped")}</p>}
+
+      {isLoading ? (
+        <div className="card-b skeleton-stack" aria-busy="true" aria-label={t("common.loading")}>
           {Array.from({ length: 8 }).map((_, i) => <span key={i} className="skeleton skeleton-text" />)}
+        </div>
+      ) : visible.length === 0 ? (
+        <div className="card-b"><EmptyState icon={History}>{t("audit.empty")}</EmptyState></div>
+      ) : (
+        <div className="audit-groups">
+          {groups.map(group => (
+            <section key={group.day} className="audit-group" aria-label={group.label}>
+              <h4 className="audit-day">{group.label}</h4>
+              <ol className="audit-list">
+                {group.items.map(({ row, actor, sentence, auto }) => {
+                  const isOpen = openId === row.id;
+                  const isSystem = !row.user_id && row.entity !== "booking_requests";
+                  return (
+                    <li key={row.id} className={`audit-item${auto ? " auto" : ""}`}>
+                      <span className={`audit-avatar${isSystem ? " system" : ""}`} aria-hidden="true">{isSystem ? <Bot /> : initials(actor)}</span>
+                      <div className="audit-main">
+                        <p className="audit-sentence">
+                          <b>{actor}</b> {sentence ?? autoSentence(row, ctx)}
+                        </p>
+                        <div className="audit-meta">
+                          <time dateTime={row.created_at}>{new Date(row.created_at).toLocaleTimeString(locale, { hour: "numeric", minute: "2-digit" })}</time>
+                          <span className={`badge-tone tone-${ACTION_TONE[row.action] || "slate"}`}>{t(`audit.action.${row.action}` as MessageKey)}</span>
+                          {`audit.entity.${row.entity}` in en && <span className="chip">{t(`audit.entity.${row.entity}` as MessageKey)}</span>}
+                          <button type="button" className="link-btn audit-toggle" aria-expanded={isOpen} onClick={() => setOpenId(isOpen ? null : row.id)}>
+                            {isOpen ? t("audit.hideDetails") : t("audit.details")}<ChevronDown aria-hidden="true" />
+                          </button>
+                        </div>
+                        {isOpen && <AuditDetails row={row} ctx={ctx} />}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ol>
+            </section>
+          ))}
         </div>
       )}
     </section>
+  );
+}
+
+// Sentence for a bookkeeping-only update (shown only with the switch on).
+function autoSentence(row: AuditLogEntry, ctx: ActivityContext): string {
+  const t = ctx.t!;
+  const fields = Object.entries(row.diff || {}).filter(([, v]) => isChange(v)).map(([f]) => fieldLabel(f, t));
+  const name = ctx.nameFor(row.entity, row.entity_id) || t(`audit.entity.${row.entity}` as MessageKey);
+  return t("audit.autoChange", { fields: fields.join(", "), name });
+}
+
+// Field-by-field changes with readable labels and values: stage ids become
+// stage names, owner ids user names, dates the app's date format.
+function AuditDetails({ row, ctx }: { row: AuditLogEntry; ctx: ActivityContext }) {
+  const t = ctx.t!;
+  const show = (field: string, v: unknown): string => {
+    if (v === null || v === undefined || v === "") return t("audit.emptyValue");
+    if (field === "stage_id") return ctx.stageName(String(v)) || String(v);
+    if (field === "owner_user_id") return ctx.userName(String(v)) || String(v);
+    if (field === "status" && `status.${v}` in en) return t(`status.${v}` as MessageKey);
+    if (/_date$/.test(field) && /^\d{4}-\d{2}-\d{2}/.test(String(v))) return formatDay(String(v), undefined, ctx.locale);
+    if (typeof v === "object") return JSON.stringify(v);
+    return String(v);
+  };
+  const entries = Object.entries(row.diff || {}).filter(([f]) => f !== "updated_at" && (row.action !== "update" || !NOISE_FIELDS.has(f) || isChange(row.diff[f])));
+  return (
+    <div className="audit-details">
+      <dl>
+        {entries.map(([field, value]) => (
+          <div key={field}>
+            <dt>{fieldLabel(field, t)}</dt>
+            <dd>
+              {isChange(value)
+                ? <><span className="diff-old">{show(field, value.old)}</span><span className="diff-arrow" aria-hidden="true">→</span><span className="diff-new">{show(field, value.new)}</span></>
+                : show(field, value)}
+            </dd>
+          </div>
+        ))}
+        <div className="audit-id"><dt>{t("audit.recordId")}</dt><dd><code>{row.entity_id}</code></dd></div>
+      </dl>
+    </div>
   );
 }

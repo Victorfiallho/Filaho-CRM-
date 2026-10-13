@@ -215,7 +215,7 @@ function SearchButton({ value, onChange }: { value: string; onChange: (v: string
 function BellButton() {
   const { open, setOpen, ref } = usePopover();
   const { items } = useActivityFeed(8);
-  const { t } = useT();
+  const { t, locale } = useT();
   const [seenAt, setSeenAt] = useState(() => {
     try { return localStorage.getItem(LAST_SEEN_KEY) || ""; } catch { return ""; }
   });
@@ -244,7 +244,7 @@ function BellButton() {
           {items.map(({ row, actor, text }) => (
             <div className="bell-item" key={row.id}>
               <span><b>{actor}</b> {text}</span>
-              <span className="sub">{activityWhen(row.created_at)}</span>
+              <span className="sub">{activityWhen(row.created_at, new Date(), locale)}</span>
             </div>
           ))}
         </div>

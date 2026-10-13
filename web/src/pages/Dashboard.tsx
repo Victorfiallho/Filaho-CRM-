@@ -348,7 +348,7 @@ function MoneyCard({ rollups }: { rollups: ProjectRollup[] }) {
 // Who did what, from audit_log (now also covering leads — migration 09).
 function ActivityCard() {
   const { items } = useActivityFeed(ACTIVITY_SHOWN);
-  const { t } = useT();
+  const { t, locale } = useT();
   return (
     <section className="card" style={{ marginTop: 20 }}>
       <div className="card-h">
@@ -359,7 +359,7 @@ function ActivityCard() {
         {items.length ? items.map(({ row, actor, text }) => (
           <div className="activity-row" key={row.id}>
             <span><b>{actor}</b> {text}</span>
-            <span className="sub" style={{ whiteSpace: "nowrap" }}>{activityWhen(row.created_at)}</span>
+            <span className="sub" style={{ whiteSpace: "nowrap" }}>{activityWhen(row.created_at, new Date(), locale)}</span>
           </div>
         )) : <EmptyState icon={History}>{t("dash.noActivity")}</EmptyState>}
       </div>

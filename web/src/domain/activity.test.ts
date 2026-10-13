@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { describeActivity, isFinanceActivity, type ActivityContext } from "./activity";
 import type { AuditLogEntry } from "./types";
+import { translate, type MessageKey } from "../i18n/messages";
 
 const ctx: ActivityContext = {
   nameFor: (entity, id) => ({ "leads:lead_1": "Jane Doe", "jobs:job_1": "Kitchen Remodel" } as Record<string, string>)[`${entity}:${id}`],
@@ -70,5 +71,18 @@ describe("describeActivity — sync noise and project money", () => {
   it("flags finance entries so non-owners don't see them", () => {
     expect(isFinanceActivity(entry({ entity: "transactions" }))).toBe(true);
     expect(isFinanceActivity(entry({ entity: "leads" }))).toBe(false);
+  });
+});
+
+describe("describeActivity — Portuguese", () => {
+  const pt = { ...ctx, t: (k: MessageKey, v?: Record<string, string | number>) => translate("pt", k, v), locale: "pt-BR" };
+  it("speaks the app language", () => {
+    expect(describeActivity(entry({ diff: { stage_id: { old: "new", new: "won" } } }), pt)).toBe("moveu Jane Doe para Won");
+    expect(describeActivity(entry({ action: "insert", entity: "customers", entity_id: "c9", diff: { name: "Sam Lee" } }), pt)).toBe("adicionou cliente Sam Lee");
+    expect(describeActivity(entry({ entity: "jobs", entity_id: "job_1", diff: { status: { old: "planned", new: "complete" } } }), pt)).toBe("marcou Kitchen Remodel como concluído");
+    expect(describeActivity(entry({ entity: "jobs", entity_id: "job_1", diff: { scheduled_date: { old: null, new: "2026-10-20" } } }), pt)).toBe("agendou Kitchen Remodel para 20 de out.");
+    expect(describeActivity(entry({ diff: { phone: { old: "", new: "555" }, email: { old: "", new: "a@b.c" } } }), pt)).toBe("alterou telefone e e-mail em Jane Doe");
+    expect(describeActivity(entry({ entity: "transactions", action: "insert", entity_id: "t1", diff: { job_id: "job_1", transaction_type: "customer_deposit", amount: 5000 } }), pt))
+      .toBe("registrou sinal do cliente de $5,000 em Kitchen Remodel");
   });
 });

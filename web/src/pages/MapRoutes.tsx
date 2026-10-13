@@ -1,5 +1,5 @@
 import { MarkerClusterer } from "@googlemaps/markerclusterer";
-import { AlertCircle, CheckCircle, ChevronDown, ChevronRight, ChevronUp, MapPin, MapPinned, Maximize2, Navigation, Route, SlidersHorizontal } from "lucide-react";
+import { AlertCircle, ArrowDown, ArrowUp, CheckCircle, ChevronDown, ChevronRight, MapPin, MapPinned, Maximize2, Navigation, Route, Search, SlidersHorizontal } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import PageSkeleton from "../components/PageSkeleton";
 import Select from "../components/Select";
@@ -11,6 +11,7 @@ import { buildGoogleMapsRouteUrl, clusterByProximity, nearestNeighborRoute, twoO
 import { countStopsByKind, DEFAULT_MAP_FILTERS, matchesMapFilters, matchesStopQuery, type StopKindFilter } from "../domain/mapUtils";
 import { filterRowsBySearch } from "../domain/search";
 import type { MapRecord } from "../domain/types";
+import { useT } from "../i18n/I18nContext";
 import { loadGoogleMapsScript } from "../lib/googleMaps";
 import { toast } from "../lib/toast";
 import { useCompany } from "../state/CompanyContext";
@@ -30,6 +31,7 @@ type StartMode = "geolocation" | "first" | "custom";
 // (not just ZIP-prefix) region grouping.
 export default function MapRoutes() {
   const { activeCompanyId, stages, services } = useCompany();
+  const { t, tn } = useT();
   const { data: customers = [], isLoading: customersLoading } = useCustomers(activeCompanyId);
   const { data: leads = [], isLoading: leadsLoading } = useLeads(activeCompanyId);
   const { data: jobs = [], isLoading: jobsLoading } = useJobs(activeCompanyId);
@@ -90,9 +92,9 @@ export default function MapRoutes() {
   const proximityGroups = useMemo(() => {
     const groups = clusterByProximity(withCoords, 0.05);
     return Object.values(groups)
-      .map(items => ({ label: mostCommonCity(items) || `ZIP ${items[0].zip || "?"}`, items }))
+      .map(items => ({ label: mostCommonCity(items) || t("map.zipGroup", { zip: items[0].zip || "?" }), items }))
       .sort((a, b) => b.items.length - a.items.length);
-  }, [withCoords]);
+  }, [withCoords, t]);
 
   const missingCoords = withoutCoords.length;
 
@@ -122,12 +124,12 @@ export default function MapRoutes() {
 
   const geocodeVisible = async () => {
     if (!activeCompanyId) return;
-    if (!apiKey) { toast("Add a Google Maps API key in Integrations first."); return; }
-    if (!withoutCoords.length) { toast("All visible records already have coordinates."); return; }
+    if (!apiKey) { toast(t("map.t.needKey")); return; }
+    if (!withoutCoords.length) { toast(t("map.t.allHave")); return; }
     setGeocoding(true);
     try {
       const updated = await geocodeRecords(withoutCoords, activeCompanyId, apiKey);
-      toast(`${updated} records geocoded.`);
+      toast(tn("map.t.geocoded", updated));
       invalidate();
     } finally {
       setGeocoding(false);
@@ -167,12 +169,12 @@ export default function MapRoutes() {
   // client-side nearest-neighbor + 2-opt heuristic (domain/geo.ts) so the
   // feature still works without billing set up.
   const optimizeRoute = async () => {
-    if (!routeCandidates.length) { toast("No geocoded records to route yet — geocode some first."); return; }
+    if (!routeCandidates.length) { toast(t("map.t.noGeocoded")); return; }
     let start: LatLng | null = null;
     if (startMode === "custom") {
       const lat = Number(customStartLat), lng = Number(customStartLng);
       if (!customStartLat.trim() || !customStartLng.trim() || !Number.isFinite(lat) || !Number.isFinite(lng)) {
-        toast("Enter a valid custom start latitude and longitude.");
+        toast(t("map.t.badStart"));
         return;
       }
       start = { lat, lng };
@@ -221,9 +223,9 @@ export default function MapRoutes() {
     <div className="grid map-layout" style={{ alignItems: "start" }}>
       <section className="card">
         <div className="card-h">
-          <div><h3>Company map</h3><span className="sub">{filtered.length} visible location{filtered.length === 1 ? "" : "s"}</span></div>
-          <button className="btn ghost slim" onClick={() => setFiltersOpen(v => !v)}>
-            <SlidersHorizontal />Filters{activeFilterCount > 0 && <span className="filter-count-badge">{activeFilterCount}</span>}
+          <div><h3>{t("map.title")}</h3><span className="sub">{tn("map.visible", filtered.length)}</span></div>
+          <button className={`btn ghost slim${filtersOpen ? " is-on" : ""}`} onClick={() => setFiltersOpen(v => !v)} aria-expanded={filtersOpen}>
+            <SlidersHorizontal aria-hidden="true" />{t("map.filters")}{activeFilterCount > 0 && <span className="filter-count-badge">{activeFilterCount}</span>}
           </button>
         </div>
         <div className="card-b">
@@ -231,45 +233,48 @@ export default function MapRoutes() {
           <GoogleMapCanvas records={filtered} routeStops={routeStops} onPinClick={openMapRecord} apiKey={apiKey} />
           <div className="between" style={{ marginTop: 10, flexWrap: "wrap", gap: 8 }}>
             <span className={`map-geo-status${missingCoords ? "" : " ok"}`}>
-              {missingCoords ? <AlertCircle /> : <CheckCircle />}
-              {missingCoords ? `${missingCoords} of ${filtered.length} visible records still need coordinates.` : "All visible records have coordinates."}
+              {missingCoords ? <AlertCircle aria-hidden="true" /> : <CheckCircle aria-hidden="true" />}
+              {missingCoords ? t("map.missing", { missing: missingCoords, total: filtered.length }) : t("map.allCoords")}
             </span>
-            <button className="link-btn" onClick={geocodeVisible} disabled={geocoding}><MapPin />{geocoding ? "Geocoding..." : "Geocode records"}</button>
+            <button className="btn ghost slim" onClick={geocodeVisible} disabled={geocoding}><MapPin aria-hidden="true" />{geocoding ? t("map.geocoding") : t("map.geocode")}</button>
           </div>
         </div>
       </section>
       <section className="card">
         <div className="card-h">
-          <div><h3>Plan a route</h3><span className="sub">Choose the stops you want to visit</span></div>
+          <div><h3>{t("map.plan")}</h3><span className="sub">{t("map.planSub")}</span></div>
           <div className="inline-actions">
-            {selectedIds.size > 0 && <button className="link-btn" onClick={() => setSelectedIds(new Set())}>Clear</button>}
-            <button className="link-btn" onClick={selectShownStops} disabled={!visibleStops.length}>{narrowing ? "Select shown" : "Select all"}</button>
+            {selectedIds.size > 0 && <button className="btn ghost slim" onClick={() => setSelectedIds(new Set())}>{t("map.clear")}</button>}
+            <button className="btn ghost slim" onClick={selectShownStops} disabled={!visibleStops.length}>{narrowing ? t("map.selectShown") : t("map.selectAll")}</button>
           </div>
         </div>
         <div className="card-b">
-          <input
-            className="map-stop-search"
-            placeholder="Search name, address, ZIP, service, stage..."
-            value={stopSearch}
-            onChange={e => setStopSearch(e.target.value)}
-            aria-label="Search stops"
-          />
-          <div className="stop-kind-filter" role="group" aria-label="Stop type">
+          <label className="map-stop-search-wrap">
+            <Search aria-hidden="true" />
+            <input
+              className="map-stop-search"
+              placeholder={t("map.searchPh")}
+              value={stopSearch}
+              onChange={e => setStopSearch(e.target.value)}
+              aria-label={t("map.searchLabel")}
+            />
+          </label>
+          <div className="stop-kind-filter" role="group" aria-label={t("map.kindGroup")}>
             {(["all", "lead", "customer", "job"] as StopKindFilter[]).map(k => (
               <button key={k} type="button" className={kindFilter === k ? "active" : ""} aria-pressed={kindFilter === k} onClick={() => setKindFilter(k)}>
                 {k !== "all" && <span className="route-legend-dot" style={{ background: PIN_COLOR[k] }} />}
-                {KIND_LABEL[k]}<span className="count">{kindCounts[k]}</span>
+                {t(`map.kind.${k}`)}<span className="count">{kindCounts[k]}</span>
               </button>
             ))}
           </div>
           <div className="sub stop-list-status">
-            <b>{selectedCount}</b> of {withCoords.length} stop{withCoords.length === 1 ? "" : "s"} selected
-            {narrowing && <> · {visibleStops.length + visibleUngeocoded.length} match{visibleStops.length + visibleUngeocoded.length === 1 ? "" : "es"}</>}
-            {narrowing && <button className="link-btn" onClick={() => { setStopSearch(""); setKindFilter("all"); }}>Clear search</button>}
+            {tn("map.selectedOf", withCoords.length, { selected: selectedCount })}
+            {narrowing && <> · {tn("map.matches", visibleStops.length + visibleUngeocoded.length)}</>}
+            {narrowing && <button className="link-btn" onClick={() => { setStopSearch(""); setKindFilter("all"); }}>{t("map.clearSearch")}</button>}
           </div>
           <div className="stop-list">
             {visibleProximityGroups.length === 0 && visibleUngeocoded.length === 0 && (
-              <div className="empty"><MapPinned />{narrowing ? "No stops match this search" : "No route groups yet"}</div>
+              <div className="empty"><MapPinned aria-hidden="true" />{narrowing ? t("map.noMatch") : t("map.noGroups")}</div>
             )}
             {visibleProximityGroups.map(group => {
               const selectedInGroup = group.items.filter(item => selectedIds.has(item.id)).length;
@@ -283,28 +288,27 @@ export default function MapRoutes() {
                       checked={regionSelected}
                       ref={el => { if (el) el.indeterminate = selectedInGroup > 0 && !regionSelected; }}
                       onChange={() => toggleRegionSelected(group.items)}
-                      aria-label={`Select all stops in ${group.label}`}
+                      aria-label={t("map.selectArea", { area: group.label })}
                     />
                     <button type="button" className="stop-group-toggle" onClick={() => toggleExpanded(group.key)} aria-expanded={open}>
-                      {open ? <ChevronDown /> : <ChevronRight />}
+                      {open ? <ChevronDown aria-hidden="true" /> : <ChevronRight aria-hidden="true" />}
                       <b>{group.label}</b>
                     </button>
-                    <span className="pill">{selectedInGroup > 0 ? `${selectedInGroup}/` : ""}{group.items.length} stop{group.items.length === 1 ? "" : "s"}</span>
+                    <span className="badge-tone tone-slate">{selectedInGroup > 0 ? `${selectedInGroup}/` : ""}{tn("map.stops", group.items.length)}</span>
                   </div>
                   {open && group.items.map(item => (
-                    <label className={`route-stop${selectedIds.has(item.id) ? " selected" : ""}`} key={item.id} style={{ display: "flex", flexDirection: "row", alignItems: "flex-start", gap: 10, cursor: "pointer" }}>
+                    <label className={`route-stop selectable${selectedIds.has(item.id) ? " selected" : ""}`} key={item.id}>
                       <input
                         type="checkbox"
-                        style={{ marginTop: 3 }}
                         checked={selectedIds.has(item.id)}
                         onChange={() => toggleSelected(item.id)}
                       />
                       {routeIndexById?.has(item.id)
                         ? <span className="route-order-num" style={{ background: PIN_COLOR[item.kind] }}>{routeIndexById.get(item.id)}</span>
-                        : <span className="route-legend-dot" style={{ background: PIN_COLOR[item.kind], marginTop: 6 }} title={KIND_LABEL[item.kind]} />}
-                      <span>
-                        <b style={{ display: "block" }}>{(item as any).name || (item as any).title}</b>
-                        <span>{[item.address, item.city, item.zip, item.service_type].filter(Boolean).join(" | ")}</span>
+                        : <span className="route-legend-dot" style={{ background: PIN_COLOR[item.kind] }} title={t(`map.one.${item.kind}`)} />}
+                      <span className="route-stop-text">
+                        <b>{(item as any).name || (item as any).title}</b>
+                        <span className="sub">{[item.address, item.city, item.zip, item.service_type].filter(Boolean).join(" · ")}</span>
                       </span>
                     </label>
                   ))}
@@ -315,18 +319,20 @@ export default function MapRoutes() {
               <div className="route-block">
                 <div className="stop-group-head">
                   <button type="button" className="stop-group-toggle" onClick={() => setShowUngeocoded(v => !v)} aria-expanded={showUngeocoded || narrowing}>
-                    {showUngeocoded || narrowing ? <ChevronDown /> : <ChevronRight />}
-                    <b>Need coordinates</b>
+                    {showUngeocoded || narrowing ? <ChevronDown aria-hidden="true" /> : <ChevronRight aria-hidden="true" />}
+                    <b>{t("map.needCoords")}</b>
                   </button>
-                  <span className="pill">{visibleUngeocoded.length}</span>
+                  <span className="badge-tone tone-amber">{visibleUngeocoded.length}</span>
                 </div>
                 <div className="sub" style={{ marginTop: 6 }}>
-                  Not on the map or routable yet. <button className="link-btn" onClick={geocodeVisible} disabled={geocoding}>{geocoding ? "Geocoding..." : "Geocode now"}</button>
+                  {t("map.notRoutable")} <button className="link-btn" onClick={geocodeVisible} disabled={geocoding}>{geocoding ? t("map.geocoding") : t("map.geocodeNow")}</button>
                 </div>
                 {(showUngeocoded || narrowing) && visibleUngeocoded.map(item => (
                   <div className="route-stop" key={item.id}>
-                    <b>{(item as any).name || (item as any).title}</b>
-                    <span>{[item.address, item.city, item.zip, item.service_type].filter(Boolean).join(" | ")}</span>
+                    <span className="route-stop-text">
+                      <b>{(item as any).name || (item as any).title}</b>
+                      <span className="sub">{[item.address, item.city, item.zip, item.service_type].filter(Boolean).join(" · ")}</span>
+                    </span>
                   </div>
                 ))}
               </div>
@@ -334,40 +340,41 @@ export default function MapRoutes() {
           </div>
 
           <div className="route-plan-controls">
-            <span className="sub" style={{ fontWeight: 600 }}>Start from</span>
+            <span className="field-label">{t("map.startFrom")}</span>
             <Select
+              aria-label={t("map.startFrom")}
               value={startMode}
               onChange={v => setStartMode(v as StartMode)}
               options={[
-                { value: "geolocation", label: "My current location" },
-                { value: "first", label: "First stop in list" },
-                { value: "custom", label: "Custom coordinates" }
+                { value: "geolocation", label: t("map.start.geolocation") },
+                { value: "first", label: t("map.start.first") },
+                { value: "custom", label: t("map.start.custom") }
               ]}
             />
             {startMode === "custom" && (
-              <div className="inline-actions" style={{ marginTop: 8 }}>
-                <input placeholder="Latitude" value={customStartLat} onChange={e => setCustomStartLat(e.target.value)} style={{ flex: "0 0 100px" }} />
-                <input placeholder="Longitude" value={customStartLng} onChange={e => setCustomStartLng(e.target.value)} style={{ flex: "0 0 100px" }} />
+              <div className="route-custom-start">
+                <input placeholder={t("map.lat")} aria-label={t("map.lat")} inputMode="decimal" value={customStartLat} onChange={e => setCustomStartLat(e.target.value)} />
+                <input placeholder={t("map.lng")} aria-label={t("map.lng")} inputMode="decimal" value={customStartLng} onChange={e => setCustomStartLng(e.target.value)} />
               </div>
             )}
             <button className="btn route-plan-optimize" onClick={optimizeRoute} disabled={routing || !routeCandidates.length}>
-              <Route />{routing ? (startMode === "geolocation" ? "Finding your location..." : "Optimizing...") : "Optimize route"}
+              <Route aria-hidden="true" />{routing ? (startMode === "geolocation" ? t("map.findingLocation") : t("map.optimizing")) : t("map.optimize")}
             </button>
-            <div className="sub" style={{ textAlign: "center", marginTop: 6 }}>{selectedCount} stop{selectedCount === 1 ? "" : "s"} selected</div>
+            <div className="sub" style={{ textAlign: "center" }}>{tn("map.stopsSelected", selectedCount)}</div>
 
             {routeStops && (
               <>
-                <div className="inline-actions" style={{ marginTop: 12 }}>
-                  <a className="btn slim" href={googleMapsUrl} target="_blank" rel="noreferrer"><Navigation />Open in Google Maps</a>
-                  <button className="btn ghost slim" onClick={() => setRouteStops(null)}>Clear route</button>
+                <div className="inline-actions">
+                  <a className="btn slim" href={googleMapsUrl} target="_blank" rel="noreferrer"><Navigation aria-hidden="true" />{t("map.openGoogle")}</a>
+                  <button className="btn ghost slim" onClick={() => setRouteStops(null)}>{t("map.clearRoute")}</button>
                 </div>
-                <div style={{ marginTop: 12 }}>
-                  <div className="between" style={{ marginBottom: 8 }}>
-                    <span className="sub">Route order — use the arrows to reorder manually</span>
+                <div>
+                  <div className="between" style={{ marginBottom: 8, flexWrap: "wrap" }}>
+                    <span className="sub">{t("map.routeOrder")}</span>
                     <div className="route-legend">
-                      <span><span className="route-legend-dot" style={{ background: PIN_COLOR.lead }} />Lead</span>
-                      <span><span className="route-legend-dot" style={{ background: PIN_COLOR.customer }} />Client</span>
-                      <span><span className="route-legend-dot" style={{ background: PIN_COLOR.job }} />Job</span>
+                      <span><span className="route-legend-dot" style={{ background: PIN_COLOR.lead }} />{t("map.one.lead")}</span>
+                      <span><span className="route-legend-dot" style={{ background: PIN_COLOR.customer }} />{t("map.one.customer")}</span>
+                      <span><span className="route-legend-dot" style={{ background: PIN_COLOR.job }} />{t("map.one.job")}</span>
                     </div>
                   </div>
                   <div className="route-order-list">
@@ -375,10 +382,8 @@ export default function MapRoutes() {
                       <div className="route-order-row" key={s.id}>
                         <span className="route-order-num" style={{ background: PIN_COLOR[s.kind] }}>{i + 1}</span>
                         <span className="route-order-name">{s.name || (s as any).title}</span>
-                        <div className="stage-row-order">
-                          <button className="btn ghost slim" onClick={() => moveRouteStop(i, -1)} disabled={i === 0} aria-label="Move earlier"><ChevronUp /></button>
-                          <button className="btn ghost slim" onClick={() => moveRouteStop(i, 1)} disabled={i === routeStops.length - 1} aria-label="Move later"><ChevronDown /></button>
-                        </div>
+                        <button className="round-btn" onClick={() => moveRouteStop(i, -1)} disabled={i === 0} aria-label={t("map.moveEarlier")}><ArrowUp aria-hidden="true" /></button>
+                        <button className="round-btn" onClick={() => moveRouteStop(i, 1)} disabled={i === routeStops.length - 1} aria-label={t("map.moveLater")}><ArrowDown aria-hidden="true" /></button>
                       </div>
                     ))}
                   </div>
@@ -419,36 +424,36 @@ function MapFilterBar({ zips, cities, services, stages, filters, onChange }: {
   zips: string[]; cities: string[]; services: string[]; stages: { id: string; name: string }[];
   filters: typeof DEFAULT_MAP_FILTERS; onChange: (f: typeof DEFAULT_MAP_FILTERS) => void;
 }) {
+  const { t } = useT();
   return (
     <div className="map-filters">
       <Select
         value={filters.zip} onChange={v => onChange({ ...filters, zip: v })}
-        options={[{ value: "", label: "All ZIP codes" }, ...zips.map(zip => ({ value: zip, label: zip }))]}
+        options={[{ value: "", label: t("map.f.allZips") }, ...zips.map(zip => ({ value: zip, label: zip }))]}
       />
       <Select
         value={filters.city} onChange={v => onChange({ ...filters, city: v })}
-        options={[{ value: "", label: "All cities" }, ...cities.map(city => ({ value: city, label: city }))]}
+        options={[{ value: "", label: t("map.f.allCities") }, ...cities.map(city => ({ value: city, label: city }))]}
       />
       <Select
         value={filters.service_type} onChange={v => onChange({ ...filters, service_type: v })}
-        options={[{ value: "all", label: "All services" }, ...services.map(s => ({ value: s, label: s }))]}
+        options={[{ value: "all", label: t("map.f.allServices") }, ...services.map(s => ({ value: s, label: s }))]}
       />
       <Select
         value={filters.lead_status} onChange={v => onChange({ ...filters, lead_status: v })}
-        options={[{ value: "all", label: "All lead stages" }, ...stages.map(s => ({ value: s.id, label: s.name }))]}
+        options={[{ value: "all", label: t("map.f.allStages") }, ...stages.map(s => ({ value: s.id, label: s.name }))]}
       />
       <Select
         value={filters.job_status} onChange={v => onChange({ ...filters, job_status: v })}
-        options={[{ value: "all", label: "All job statuses" }, ...["planned", "scheduled", "in progress", "complete"].map(s => ({ value: s, label: s }))]}
+        options={[{ value: "all", label: t("map.f.allJobStatuses") }, ...(["planned", "scheduled", "in progress", "complete"] as const).map(s => ({ value: s, label: t(`status.${s}`) }))]}
       />
-      <input type="date" value={filters.date} onChange={e => onChange({ ...filters, date: e.target.value })} />
-      <button className="btn ghost slim" onClick={() => onChange(DEFAULT_MAP_FILTERS)}>Clear</button>
+      <input type="date" aria-label={t("map.f.date")} value={filters.date} onChange={e => onChange({ ...filters, date: e.target.value })} />
+      <button className="btn ghost slim" onClick={() => onChange(DEFAULT_MAP_FILTERS)}>{t("map.clear")}</button>
     </div>
   );
 }
 
 const PIN_COLOR: Record<MapRecord["kind"], string> = { lead: "#2f6fed", job: "#d89416", customer: "#10b981" };
-const KIND_LABEL: Record<StopKindFilter, string> = { all: "All", lead: "Leads", customer: "Clients", job: "Jobs" };
 
 function pinIcon(color: string, scale: number): google.maps.Symbol {
   return { path: google.maps.SymbolPath.CIRCLE, scale, fillColor: color, fillOpacity: 1, strokeColor: "#fff", strokeWeight: 2 };
@@ -463,6 +468,7 @@ function boundsOf(points: LatLng[]): google.maps.LatLngBounds {
 function GoogleMapCanvas({ records, routeStops, onPinClick, apiKey }: {
   records: MapRecord[]; routeStops: GeocodedRecord[] | null; onPinClick: (r: MapRecord) => void; apiKey: string;
 }) {
+  const { t } = useT();
   const mapElRef = useRef<HTMLDivElement | null>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
   const clustererRef = useRef<MarkerClusterer | null>(null);
@@ -588,17 +594,17 @@ function GoogleMapCanvas({ records, routeStops, onPinClick, apiKey }: {
   };
 
   if (!apiKey) {
-    return <div className="map-canvas empty"><MapPinned />Add a Google Maps API key in Integrations to enable the map.</div>;
+    return <div className="map-canvas empty"><MapPinned aria-hidden="true" />{t("map.c.noKey")}</div>;
   }
   if (loadError) {
-    return <div className="map-canvas empty"><AlertCircle />Could not load Google Maps. Check the API key in Integrations.</div>;
+    return <div className="map-canvas empty"><AlertCircle aria-hidden="true" />{t("map.c.loadError")}</div>;
   }
 
   return (
     <div style={{ position: "relative" }}>
       <div ref={mapElRef} className="map-canvas" />
-      <button className="map-fit-btn" onClick={fitAll} disabled={!withCoords.length} title="Fit all visible pins"><Maximize2 />Fit all</button>
-      {ready && !withCoords.length && !routeStops && <div className="map-empty">No geocoded records to show yet — click "Geocode records" below.</div>}
+      <button className="map-fit-btn" onClick={fitAll} disabled={!withCoords.length} title={t("map.c.fitTitle")}><Maximize2 aria-hidden="true" />{t("map.c.fit")}</button>
+      {ready && !withCoords.length && !routeStops && <div className="map-empty">{t("map.c.empty")}</div>}
     </div>
   );
 }

@@ -2,6 +2,7 @@
 // company — the React equivalent of app.js calling `FialhoDB.byCompany(table)`
 // on every render.
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "../state/AuthContext";
 import { listAdminUsers } from "./adminUsers";
 import { listAuditLog, type AuditLogFilters } from "./auditLog";
 import { getCampaignRoi } from "./campaignRoi";
@@ -164,26 +165,43 @@ export function useConsentStatuses(companyId: string | null) {
   });
 }
 
+// The three lookups below are about *who is signed in*, cached for 5
+// minutes — so they're keyed by the auth user and only run once a session
+// exists. Shell calls them on its very first render, before it knows
+// whether anyone is logged in (hooks can't wait for the redirect). Unkeyed,
+// a visit while signed out cached "no memberships / no profile" for 5
+// minutes, and the next login reused it: owners lost Money, Company
+// Financials, Import, Users and the New button until a manual reload.
+function useSignedInUserId() {
+  const { session, loading } = useAuth();
+  return { userId: session?.user.id ?? null, authLoading: loading };
+}
+
 // Small, rarely-changing lookup — long staleTime avoids refetching it every
 // time a RecordModal opens.
 export function useUsers() {
-  return useQuery({ queryKey: ["users"], queryFn: listUsers, staleTime: 5 * 60 * 1000 });
+  const { userId } = useSignedInUserId();
+  return useQuery({ queryKey: ["users", userId], queryFn: listUsers, staleTime: 5 * 60 * 1000, enabled: Boolean(userId) });
 }
 
 export function useCurrentAppUser() {
-  return useQuery({ queryKey: ["current-app-user"], queryFn: getCurrentAppUser, staleTime: 5 * 60 * 1000 });
+  const { userId, authLoading } = useSignedInUserId();
+  const query = useQuery({ queryKey: ["current-app-user", userId], queryFn: getCurrentAppUser, staleTime: 5 * 60 * 1000, enabled: Boolean(userId) });
+  return { ...query, isLoading: query.isLoading || authLoading };
 }
 
 // Whether the signed-in user owns at least one company — gates the "Users"
 // nav link/route the same way web/api/admin-users.js gates the endpoint
 // itself, so the link doesn't dead-end non-owners in a 403 page.
 export function useIsOwner() {
+  const { userId, authLoading } = useSignedInUserId();
   const { data: memberships = [], isLoading } = useQuery({
-    queryKey: ["my-memberships"],
+    queryKey: ["my-memberships", userId],
     queryFn: listMyMemberships,
-    staleTime: 5 * 60 * 1000
+    staleTime: 5 * 60 * 1000,
+    enabled: Boolean(userId)
   });
-  return { isOwner: memberships.some(m => m.role === "owner"), isLoading };
+  return { isOwner: memberships.some(m => m.role === "owner"), isLoading: isLoading || authLoading };
 }
 
 export function useAdminUsers() {

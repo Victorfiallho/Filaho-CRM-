@@ -1,4 +1,5 @@
 import type { Session } from "@supabase/supabase-js";
+import { useQueryClient } from "@tanstack/react-query";
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { getSession, onAuthStateChange, signIn as signInRequest, signInWithGoogle as signInWithGoogleRequest, signOut as signOutRequest } from "../data/auth";
 import { setRememberMe } from "../lib/authStorage";
@@ -17,6 +18,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     getSession()
@@ -48,6 +50,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // button on Integrations, so they'd outlive a CRM logout on a shared
     // browser (2026-08-26 security fix).
     clearGoogleSession();
+    // Nothing cached for the previous account survives into the next login
+    // on this browser (another user's clients/leads, or their permissions).
+    queryClient.clear();
     setSession(null);
   };
 

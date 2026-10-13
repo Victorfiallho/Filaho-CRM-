@@ -1869,3 +1869,54 @@ tr:hover td{background:rgba(255,255,255,.55)}
   .modal-f .inline-actions{flex-direction:row;flex-wrap:nowrap}
   .modal-f .inline-actions .btn{flex:1 1 0}
 }
+
+/* Record modal (lead / client / job) */
+.record-modal{width:min(820px,100%)}
+.modal-h-text{min-width:0}
+.modal-h-text .sub{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.field-label{font-weight:600;font-size:12px;color:var(--ink-soft)}
+.form-section{padding:4px 0 18px}
+.form-section + .form-section{border-top:1px solid var(--line);padding-top:18px}
+.form-section-title{margin:0 0 12px;font-size:11.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.form-section-body{display:grid;gap:12px;min-width:0}
+.form-section-body .grid.two{gap:12px}
+.form-section-body .advanced-fields{margin:0}
+.record-location{display:flex;align-items:flex-start;gap:8px;margin:0;padding:12px 14px;border-radius:14px;background:rgba(17,17,17,.035);color:var(--ink-soft)}
+.record-location svg{width:16px;height:16px;flex:0 0 auto;margin-top:2px;color:var(--muted)}
+.record-ai{padding:12px 14px;border-radius:14px;background:var(--tone-violet-bg,#ece8fb);color:var(--ink)}
+.record-ai p{margin:0 0 4px}
+.record-ai p:last-child{margin:0}
+.record-activity-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}
+.record-activity-col{display:grid;gap:8px;align-content:start;min-width:0}
+.record-activity-col textarea,.record-activity-col > input{width:100%;min-height:40px;padding:9px 12px;border-radius:12px;border:1px solid var(--line-strong);background:#fff;font:inherit;font-size:13.5px}
+.record-activity-col .btn.slim{justify-self:start}
+.record-note{background:#fff;border-color:var(--line);border-radius:14px}
+.record-note-meta a{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;font-weight:500;color:var(--ink)}
+.round-btn.small{width:30px;height:30px}
+.round-btn.small svg{width:14px;height:14px}
+.modal .consent-panel,.modal .record-consent{margin:0 0 18px}
+.record-modal-f{justify-content:space-between}
+.modal-f-start{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn.ghost.danger-text{color:var(--red)}
+.btn.ghost.danger-text:hover:not(:disabled){background:var(--tone-red-bg,#fde4e1)}
+.btn.ghost.accent-outline{border-color:var(--ink);color:var(--ink)}
+@media(max-width:760px){
+  .record-activity-grid{grid-template-columns:minmax(0,1fr)}
+  .record-modal-f{gap:8px}
+  .modal-f-start{width:100%}
+  .modal-f-start .btn{flex:1 1 0;min-height:44px}
+  .round-btn.small{width:40px;height:40px}
+}
+.form-section-body .field,.record-activity-col .field{margin-top:0}
+.form-section-body .grid.two{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+@media(max-width:760px){.form-section-body .grid.two{grid-template-columns:minmax(0,1fr)}}
+.label-short{display:none}
+@media(max-width:760px){
+  .modal-f-start .label-long{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+  .modal-f-start .label-short{display:inline}
+}
+.form-section-body .record-consent{margin:0;gap:12px}
+.record-activity-col .record-note-list{margin:0}
+.record-activity-col .inline-actions{flex-direction:row;align-items:center}
+.record-activity-col p.sub,.form-section-body .record-consent p.sub{margin:0}
+.form-section-body .cs-trigger{min-height:40px}

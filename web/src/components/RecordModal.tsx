@@ -1,9 +1,9 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { FolderOpen } from "lucide-react";
-import { useRef, useState } from "react";
+import { BriefcaseBusiness, FolderOpen, Link2, MapPin, Plus, Send, Sparkles, Trash2, X } from "lucide-react";
+import { useId, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import ConsentPanel from "./ConsentPanel";
-import Select from "./Select";
+import Select, { type SelectOption } from "./Select";
 import { summarizeJob, type JobAiSummary } from "../data/aiSummary";
 import { listCustomers, insertCustomer, updateCustomer, deleteCustomer } from "../data/customers";
 import { fileToBase64, provisionDriveFolder, uploadFileToDrive } from "../data/driveDocs";
@@ -17,9 +17,9 @@ import { deleteNote, insertNote } from "../data/notes";
 import { createProjectFinancials } from "../data/projectFinancials";
 import { formatDateTime, now, uid } from "../domain/format";
 import { useT } from "../i18n/I18nContext";
+import type { MessageKey } from "../i18n/messages";
 import { useConfirm } from "../state/ConfirmContext";
 import FileButton from "./FileButton";
-import { titleize } from "../domain/format";
 import { LOST_REASONS } from "../domain/followUp";
 import { findJobForLead, jobDraftFromLead } from "../domain/leadConversion";
 import { isLostStage } from "../domain/pipelineStages";
@@ -135,8 +135,9 @@ function RecordModalContent() {
 
   if (!modal || !activeCompanyId) return null;
 
-  const titleType = type === "customer" ? "client" : type;
-  const title = `${isEdit ? "Edit" : "New"} ${titleType}`;
+  const kindKey = type === "customer" ? "customer" : type;
+  const title = t(`rec.${isEdit ? "edit" : "new"}.${kindKey}` as MessageKey);
+  const recordName = isEdit ? String(r.name || r.title || "") : "";
 
   // Central permission gate — every "add lead/client/job" and "open record"
   // entry point across the app (Shell topbar, Pipeline, Customers, Jobs,
@@ -147,20 +148,17 @@ function RecordModalContent() {
   const blocked = isEdit ? !hasPermission("edit") : !hasPermission("create");
   if (blocked) {
     return (
-      <div className="modal-bg">
-        <section className="modal" style={{ width: "min(420px,100%)" }}>
+      <div className="modal-bg" onClick={closeModal}>
+        <section className="modal" role="dialog" aria-modal="true" aria-label={title} style={{ width: "min(440px,100%)" }} onClick={e => e.stopPropagation()}>
           <div className="modal-h">
-            <h3>{titleize(title)}</h3>
-            <button className="btn ghost slim" onClick={closeModal}>Close</button>
+            <h3>{title}</h3>
+            <button className="round-btn" onClick={closeModal} aria-label={t("rec.close")}><X aria-hidden="true" /></button>
           </div>
           <div className="modal-b">
-            <p className="sub">
-              You don't have permission to {isEdit ? "edit" : "create"} {titleType}s. Ask a company owner to grant it
-              from Users &amp; Access.
-            </p>
+            <p className="sub">{t(isEdit ? "rec.noPermission.edit" : "rec.noPermission.create")}</p>
           </div>
           <div className="modal-f">
-            <button className="btn ghost" onClick={closeModal}>Close</button>
+            <button className="btn ghost" onClick={closeModal}>{t("rec.close")}</button>
           </div>
         </section>
       </div>
@@ -171,7 +169,7 @@ function RecordModalContent() {
   // A new lead/job with no owner picked is owned by whoever creates it — the
   // "Mine" filters would otherwise start out empty for everyone.
   const ownerForSave = form.owner_user_id || (isEdit ? "" : currentAppUser?.id || "");
-  const ownerOptions = [{ value: "", label: "— Unassigned —" }, ...users.map(u => ({ value: u.id, label: u.name }))];
+  const ownerOptions = [{ value: "", label: t("rec.unassigned") }, ...users.map(u => ({ value: u.id, label: u.name }))];
   const leadIsLost = type === "lead" && isLostStage(form.stage_id, stages);
 
   const pickExistingClient = (clientId: string) => {
@@ -240,7 +238,7 @@ function RecordModalContent() {
   async function handleSave() {
     if (!activeCompanyId) return;
     if (!form.name && !form.title) {
-      toast("Name or title is required.");
+      toast(t("rec.t.nameRequired"));
       return;
     }
     setSaving(true);
@@ -251,7 +249,7 @@ function RecordModalContent() {
         // client's address onto it) whenever nobody picked one explicitly.
         const jobCustomerId = form.customer_id || "";
         if (!jobCustomerId) {
-          toast("Pick a client for this job.");
+          toast(t("rec.t.pickClient"));
           return;
         }
         // Address/city/state/zip/lat/lng aren't asked on the job form at all —
@@ -286,10 +284,10 @@ function RecordModalContent() {
           // lead's value as the contract, so Project Financials isn't blank.
           if (leadId) {
             createProjectFinancials({ company_id: activeCompanyId, job_id: newJobId, original_contract_value: data.estimated_value })
-              .catch(error => toastError(errorMessage(error, "Job saved, but its financials could not be set up — open Costing to start them.")));
+              .catch(error => toastError(errorMessage(error, t("rec.t.financialsError"))));
           }
           provisionDriveFolder(activeCompanyId, "job", newJobId).catch(error =>
-            toastError(errorMessage(error, "Job saved, but its Drive folder could not be created automatically — use \"Create/locate Drive folder\" on the job later."))
+            toastError(errorMessage(error, t("rec.t.jobFolderError")))
           );
         }
         queryClient.invalidateQueries({ queryKey: ["jobs", activeCompanyId] });
@@ -365,16 +363,16 @@ function RecordModalContent() {
           } else {
             await insertCustomer(data as any);
             provisionDriveFolder(activeCompanyId, "client", data.id).catch(error =>
-              toastError(errorMessage(error, "Client saved, but their Drive folder could not be created automatically — use \"Create/locate Drive folder\" on the client later."))
+              toastError(errorMessage(error, t("rec.t.clientFolderError")))
             );
           }
           queryClient.invalidateQueries({ queryKey: ["customers", activeCompanyId] });
         }
       }
       closeModal();
-      toast("Record saved.");
+      toast(t("rec.t.saved"));
     } catch (error) {
-      toastError(errorMessage(error, "Could not save record."));
+      toastError(errorMessage(error, t("rec.t.saveError")));
     } finally {
       setSaving(false);
     }
@@ -397,9 +395,9 @@ function RecordModalContent() {
         queryClient.invalidateQueries({ queryKey: ["customers", activeCompanyId] });
       }
       closeModal();
-      toast("Record deleted.");
+      toast(t("rec.t.deleted"));
     } catch (error) {
-      toastError(errorMessage(error, "Could not delete record."));
+      toastError(errorMessage(error, t("rec.t.deleteError")));
     } finally {
       setDeleting(false);
     }
@@ -413,7 +411,7 @@ function RecordModalContent() {
       setNewNoteBody("");
       queryClient.invalidateQueries({ queryKey: ["notes", activeCompanyId, type, r.id] });
     } catch (error) {
-      toastError(errorMessage(error, "Could not add note."));
+      toastError(errorMessage(error, t("rec.t.noteError")));
     } finally {
       setAddingNote(false);
     }
@@ -425,7 +423,7 @@ function RecordModalContent() {
       await deleteNote(id, activeCompanyId);
       queryClient.invalidateQueries({ queryKey: ["notes", activeCompanyId, type, r.id] });
     } catch (error) {
-      toastError(errorMessage(error, "Could not delete note."));
+      toastError(errorMessage(error, t("rec.t.noteDeleteError")));
     }
   }
 
@@ -438,7 +436,7 @@ function RecordModalContent() {
       setNewFileUrl("");
       queryClient.invalidateQueries({ queryKey: ["files", activeCompanyId, type, r.id] });
     } catch (error) {
-      toastError(errorMessage(error, "Could not add file link."));
+      toastError(errorMessage(error, t("rec.t.fileError")));
     } finally {
       setAddingFile(false);
     }
@@ -450,7 +448,7 @@ function RecordModalContent() {
       await deleteFile(id, activeCompanyId);
       queryClient.invalidateQueries({ queryKey: ["files", activeCompanyId, type, r.id] });
     } catch (error) {
-      toastError(errorMessage(error, "Could not remove file link."));
+      toastError(errorMessage(error, t("rec.t.fileDeleteError")));
     }
   }
 
@@ -462,8 +460,8 @@ function RecordModalContent() {
   async function handleSendReminderNow() {
     const customer = customers.find(c => c.id === form.customer_id);
     const to = customer?.phone || customer?.email;
-    if (!to) { toast("This client has no phone or email on file."); return; }
-    if (!session?.access_token) { toast("Your session expired — sign in again."); return; }
+    if (!to) { toast(t("rec.t.noContact")); return; }
+    if (!session?.access_token) { toast(t("rec.t.sessionExpired")); return; }
     const body = `Reminder: ${form.title || "your appointment"} is scheduled for ${form.scheduled_date || "soon"}.`;
     try {
       const res = await fetch("/api/send-notification", {
@@ -479,9 +477,9 @@ function RecordModalContent() {
         })
       });
       if (!res.ok) throw new Error((await res.json().catch(() => null))?.error || "Failed to send.");
-      toast("Reminder sent.");
+      toast(t("rec.t.reminderSent"));
     } catch (error) {
-      toastError(errorMessage(error, "Could not send reminder."));
+      toastError(errorMessage(error, t("rec.t.reminderError")));
     }
   }
 
@@ -491,7 +489,7 @@ function RecordModalContent() {
     try {
       setAiSummary(await summarizeJob(r.id));
     } catch (error) {
-      toastError(errorMessage(error, "Could not generate a summary."));
+      toastError(errorMessage(error, t("rec.t.summaryError")));
     } finally {
       setSummarizing(false);
     }
@@ -505,8 +503,8 @@ function RecordModalContent() {
     if (!activeCompanyId || !r.id) return;
     const clientId = integrationSettings?.google_oauth.client_id;
     const pickerApiKey = integrationSettings?.google_drive.picker_api_key;
-    if (!clientId) { toast("Import the Google OAuth JSON in Integrations first."); return; }
-    if (!pickerApiKey) { toast("Add a Google Picker API key in Integrations first."); return; }
+    if (!clientId) { toast(t("rec.t.needOAuth")); return; }
+    if (!pickerApiKey) { toast(t("rec.t.needPicker")); return; }
     setAddingFile(true);
     try {
       let token = googleAccessTokenFor("drive");
@@ -519,7 +517,7 @@ function RecordModalContent() {
       await insertFile({ company_id: activeCompanyId, entity_type: type, entity_id: r.id, name: picked.name, url: picked.url, provider: "google_drive" });
       queryClient.invalidateQueries({ queryKey: ["files", activeCompanyId, type, r.id] });
     } catch (error) {
-      toastError(errorMessage(error, "Could not attach that Drive file."));
+      toastError(errorMessage(error, t("rec.t.driveAttachError")));
     } finally {
       setAddingFile(false);
     }
@@ -535,9 +533,9 @@ function RecordModalContent() {
       const result = await provisionDriveFolder(activeCompanyId, type === "job" ? "job" : "client", r.id);
       set("drive_folder_url", result.folder_url);
       queryClient.invalidateQueries({ queryKey: [type === "job" ? "jobs" : "customers", activeCompanyId] });
-      toast("Drive folder ready.");
+      toast(t("rec.t.folderReady"));
     } catch (error) {
-      toastError(errorMessage(error, "Could not create/locate the Drive folder."));
+      toastError(errorMessage(error, t("rec.t.folderError")));
     } finally {
       setProvisioningFolder(false);
     }
@@ -559,9 +557,9 @@ function RecordModalContent() {
         fileBase64
       });
       queryClient.invalidateQueries({ queryKey: ["files", activeCompanyId, type, r.id] });
-      toast("Uploaded to Drive.");
+      toast(t("rec.t.uploaded"));
     } catch (error) {
-      toastError(errorMessage(error, "Could not upload that file to Drive."));
+      toastError(errorMessage(error, t("rec.t.uploadError")));
     } finally {
       setUploadingFile(false);
     }
@@ -572,224 +570,200 @@ function RecordModalContent() {
   // this same customer rather than from any job-specific input).
   const jobLocationCustomer = type === "job" ? customers.find(c => c.id === form.customer_id) : undefined;
 
+  const driveFolderField = (openLabel: string) => (
+    <div className="field">
+      <span className="field-label">{t("rec.driveFolder")}</span>
+      <div className="inline-actions">
+        {form.drive_folder_url && <a className="btn ghost slim" href={form.drive_folder_url} target="_blank" rel="noreferrer"><FolderOpen aria-hidden="true" />{openLabel}</a>}
+        {isEdit && (
+          <button className="btn ghost slim" type="button" onClick={handleProvisionFolder} disabled={provisioningFolder}>
+            {provisioningFolder ? t("rec.working") : form.drive_folder_url ? t("rec.relocateFolder") : t("rec.createFolder")}
+          </button>
+        )}
+        {!form.drive_folder_url && !isEdit && <span className="sub">—</span>}
+      </div>
+    </div>
+  );
+
   return (
     <div className="modal-bg">
-      <section className="modal" onKeyDown={handleModalKeyDown}>
+      <section className="modal record-modal" role="dialog" aria-modal="true" aria-labelledby="record-modal-title" onKeyDown={handleModalKeyDown}>
         <div className="modal-h">
-          <h3>{titleize(title)}</h3>
-          <button className="btn ghost slim" onClick={closeModal}>Close</button>
+          <div className="modal-h-text">
+            <h3 id="record-modal-title">{title}</h3>
+            {recordName && <span className="sub">{recordName}</span>}
+          </div>
+          <button className="round-btn" onClick={closeModal} aria-label={t("rec.close")}><X aria-hidden="true" /></button>
         </div>
         <div className="modal-b" ref={modalBodyRef}>
           {type === "job" ? (
-            <div className="grid two">
-              <Field label="Job/project title" value={form.title} onChange={v => set("title", v)} />
-              <div className="field">
-                <label>Client</label>
-                <Select value={form.customer_id || ""} onChange={v => set("customer_id", v)} options={[{ value: "", label: "— Select a client —", disabled: true }, ...customers.map(c => ({ value: c.id, label: c.name }))]} />
-              </div>
-              <SelectField label="Status" value={form.status} options={["planned", "scheduled", "in progress", "complete"]} onChange={v => set("status", v)} />
-              <SelectField label="Service" value={form.service_type} options={services} onChange={v => set("service_type", v)} />
-              <div className="field">
-                <label>Owner</label>
-                <Select value={ownerForSave} onChange={v => set("owner_user_id", v)} options={ownerOptions} />
-              </div>
-              <Field label="Scheduled date" value={form.scheduled_date} onChange={v => set("scheduled_date", v)} type="date" />
-              <Field label="Estimated value" value={String(form.estimated_value)} onChange={v => set("estimated_value", v)} type="number" />
-              <div className="field">
-                <label>Google Drive folder</label>
-                <div className="inline-actions">
-                  {form.drive_folder_url && <a className="btn ghost slim" href={form.drive_folder_url} target="_blank" rel="noreferrer"><FolderOpen />Open project folder</a>}
-                  {isEdit && (
-                    <button className="btn ghost slim" type="button" onClick={handleProvisionFolder} disabled={provisioningFolder}>
-                      {provisioningFolder ? "Working..." : form.drive_folder_url ? "Re-locate folder" : "Create Drive folder"}
+            <>
+              <FormSection title={t("rec.sec.job")}>
+                <div className="grid two">
+                  <Field label={t("rec.jobTitle")} value={form.title} onChange={v => set("title", v)} wide />
+                  <SelectBox label={t("rec.client")} value={form.customer_id || ""} onChange={v => set("customer_id", v)} options={[{ value: "", label: t("rec.pickClient"), disabled: true }, ...customers.map(c => ({ value: c.id, label: c.name }))]} />
+                  <SelectBox label={t("rec.status")} value={form.status} onChange={v => set("status", v)} options={["planned", "scheduled", "in progress", "complete"].map(s => ({ value: s, label: cap(t(`status.${s}` as MessageKey)) }))} />
+                  <SelectBox label={t("rec.service")} value={form.service_type} onChange={v => set("service_type", v)} options={services.map(s => ({ value: s, label: s }))} />
+                  <SelectBox label={t("rec.owner")} value={ownerForSave} onChange={v => set("owner_user_id", v)} options={ownerOptions} />
+                  <Field label={t("rec.scheduledDate")} value={form.scheduled_date} onChange={v => set("scheduled_date", v)} type="date" />
+                  <Field label={t("rec.value")} value={String(form.estimated_value)} onChange={v => set("estimated_value", v)} type="number" />
+                </div>
+              </FormSection>
+              <FormSection title={t("rec.location")}>
+                <p className="sub record-location">
+                  <MapPin aria-hidden="true" />
+                  {jobLocationCustomer?.address || jobLocationCustomer?.city
+                    ? [jobLocationCustomer.address, jobLocationCustomer.city, jobLocationCustomer.state, jobLocationCustomer.zip].filter(Boolean).join(", ")
+                    : t("rec.noLocation")}
+                </p>
+                {driveFolderField(t("rec.openProjectFolder"))}
+                {isEdit && (
+                  <div className="inline-actions">
+                    <button className="btn ghost slim" onClick={handleSendReminderNow} type="button"><Send aria-hidden="true" />{t("rec.sendReminder")}</button>
+                    <button className="btn ghost slim" onClick={handleSummarize} type="button" disabled={summarizing}>
+                      <Sparkles aria-hidden="true" />{summarizing ? t("rec.summarizing") : t("rec.aiSummary")}
                     </button>
-                  )}
-                </div>
-              </div>
-              <div className="field" style={{ gridColumn: "1 / -1" }}>
-                <label>Location</label>
-                {jobLocationCustomer?.address || jobLocationCustomer?.city ? (
-                  <p className="sub">
-                    {[jobLocationCustomer.address, jobLocationCustomer.city, jobLocationCustomer.state, jobLocationCustomer.zip].filter(Boolean).join(", ")}
-                  </p>
-                ) : (
-                  <p className="sub">This client has no address on file yet — add one on their Clients record to place this job on the map.</p>
+                  </div>
                 )}
-              </div>
-              {isEdit && (
-                <div className="inline-actions">
-                  <button className="btn ghost slim" onClick={handleSendReminderNow} type="button">Send reminder now</button>
-                  <button className="btn ghost slim" onClick={handleSummarize} type="button" disabled={summarizing}>
-                    {summarizing ? "Generating summary..." : "AI Summary"}
-                  </button>
-                </div>
-              )}
-              {aiSummary && (
-                <div className="field" style={{ gridColumn: "1 / -1" }}>
-                  <label>AI Summary</label>
-                  <p><b>Current state:</b> {aiSummary.summary}</p>
-                  <p><b>Next step:</b> {aiSummary.next_step}</p>
-                </div>
-              )}
-            </div>
+                {aiSummary && (
+                  <div className="record-ai">
+                    <p><b>{t("rec.currentState")}</b> {aiSummary.summary}</p>
+                    <p><b>{t("rec.nextStepLabel")}</b> {aiSummary.next_step}</p>
+                  </div>
+                )}
+              </FormSection>
+            </>
           ) : (
             <>
-              {type === "lead" && !isEdit && (
-                <div className="field">
-                  <label>Existing client (optional)</label>
-                  <Select
+              <FormSection title={t("rec.sec.contact")}>
+                {type === "lead" && !isEdit && (
+                  <SelectBox
+                    label={t("rec.existingClient")}
                     value={pickedClientId}
                     onChange={pickExistingClient}
-                    options={[{ value: "", label: "— New client —" }, ...customers.map(c => ({ value: c.id, label: c.name }))]}
+                    options={[{ value: "", label: t("rec.newClient") }, ...customers.map(c => ({ value: c.id, label: c.name }))]}
                   />
+                )}
+                <div className="grid two">
+                  <Field label={t("rec.name")} value={form.name} onChange={v => set("name", v)} />
+                  <Field label={t("rec.phone")} value={form.phone} onChange={v => set("phone", v)} type="tel" />
+                  <Field label={t("rec.email")} value={form.email} onChange={v => set("email", v)} type="email" />
+                  <SelectBox label={t("rec.service")} value={form.service_type} onChange={v => set("service_type", v)} options={services.map(s => ({ value: s, label: s }))} />
                 </div>
-              )}
-              <div className="grid two">
-                <Field label="Name" value={form.name} onChange={v => set("name", v)} />
-                <Field label="Phone" value={form.phone} onChange={v => set("phone", v)} />
-                <Field label="Email" value={form.email} onChange={v => set("email", v)} type="email" />
-                <SelectField label="Service" value={form.service_type} options={services} onChange={v => set("service_type", v)} />
-                {type === "lead" ? (
-                  <div className="field">
-                    <label>Pipeline stage</label>
-                    <Select value={form.stage_id} onChange={v => set("stage_id", v)} options={stages.map(s => ({ value: s.id, label: s.name }))} />
-                  </div>
-                ) : (
-                  <SelectField label="Status" value={form.status} options={["active", "past", "lost"]} onChange={v => set("status", v)} />
-                )}
-                {type === "lead" ? (
-                  <Field label="Estimated value" value={String(form.value)} onChange={v => set("value", v)} type="number" />
-                ) : (
-                  <Field label="Source" value={form.source} onChange={v => set("source", v)} />
-                )}
-                {type === "lead" && (
-                  <div className="field">
-                    <label>Campaign (optional)</label>
-                    <Select
-                      value={form.campaign_id}
-                      onChange={v => set("campaign_id", v)}
-                      options={[{ value: "", label: "— None —" }, ...campaignOptions.map(([id, name]) => ({ value: id || "", label: name || id || "" }))]}
-                    />
-                  </div>
-                )}
-                {type === "lead" && (
-                  <>
-                    <div className="field">
-                      <label>Owner</label>
-                      <Select value={ownerForSave} onChange={v => set("owner_user_id", v)} options={ownerOptions} />
-                    </div>
-                    {leadIsLost ? (
-                      <div className="field">
-                        <label>Lost reason</label>
-                        <Select
+              </FormSection>
+
+              <FormSection title={t(type === "lead" ? "rec.sec.deal" : "rec.sec.details")}>
+                <div className="grid two">
+                  {type === "lead" ? (
+                    <>
+                      <SelectBox label={t("rec.stage")} value={form.stage_id} onChange={v => set("stage_id", v)} options={stages.map(s => ({ value: s.id, label: s.name }))} />
+                      <Field label={t("rec.value")} value={String(form.value)} onChange={v => set("value", v)} type="number" />
+                      <SelectBox label={t("rec.owner")} value={ownerForSave} onChange={v => set("owner_user_id", v)} options={ownerOptions} />
+                      <SelectBox
+                        label={t("rec.campaign")}
+                        value={form.campaign_id}
+                        onChange={v => set("campaign_id", v)}
+                        options={[{ value: "", label: t("rec.none") }, ...campaignOptions.map(([id, name]) => ({ value: id || "", label: name || id || "" }))]}
+                      />
+                      {leadIsLost ? (
+                        <SelectBox
+                          label={t("rec.lostReason")}
                           value={form.lost_reason}
                           onChange={v => set("lost_reason", v)}
-                          options={[{ value: "", label: "— Pick a reason —" }, ...LOST_REASONS.map(reason => ({ value: reason, label: reason }))]}
+                          options={[{ value: "", label: t("rec.pickReason") }, ...LOST_REASONS.map(reason => ({ value: reason, label: t(`lostReason.${reason}` as MessageKey) }))]}
                         />
-                      </div>
-                    ) : (
-                      <>
-                        <Field label="Next step" value={form.next_action} onChange={v => set("next_action", v)} />
-                        <Field label="Next step date" value={form.next_action_date} onChange={v => set("next_action_date", v)} type="date" />
-                      </>
-                    )}
-                  </>
-                )}
-                <Field label="Address" value={form.address} onChange={v => set("address", v)} />
-                <Field label="City" value={form.city} onChange={v => set("city", v)} />
-                <Field label="State" value={form.state} onChange={v => set("state", v)} />
-                <Field label="ZIP" value={form.zip} onChange={v => set("zip", v)} />
-                {type === "customer" && (
-                  <div className="field">
-                    <label>Google Drive folder</label>
-                    <div className="inline-actions">
-                      {form.drive_folder_url && <a className="btn ghost slim" href={form.drive_folder_url} target="_blank" rel="noreferrer"><FolderOpen />Open client folder</a>}
-                      {isEdit && (
-                        <button className="btn ghost slim" type="button" onClick={handleProvisionFolder} disabled={provisioningFolder}>
-                          {provisioningFolder ? "Working..." : form.drive_folder_url ? "Re-locate folder" : "Create Drive folder"}
-                        </button>
+                      ) : (
+                        <>
+                          <Field label={t("rec.nextStep")} value={form.next_action} onChange={v => set("next_action", v)} />
+                          <Field label={t("rec.nextStepDate")} value={form.next_action_date} onChange={v => set("next_action_date", v)} type="date" />
+                        </>
                       )}
-                    </div>
-                  </div>
-                )}
-              </div>
-              {/* Coordinates are filled automatically from the address on save,
-                  so they're tucked away for the rare manual correction. */}
-              <details className="advanced-fields">
-                <summary>Map coordinates (filled automatically)</summary>
-                <div className="grid two">
-                  <Field label="Latitude" value={String(form.lat)} onChange={v => set("lat", v)} type="number" />
-                  <Field label="Longitude" value={String(form.lng)} onChange={v => set("lng", v)} type="number" />
-                </div>
-              </details>
-              {type === "lead" && isEdit && (
-                <div className="inline-actions" style={{ marginBottom: 12 }}>
-                  {linkedJob ? (
-                    <button className="btn ghost slim" type="button" onClick={() => openRecordModal("job", linkedJob)}>Open job</button>
-                  ) : hasPermission("create") && (
-                    <button className="btn slim" type="button" onClick={() => openRecordModal("job", undefined, { ...jobDraftFromLead({ ...r, ...form, value: Number(form.value || 0) }) })}>Create job from lead</button>
+                    </>
+                  ) : (
+                    <>
+                      <SelectBox label={t("rec.status")} value={form.status} onChange={v => set("status", v)} options={["active", "past", "lost"].map(s => ({ value: s, label: cap(t(`status.${s}` as MessageKey)) }))} />
+                      <Field label={t("rec.source")} value={form.source} onChange={v => set("source", v)} />
+                    </>
                   )}
                 </div>
-              )}
-              <div className="field">
-                <label>Notes</label>
-                <textarea rows={3} value={form.notes} onChange={e => set("notes", e.target.value)} />
-              </div>
+              </FormSection>
+
+              <FormSection title={t("rec.sec.address")}>
+                <Field label={t("rec.address")} value={form.address} onChange={v => set("address", v)} />
+                <div className="form-row three">
+                  <Field label={t("rec.city")} value={form.city} onChange={v => set("city", v)} />
+                  <Field label={t("rec.state")} value={form.state} onChange={v => set("state", v)} />
+                  <Field label={t("rec.zip")} value={form.zip} onChange={v => set("zip", v)} />
+                </div>
+                {/* Coordinates are filled automatically from the address on save,
+                    so they're tucked away for the rare manual correction. */}
+                <details className="advanced-fields">
+                  <summary>{t("rec.coords")}</summary>
+                  <div className="grid two">
+                    <Field label={t("rec.lat")} value={String(form.lat)} onChange={v => set("lat", v)} type="number" />
+                    <Field label={t("rec.lng")} value={String(form.lng)} onChange={v => set("lng", v)} type="number" />
+                  </div>
+                </details>
+                {type === "customer" && driveFolderField(t("rec.openClientFolder"))}
+              </FormSection>
+
+              <FormSection title={t("rec.sec.notes")}>
+                <TextArea label={t("rec.notes")} value={form.notes} onChange={v => set("notes", v)} rows={3} hideLabel />
+              </FormSection>
             </>
           )}
           {isEdit && r.id && (type === "lead" || type === "customer") && (
-            <ConsentPanel companyId={activeCompanyId} kind={type} record={r} />
+            <FormSection title={t("rec.sec.consent")}>
+              <ConsentPanel companyId={activeCompanyId} kind={type} record={r} />
+            </FormSection>
           )}
           {isEdit && r.id && (
-            <div className="record-activity">
-              <div className="grid two">
-                <div className="field">
-                  <label>Activity notes</label>
+            <FormSection title={t("rec.sec.activity")}>
+              <div className="record-activity-grid">
+                <div className="record-activity-col">
+                  <span className="field-label">{t("rec.activityNotes")}</span>
                   <div className="record-note-list">
-                    {notes.length === 0 && <p className="sub">No notes yet.</p>}
+                    {notes.length === 0 && <p className="sub">{t("rec.noNotes")}</p>}
                     {notes.map(n => (
                       <div className="record-note" key={n.id}>
                         <p>{n.body}</p>
                         <div className="record-note-meta">
-                          <span className="sub">{userNameById.get(n.user_id || "") || "Someone"} · {formatDateTime(n.created_at, locale)}</span>
-                          <button className="btn ghost slim" onClick={() => handleDeleteNote(n.id)}>Remove</button>
+                          <span className="sub">{userNameById.get(n.user_id || "") || t("rec.someone")} · {formatDateTime(n.created_at, locale)}</span>
+                          <button className="round-btn danger small" type="button" onClick={() => handleDeleteNote(n.id)} aria-label={t("rec.remove")} title={t("rec.remove")}><Trash2 aria-hidden="true" /></button>
                         </div>
                       </div>
                     ))}
                   </div>
-                  <textarea rows={2} placeholder="Add a note..." value={newNoteBody} onChange={e => setNewNoteBody(e.target.value)} />
-                  <button className="btn ghost slim" onClick={handleAddNote} disabled={addingNote || !newNoteBody.trim()}>
-                    {addingNote ? "Adding..." : "Add note"}
+                  <textarea rows={2} aria-label={t("rec.addNote")} placeholder={t("rec.addNotePlaceholder")} value={newNoteBody} onChange={e => setNewNoteBody(e.target.value)} />
+                  <button className="btn ghost slim" type="button" onClick={handleAddNote} disabled={addingNote || !newNoteBody.trim()}>
+                    <Plus aria-hidden="true" />{addingNote ? t("rec.adding") : t("rec.addNote")}
                   </button>
                 </div>
-                <div className="field">
-                  <label>Files</label>
+                <div className="record-activity-col">
+                  <span className="field-label">{t("rec.files")}</span>
                   <div className="record-note-list">
-                    {files.length === 0 && <p className="sub">No files linked yet.</p>}
+                    {files.length === 0 && <p className="sub">{t("rec.noFiles")}</p>}
                     {files.map(f => (
                       <div className="record-note" key={f.id}>
                         <div className="record-note-meta">
                           <a href={f.url} target="_blank" rel="noreferrer">{f.name}</a>
-                          <button className="btn ghost slim" onClick={() => handleDeleteFile(f.id)}>Remove</button>
+                          <button className="round-btn danger small" type="button" onClick={() => handleDeleteFile(f.id)} aria-label={t("rec.remove")} title={t("rec.remove")}><Trash2 aria-hidden="true" /></button>
                         </div>
                       </div>
                     ))}
                   </div>
-                  <input placeholder="File name" value={newFileName} onChange={e => setNewFileName(e.target.value)} />
-                  <input placeholder="Link URL (Google Drive, etc.)" value={newFileUrl} onChange={e => setNewFileUrl(e.target.value)} />
+                  <input aria-label={t("rec.fileName")} placeholder={t("rec.fileName")} value={newFileName} onChange={e => setNewFileName(e.target.value)} />
+                  <input aria-label={t("rec.fileUrl")} placeholder={t("rec.fileUrl")} value={newFileUrl} onChange={e => setNewFileUrl(e.target.value)} />
                   <div className="inline-actions">
-                    <button className="btn ghost slim" onClick={handleAddFile} disabled={addingFile || !newFileName.trim() || !newFileUrl.trim()}>
-                      {addingFile ? "Adding..." : "Add file link"}
+                    <button className="btn ghost slim" type="button" onClick={handleAddFile} disabled={addingFile || !newFileName.trim() || !newFileUrl.trim()}>
+                      <Link2 aria-hidden="true" />{addingFile ? t("rec.adding") : t("rec.addFile")}
                     </button>
-                    <button className="btn ghost slim" onClick={handleAttachFromDrive} disabled={addingFile}>Attach from Drive</button>
+                    <button className="btn ghost slim" type="button" onClick={handleAttachFromDrive} disabled={addingFile}>{t("rec.attachDrive")}</button>
                   </div>
                   {type === "job" && (
-                    <div className="field" style={{ marginTop: 8 }}>
-                      <label>Upload to folder</label>
-                      <Select value={uploadSubfolder} onChange={setUploadSubfolder} options={PROJECT_DRIVE_SUBFOLDERS.map(s => ({ value: s, label: s }))} />
-                    </div>
+                    <SelectBox label={t("rec.uploadFolder")} value={uploadSubfolder} onChange={setUploadSubfolder} options={PROJECT_DRIVE_SUBFOLDERS.map(s => ({ value: s, label: s }))} />
                   )}
-                  <div style={{ marginTop: 8 }}>
+                  <div>
                     <FileButton
                       label={t("file.upload")}
                       disabled={uploadingFile || !form.drive_folder_url}
@@ -797,46 +771,74 @@ function RecordModalContent() {
                       onFiles={files => handleUploadToDrive(files)}
                     />
                   </div>
-                  {!form.drive_folder_url && <p className="sub">Create the Drive folder above before uploading a file here.</p>}
-                  {uploadingFile && <p className="sub">Uploading to Drive...</p>}
+                  {!form.drive_folder_url && <p className="sub">{t("rec.needFolder")}</p>}
+                  {uploadingFile && <p className="sub">{t("rec.uploading")}</p>}
                 </div>
               </div>
-            </div>
+            </FormSection>
           )}
         </div>
-        <div className="modal-f">
-          {isEdit && (
-            <button
-              className="btn ghost slim"
-              style={{ marginRight: "auto", color: "var(--red)" }}
-              onClick={handleDelete}
-              disabled={saving || deleting}
-            >
-              {deleting ? "Deleting..." : "Delete"}
-            </button>
-          )}
-          <button className="btn ghost" onClick={closeModal} disabled={deleting}>Cancel</button>
-          <button className="btn" onClick={handleSave} disabled={saving || deleting}>{saving ? "Saving..." : "Save"}</button>
+        <div className="modal-f record-modal-f">
+          <div className="modal-f-start">
+            {isEdit && (
+              <button className="btn ghost danger-text" type="button" onClick={handleDelete} disabled={saving || deleting}>
+                <Trash2 aria-hidden="true" />{deleting ? t("rec.deleting") : t("rec.delete")}
+              </button>
+            )}
+            {type === "lead" && isEdit && (linkedJob ? (
+              <button className="btn ghost" type="button" onClick={() => openRecordModal("job", linkedJob)}><BriefcaseBusiness aria-hidden="true" />{t("rec.openJob")}</button>
+            ) : hasPermission("create") && (
+              <button className="btn ghost accent-outline" type="button" onClick={() => openRecordModal("job", undefined, { ...jobDraftFromLead({ ...r, ...form, value: Number(form.value || 0) }) })}>
+                <BriefcaseBusiness aria-hidden="true" /><span className="label-long">{t("rec.createJob")}</span><span className="label-short" aria-hidden="true">{t("rec.createJobShort")}</span>
+              </button>
+            ))}
+          </div>
+          <div className="inline-actions">
+            <button className="btn ghost" type="button" onClick={closeModal} disabled={deleting}>{t("rec.cancel")}</button>
+            <button className="btn" type="button" onClick={handleSave} disabled={saving || deleting}>{saving ? t("rec.saving") : t("rec.save")}</button>
+          </div>
         </div>
       </section>
     </div>
   );
 }
 
-function Field({ label, value, onChange, type = "text" }: { label: string; value: string; onChange: (v: string) => void; type?: string }) {
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+function FormSection({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <div className="field">
-      <label>{label}</label>
-      <input type={type} value={value} onChange={e => onChange(e.target.value)} />
+    <section className="form-section">
+      <h4 className="form-section-title">{title}</h4>
+      <div className="form-section-body">{children}</div>
+    </section>
+  );
+}
+
+function Field({ label, value, onChange, type = "text", wide }: { label: string; value: string; onChange: (v: string) => void; type?: string; wide?: boolean }) {
+  const id = useId();
+  return (
+    <div className="field" style={wide ? { gridColumn: "1 / -1" } : undefined}>
+      <label htmlFor={id}>{label}</label>
+      <input id={id} type={type} value={value} onChange={e => onChange(e.target.value)} />
     </div>
   );
 }
 
-function SelectField({ label, value, options, onChange }: { label: string; value: string; options: string[]; onChange: (v: string) => void }) {
+function TextArea({ label, value, onChange, rows = 3, hideLabel }: { label: string; value: string; onChange: (v: string) => void; rows?: number; hideLabel?: boolean }) {
+  const id = useId();
   return (
     <div className="field">
-      <label>{label}</label>
-      <Select value={value} onChange={onChange} options={options.map(opt => ({ value: opt, label: opt }))} />
+      <label htmlFor={id} className={hideLabel ? "sr-only" : undefined}>{label}</label>
+      <textarea id={id} rows={rows} value={value} onChange={e => onChange(e.target.value)} />
+    </div>
+  );
+}
+
+function SelectBox({ label, value, options, onChange }: { label: string; value: string; options: SelectOption[]; onChange: (v: string) => void }) {
+  return (
+    <div className="field">
+      <span className="field-label">{label}</span>
+      <Select value={value} onChange={onChange} options={options} aria-label={label} />
     </div>
   );
 }

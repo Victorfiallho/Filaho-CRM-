@@ -9,6 +9,14 @@ import { useCompany } from "../state/CompanyContext";
 // over every page. Read-only (see web/api/chat-agent.js) and session-only —
 // history lives in this component's state and is gone on reload, by design
 // (no chat_messages table yet).
+//
+// Also opened from the account menu (openAssistant()): on phones the
+// floating button is hidden because it covered page content.
+const OPEN_EVENT = "fialho:open-assistant";
+export function openAssistant() {
+  window.dispatchEvent(new Event(OPEN_EVENT));
+}
+
 export default function ChatWidget() {
   const { activeCompanyId } = useCompany();
   const [open, setOpen] = useState(false);
@@ -20,6 +28,12 @@ export default function ChatWidget() {
   useEffect(() => {
     if (listRef.current) listRef.current.scrollTop = listRef.current.scrollHeight;
   }, [messages, open]);
+
+  useEffect(() => {
+    const onOpen = () => setOpen(true);
+    window.addEventListener(OPEN_EVENT, onOpen);
+    return () => window.removeEventListener(OPEN_EVENT, onOpen);
+  }, []);
 
   if (!activeCompanyId) return null;
 

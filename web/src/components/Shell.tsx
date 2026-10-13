@@ -1,10 +1,10 @@
-import { ChevronDown, LogOut, PanelLeftClose, PanelLeftOpen, Plus, RefreshCw } from "lucide-react";
+import { ChevronDown, Plus } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Navigate, Outlet, useLocation, useNavigate } from "react-router-dom";
 import ChatWidget from "./ChatWidget";
-import CompanyLogo from "./CompanyLogo";
-import { useCustomers, useImportsHistory, useIsOwner, useJobs, useLeads, usePermissions } from "../data/hooks";
-import { MODULE_ICONS, MODULES, NAV_GROUPS } from "../domain/constants";
+import { useCurrentAppUser, useCustomers, useImportsHistory, useIsOwner, useJobs, useLeads, usePermissions } from "../data/hooks";
+import { MODULES } from "../domain/constants";
+import { readableOn } from "../domain/visual";
 import { money } from "../domain/format";
 import { isOpenStage } from "../domain/pipelineStages";
 import type { PipelineStage } from "../domain/types";
@@ -12,8 +12,10 @@ import { useAuth } from "../state/AuthContext";
 import { useCompany } from "../state/CompanyContext";
 import { useModal } from "../state/ModalContext";
 import { useSearch } from "../state/SearchContext";
+import PageHeader from "./PageHeader";
 import PageSkeleton from "./PageSkeleton";
 import RecordModal from "./RecordModal";
+import TopNav from "./TopNav";
 
 // Matches on the first path segment so nested routes keep their section's
 // title — /jobs/:id/financials used to fall through to "Dashboard".
@@ -23,7 +25,7 @@ function pageTitle(pathname: string) {
 }
 
 // A quick, module-relevant stat instead of just repeating the company name
-// (which the sidebar already shows) — makes this header line actually say
+// (which the top nav already shows) — makes the page subtitle actually say
 // something instead of sitting there static on every page.
 function useTopbarSubtitle(pathname: string, companyId: string | null, companyName: string, stages: PipelineStage[]): string {
   const { data: customers = [], isLoading: customersLoading } = useCustomers(companyId);
@@ -67,51 +69,12 @@ export default function Shell() {
   const { activeCompany, activeCompanyId, clearCompany, stages, companiesLoading } = useCompany();
   const { isOwner } = useIsOwner();
   const { has: hasPermission, isLoading: permissionsLoading } = usePermissions();
+  const { data: currentAppUser } = useCurrentAppUser();
   const { searchText, setSearchText } = useSearch();
   const { openRecordModal } = useModal();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  // Desktop-only collapse to an icon rail (separate from sidebarOpen above,
-  // which is the mobile slide-in/out toggle) — persisted so it survives a
-  // reload instead of resetting every time.
-  const [collapsed, setCollapsed] = useState(() => {
-    try {
-      const stored = localStorage.getItem("fialho_sidebar_collapsed");
-      return stored === null ? true : stored === "1"; // collapsed by default until the user opens it once
-    } catch { return true; }
-  });
-  const toggleCollapsed = () => setCollapsed(prev => {
-    const next = !prev;
-    try { localStorage.setItem("fialho_sidebar_collapsed", next ? "1" : "0"); } catch { /* private mode etc — not persisting is fine */ }
-    return next;
-  });
   const location = useLocation();
   const navigate = useNavigate();
-  const navRef = useRef<HTMLElement | null>(null);
-  const [indicator, setIndicator] = useState({ top: 0, height: 0 });
   const canImport = hasPermission("import");
-
-  // isOwner/canImport gate two nav buttons (see the MODULES.filter below) and
-  // both resolve async, after this component's first paint — if either flips
-  // true after mount and reveals a hidden button above the active one, the
-  // active button's offsetTop shifts but this effect never re-ran (it only
-  // watched location.pathname), leaving the sliding highlight parked at its
-  // stale position until the next navigation. collapsed is included too since
-  // it swaps label text in/out, which can change wrapping/height.
-  useEffect(() => {
-    const active = navRef.current?.querySelector<HTMLElement>("button.active");
-    if (active) setIndicator({ top: active.offsetTop, height: active.offsetHeight });
-  }, [location.pathname, isOwner, canImport, collapsed, sidebarOpen]);
-
-  // Escape closes the mobile drawer, matching RecordModal's own Escape
-  // handling — found missing during a mobile pass alongside the backdrop
-  // below (previously there was no way to dismiss the open sidebar short of
-  // tapping a nav link and navigating away).
-  useEffect(() => {
-    if (!sidebarOpen) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setSidebarOpen(false); };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [sidebarOpen]);
 
   // A search left over from the previous module silently filtering the next
   // one (e.g. searching "Marietta" on Clients, then Jobs looking empty for no
@@ -124,18 +87,22 @@ export default function Shell() {
 
   const topbarSubtitle = useTopbarSubtitle(location.pathname, activeCompanyId, activeCompany?.name || "", stages);
 
-  // Also stamped on <body>, not just the .app-shell div below: RecordModal is
-  // portaled to #modal-root, a sibling of #root in index.html — outside
-  // .app-shell in the DOM — so a CSS variable scoped only to .app-shell would
-  // never reach the Save button in that modal. body is a shared ancestor of
-  // both, so the brand-color override in styles.css (which reads
-  // --company-color off body) reaches everything, portals included. Cleared
-  // on unmount so Login/CompanyPicker don't inherit a stale company color
-  // after switching companies or logging out.
+  // Also stamped on <body>, not just the shell div below: RecordModal is
+  // portaled to #modal-root, a sibling of #root in index.html — outside the
+  // shell in the DOM — so a CSS variable scoped only to the shell would never
+  // reach the Save button in that modal. body is a shared ancestor of both,
+  // so the accent override in styles.css (which reads --company-color off
+  // body) reaches everything, portals included. --accent-ink is the text
+  // color that stays readable on that accent. Cleared on unmount so
+  // Login/CompanyPicker don't inherit a stale company color.
   useEffect(() => {
     if (!activeCompany?.color) return;
     document.body.style.setProperty("--company-color", activeCompany.color);
-    return () => { document.body.style.removeProperty("--company-color"); };
+    document.body.style.setProperty("--accent-ink", readableOn(activeCompany.color));
+    return () => {
+      document.body.style.removeProperty("--company-color");
+      document.body.style.removeProperty("--accent-ink");
+    };
   }, [activeCompany?.color]);
 
   // `session` starts null on every mount until AuthContext's getSession()
@@ -149,13 +116,15 @@ export default function Shell() {
   // `activeCompany` is momentarily null on that first render regardless —
   // without waiting it out, a perfectly valid, already-selected session got
   // bounced straight to /companies, discarding whatever page it wanted.
-  if (authLoading || companiesLoading) return <ShellSkeleton collapsed={collapsed} />;
+  if (authLoading || companiesLoading) return <ShellSkeleton />;
   if (!session) return <Navigate to="/login" replace />;
   if (!activeCompanyId || !activeCompany) return <Navigate to="/companies" replace />;
   // The nav (Company Financials, Users, Import) and the "New" button depend
   // on the user's permissions. Painting before they load showed a short menu
   // that then grew — so the shell waits and shows its own outline instead.
-  if (permissionsLoading) return <ShellSkeleton collapsed={collapsed} />;
+  if (permissionsLoading) return <ShellSkeleton />;
+
+  const canSee = (id: string) => (id !== "users" || isOwner) && (id !== "company-financials" || isOwner) && (id !== "import" || canImport);
 
   const switchCompany = () => {
     clearCompany();
@@ -163,86 +132,28 @@ export default function Shell() {
   };
 
   return (
-    <div className="app-shell" style={{ ["--company-color" as any]: activeCompany.color || undefined, ["--sidebar-w" as any]: collapsed ? "96px" : "264px" }}>
-      {/* Always in the DOM (unlike the visible "Fialho Home Improvement" brand
-          text below, which the sidebar hides while collapsed) so the app has
-          exactly one h1 on every render — screen-reader heading navigation
-          otherwise jumped straight from nothing to the topbar's h2. */}
-      <h1 className="sr-only">Fialho Home Improvement</h1>
-      {/* Mobile-only drawer scrim — also the only way to dismiss the open
-          sidebar besides tapping a nav link (see the Escape handler above).
-          Only ever mounted while sidebarOpen is true, and CSS additionally
-          keeps it (and the sidebar's slide-in transform) inert above 760px,
-          so it can't appear from a desktop click. */}
-      {sidebarOpen && <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />}
-      <aside className={`sidebar${sidebarOpen ? " open" : ""}${collapsed ? " collapsed" : ""}`} id="sidebar">
-        <div className="brand">
-          <div className="logo" data-company={activeCompany.id}><CompanyLogo company={activeCompany} /></div>
-          {/* `collapsed` is a desktop-only, persisted icon-rail preference —
-              on mobile the drawer always opens full width regardless of it
-              (styles.css forces width:264px there), so while sidebarOpen is
-              true this ignores `collapsed` and shows full labels instead of
-              leaving mobile permanently stuck with an unlabeled icon rail. */}
-          {(!collapsed || sidebarOpen) && <div><b>Fialho Home Improvement</b><span>{activeCompany.name}</span></div>}
-        </div>
-        <button className="sidebar-toggle" onClick={toggleCollapsed} aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"} title={collapsed ? "Expand sidebar" : "Collapse sidebar"}>
-          {collapsed ? <PanelLeftOpen /> : <PanelLeftClose />}
-        </button>
-        <nav className="nav" ref={navRef}>
-          <span className="nav-indicator" style={{ transform: `translateY(${indicator.top}px)`, height: indicator.height }} />
-          {/* Group labels are plain siblings of the buttons (not wrappers) so
-              each button's offsetTop stays relative to the nav, which the
-              sliding active indicator above is positioned from. */}
-          {NAV_GROUPS.map(([group, ids]) => {
-            const visible = MODULES.filter(([id]) => ids.includes(id) && (id !== "users" || isOwner) && (id !== "company-financials" || isOwner) && (id !== "import" || canImport));
-            if (!visible.length) return null;
-            const showLabel = !collapsed || sidebarOpen;
-            return [
-              showLabel ? <span key={`group-${group}`} className="nav-group">{group}</span> : <span key={`group-${group}`} className="nav-group-rule" aria-hidden="true" />,
-              ...visible.map(([id, label]) => {
-                const Icon = MODULE_ICONS[id];
-                return (
-                  <button
-                    key={id}
-                    className={location.pathname === `/${id}` ? "active" : ""}
-                    onClick={() => { navigate(`/${id}`); setSidebarOpen(false); }}
-                    title={showLabel ? undefined : label}
-                  >
-                    {Icon && <Icon />}
-                    {showLabel && label}
-                  </button>
-                );
-              })
-            ];
-          })}
-        </nav>
-        <div className="side-foot">
-          <button className="btn ghost slim" onClick={switchCompany} title={collapsed && !sidebarOpen ? "Switch company" : undefined}>
-            <RefreshCw />{(!collapsed || sidebarOpen) && "Switch company"}
-          </button>
-          <button className="btn ghost slim" onClick={() => signOut()} title={collapsed && !sidebarOpen ? "Logout" : undefined}>
-            <LogOut />{(!collapsed || sidebarOpen) && "Logout"}
-          </button>
-        </div>
-      </aside>
+    <div className="app-shell" style={{ ["--company-color" as any]: activeCompany.color || undefined }}>
+      {/* Exactly one h1 on every render, for screen-reader heading navigation;
+          each page's visible title is the PageHeader h2 below. */}
+      <h1 className="sr-only">Fialho Home Improvement — {activeCompany.name}</h1>
+      <TopNav
+        company={activeCompany}
+        canSee={canSee}
+        userName={currentAppUser?.name || session.user.email || ""}
+        searchText={searchText}
+        onSearch={setSearchText}
+        onSwitchCompany={switchCompany}
+        onSignOut={() => signOut()}
+      />
       <main className="main">
-        <header className="topbar">
-          <button className="hamburger" onClick={() => setSidebarOpen(v => !v)}>Menu</button>
-          <div>
-            <h2>{pageTitle(location.pathname)}</h2>
-            <div className="sub">{topbarSubtitle}</div>
-          </div>
-          <div className="search">
-            <input placeholder="Search this company..." value={searchText} onChange={e => setSearchText(e.target.value)} />
-          </div>
-          {hasPermission("create") && <NewRecordMenu onPick={type => openRecordModal(type)} />}
-        </header>
+        <PageHeader
+          title={pageTitle(location.pathname)}
+          subtitle={topbarSubtitle}
+          actions={hasPermission("create") ? <NewRecordMenu onPick={type => openRecordModal(type)} /> : undefined}
+        />
         <section className="content" id="view">
           {/* Keyed on the route so this div actually remounts on every
-              navigation, replaying .view-enter's fade+rise — previously the
-              class sat on the section above, which never remounts (only
-              Outlet's child swaps), so the animation only ever played once,
-              on first login, and every later page change was an instant cut. */}
+              navigation, replaying .view-enter's fade+rise. */}
           <div key={location.pathname} className="view-enter">
             <Outlet />
           </div>
@@ -254,8 +165,7 @@ export default function Shell() {
   );
 }
 
-// One "New" button with a menu instead of three side-by-side buttons, which
-// crowded the topbar (and wrapped on narrow screens).
+// One "New" button with a menu instead of three side-by-side buttons.
 function NewRecordMenu({ onPick }: { onPick: (type: "lead" | "customer" | "job") => void }) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement | null>(null);
@@ -273,36 +183,38 @@ function NewRecordMenu({ onPick }: { onPick: (type: "lead" | "customer" | "job")
 
   return (
     <div className="new-menu" ref={wrapRef}>
-      <button className="btn" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(v => !v)}>
-        <Plus />New<ChevronDown />
+      <button className="btn accent-pill" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(v => !v)}>
+        <Plus aria-hidden="true" />New<ChevronDown aria-hidden="true" />
       </button>
       {open && (
-        <div className="new-menu-list" role="menu">
-          <button role="menuitem" data-action="new-lead" onClick={() => pick("lead")}>Lead</button>
-          <button role="menuitem" data-action="new-customer" onClick={() => pick("customer")}>Client</button>
-          <button role="menuitem" data-action="new-job" onClick={() => pick("job")}>Job</button>
+        <div className="popover new-menu-list" role="menu">
+          <button role="menuitem" className="popover-item" data-action="new-lead" onClick={() => pick("lead")}>Lead</button>
+          <button role="menuitem" className="popover-item" data-action="new-customer" onClick={() => pick("customer")}>Client</button>
+          <button role="menuitem" className="popover-item" data-action="new-job" onClick={() => pick("job")}>Job</button>
         </div>
       )}
     </div>
   );
 }
 
-// Same outline as the real shell (sidebar width, topbar, content padding) so
-// the swap to real content is a fill-in, not a layout change.
-function ShellSkeleton({ collapsed }: { collapsed: boolean }) {
+// Same outline as the real shell (top nav, page header, content) so the swap
+// to real content is a fill-in, not a layout change.
+function ShellSkeleton() {
   return (
-    <div className="app-shell" aria-busy="true" aria-label="Loading" style={{ ["--sidebar-w" as any]: collapsed ? "96px" : "264px" }}>
-      <aside className={`sidebar${collapsed ? " collapsed" : ""}`}>
-        <div className="brand"><span className="skeleton skeleton-circle" /></div>
-        <div className="nav skeleton-stack">
-          {Array.from({ length: 9 }).map((_, i) => <span key={i} className="skeleton skeleton-nav" />)}
+    <div className="app-shell" aria-busy="true" aria-label="Loading">
+      <div className="topnav-wrap">
+        <div className="topnav">
+          <span className="skeleton skeleton-circle" />
+          <div className="topnav-pills">
+            {Array.from({ length: 5 }).map((_, i) => <span key={i} className="skeleton skeleton-pill" />)}
+          </div>
         </div>
-      </aside>
+      </div>
       <main className="main">
-        <header className="topbar">
-          <div style={{ flex: 1 }}>
-            <span className="skeleton skeleton-text short" style={{ display: "block", width: 160, height: 18 }} />
-            <span className="skeleton skeleton-text" style={{ display: "block", width: 120, marginTop: 6 }} />
+        <header className="page-header">
+          <div className="page-header-text">
+            <span className="skeleton skeleton-text short" style={{ display: "block", width: 200, height: 26 }} />
+            <span className="skeleton skeleton-text" style={{ display: "block", width: 140, marginTop: 8 }} />
           </div>
         </header>
         <section className="content">

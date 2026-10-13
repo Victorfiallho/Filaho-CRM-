@@ -1,4 +1,5 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Check } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 export interface SelectOption {
@@ -13,33 +14,54 @@ interface SelectProps {
   options: SelectOption[];
   disabled?: boolean;
   id?: string;
+  // Accessible name when there's no <label> pointing at the trigger.
+  "aria-label"?: string;
 }
 
 let selectInstanceCounter = 0;
 
-// Custom-styled dropdown replacing the native <select>'s open-state popup —
-// browsers render that popup with OS chrome that page CSS can't reach. Same
-// value/onChange contract as a native select, so it drops in everywhere one
-// was used. Business logic (what options exist, what's selected/disabled) is
-// unchanged; this only replaces how the list looks when open.
+// Phones get a bottom sheet with large rows instead of a small floating list.
+const SHEET_QUERY = "(max-width: 640px)";
+const MENU_MAX_HEIGHT = 320;
+const GAP = 6;
+
+interface MenuPos { top?: number; bottom?: number; left: number; minWidth: number; maxHeight: number }
+
+// Where the floating list goes, from the trigger's on-screen box: below it
+// when there's room (or when there's more room below than above), as wide as
+// its longest label but never narrower than the trigger, kept inside the
+// viewport horizontally.
+function menuPosition(rect: DOMRect): MenuPos {
+  const below = window.innerHeight - rect.bottom - GAP - 8;
+  const above = rect.top - GAP - 8;
+  const openUp = below < 200 && above > below;
+  const maxHeight = Math.max(120, Math.min(MENU_MAX_HEIGHT, openUp ? above : below));
+  const left = Math.max(8, Math.min(rect.left, window.innerWidth - Math.max(rect.width, 200) - 8));
+  return openUp
+    ? { bottom: window.innerHeight - rect.top + GAP, left, minWidth: rect.width, maxHeight }
+    : { top: rect.bottom + GAP, left, minWidth: rect.width, maxHeight };
+}
+
+// Custom dropdown with the native <select> contract (value/onChange), used
+// across the app. Rewritten 2026-10-13 after it was found to flicker, need
+// two clicks and refuse to scroll:
+//   - it closed on *any* scroll event (capture phase) — including scrolling
+//     its own list, and including the scrollIntoView() it ran on open, which
+//     closed it right after opening (the "click twice" / blink);
+//   - the first painted frame was at left:0/width:0 before a layout effect
+//     moved it.
+// Now: position is computed before the first paint, page scroll/resize
+// *repositions* the list (closing only once the trigger leaves the screen),
+// scrolling inside the list is just scrolling, and keeping the highlighted
+// row visible adjusts the list's own scrollTop (never the page).
 //
-// The menu is portaled to <body> with `position: fixed` coordinates computed
-// from the trigger — several call sites (the Import Center preview table,
-// modals) sit inside `overflow: auto` containers, and an absolutely
-// positioned menu would get clipped by those instead of floating above them.
-//
-// Keyboard support (added after a UX pass found the original had none beyond
-// Escape, despite declaring role="listbox"/"option" — a real <select> and
-// any screen reader user would expect full arrow-key/typeahead operation
-// from that ARIA contract). Follows the standard "listbox with
-// aria-activedescendant" pattern: focus stays on the trigger button the
-// whole time, a `highlighted` index drives both the visual highlight and
-// aria-activedescendant, and Enter/Space commits it — never moving real DOM
-// focus into the popup, which is what lets Escape/Tab/blur all behave the
-// way a native select's users already expect.
-export default function Select({ value, onChange, options, disabled, id }: SelectProps) {
+// Keyboard: listbox with aria-activedescendant — focus stays on the trigger,
+// arrows/Home/End/typeahead move the highlight, Enter/Space commit, Escape/
+// Tab close, like a native select.
+export default function Select({ value, onChange, options, disabled, id, "aria-label": ariaLabel }: SelectProps) {
   const [open, setOpen] = useState(false);
-  const [pos, setPos] = useState<{ left: number; width: number; openUp: boolean; top?: number; bottom?: number }>({ left: 0, width: 0, openUp: false });
+  const [pos, setPos] = useState<MenuPos | null>(null);
+  const [sheet, setSheet] = useState(false);
   const [highlighted, setHighlighted] = useState(0);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
@@ -51,18 +73,25 @@ export default function Select({ value, onChange, options, disabled, id }: Selec
   const enabledIndexes = options.map((o, i) => (o.disabled ? -1 : i)).filter(i => i >= 0);
 
   function openMenu() {
-    if (disabled || !options.length) return;
+    if (disabled || !options.length || !triggerRef.current) return;
     const currentIndex = options.findIndex(o => o.value === value);
     setHighlighted(currentIndex >= 0 && !options[currentIndex].disabled ? currentIndex : (enabledIndexes[0] ?? 0));
+    const asSheet = window.matchMedia(SHEET_QUERY).matches;
+    setSheet(asSheet);
+    setPos(asSheet ? null : menuPosition(triggerRef.current.getBoundingClientRect()));
     setOpen(true);
+  }
+
+  function close(returnFocus = false) {
+    setOpen(false);
+    if (returnFocus) triggerRef.current?.focus();
   }
 
   function commit(index: number) {
     const opt = options[index];
     if (!opt || opt.disabled) return;
     onChange(opt.value);
-    setOpen(false);
-    triggerRef.current?.focus();
+    close(true);
   }
 
   function moveHighlight(direction: 1 | -1) {
@@ -85,81 +114,92 @@ export default function Select({ value, onChange, options, disabled, id }: Selec
       return;
     }
     switch (e.key) {
-      case "ArrowDown":
-        e.preventDefault();
-        moveHighlight(1);
-        break;
-      case "ArrowUp":
-        e.preventDefault();
-        moveHighlight(-1);
-        break;
-      case "Home":
-        e.preventDefault();
-        if (enabledIndexes.length) setHighlighted(enabledIndexes[0]);
-        break;
-      case "End":
-        e.preventDefault();
-        if (enabledIndexes.length) setHighlighted(enabledIndexes[enabledIndexes.length - 1]);
-        break;
+      case "ArrowDown": e.preventDefault(); moveHighlight(1); break;
+      case "ArrowUp": e.preventDefault(); moveHighlight(-1); break;
+      case "Home": e.preventDefault(); if (enabledIndexes.length) setHighlighted(enabledIndexes[0]); break;
+      case "End": e.preventDefault(); if (enabledIndexes.length) setHighlighted(enabledIndexes[enabledIndexes.length - 1]); break;
       case "Enter":
-      case " ":
-        e.preventDefault();
-        commit(highlighted);
-        break;
-      case "Tab":
-        setOpen(false);
-        break;
+      case " ": e.preventDefault(); commit(highlighted); break;
+      case "Escape": e.preventDefault(); close(true); break;
+      case "Tab": close(); break;
       default:
-        // Typeahead: typing letters jumps to the next option whose label
-        // starts with what's been typed so far (reset after a short pause),
-        // matching a native <select>'s own typeahead behavior.
+        // Typeahead, like a native <select>.
         if (e.key.length === 1 && /\S/.test(e.key)) {
           const now = Date.now();
           const buffer = now - typeaheadRef.current.at < 800 ? typeaheadRef.current.text + e.key : e.key;
           typeaheadRef.current = { text: buffer, at: now };
-          const lower = buffer.toLowerCase();
-          const match = options.findIndex(o => !o.disabled && o.label.toLowerCase().startsWith(lower));
+          const match = options.findIndex(o => !o.disabled && o.label.toLowerCase().startsWith(buffer.toLowerCase()));
           if (match >= 0) setHighlighted(match);
         }
     }
   }
 
+  // Outside press closes; page scroll/resize repositions (closing only when
+  // the trigger is scrolled out of view). Scrolls inside the list are ignored.
   useEffect(() => {
     if (!open) return;
-    const onDocDown = (e: MouseEvent) => {
-      if (rootRef.current?.contains(e.target as Node)) return;
-      if (menuRef.current?.contains(e.target as Node)) return;
-      setOpen(false);
+    const onPointerDown = (e: PointerEvent) => {
+      const target = e.target as Node;
+      if (rootRef.current?.contains(target) || menuRef.current?.contains(target)) return;
+      close();
     };
-    const onScrollOrResize = () => setOpen(false);
-    document.addEventListener("mousedown", onDocDown);
-    window.addEventListener("scroll", onScrollOrResize, true);
-    window.addEventListener("resize", onScrollOrResize);
+    let frame = 0;
+    const reposition = (e?: Event) => {
+      if (e && menuRef.current && e.target instanceof Node && menuRef.current.contains(e.target)) return;
+      if (sheet || !triggerRef.current) return;
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        if (!triggerRef.current) return;
+        const rect = triggerRef.current.getBoundingClientRect();
+        if (rect.bottom < 0 || rect.top > window.innerHeight) { close(); return; }
+        setPos(menuPosition(rect));
+      });
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") close(true); };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKey);
+    window.addEventListener("scroll", reposition, true);
+    window.addEventListener("resize", reposition);
     return () => {
-      document.removeEventListener("mousedown", onDocDown);
-      window.removeEventListener("scroll", onScrollOrResize, true);
-      window.removeEventListener("resize", onScrollOrResize);
+      cancelAnimationFrame(frame);
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKey);
+      window.removeEventListener("scroll", reposition, true);
+      window.removeEventListener("resize", reposition);
     };
-  }, [open]);
+  }, [open, sheet]);
 
-  useLayoutEffect(() => {
-    if (!open || !triggerRef.current) return;
-    const rect = triggerRef.current.getBoundingClientRect();
-    const openUp = rect.top > window.innerHeight / 2;
-    const gap = 6;
-    setPos(
-      openUp
-        ? { bottom: window.innerHeight - rect.top + gap, left: rect.left, width: rect.width, openUp }
-        : { top: rect.bottom + gap, left: rect.left, width: rect.width, openUp }
-    );
-  }, [open]);
-
-  // Keeps the highlighted option scrolled into view as arrow keys move past
-  // the edge of the (max-height, overflow:auto) menu.
+  // Keep the highlighted row visible by scrolling the list itself — never
+  // scrollIntoView(), which can scroll the page too.
   useEffect(() => {
-    if (!open) return;
-    menuRef.current?.querySelector<HTMLElement>(`#${instanceId}-opt-${highlighted}`)?.scrollIntoView({ block: "nearest" });
+    if (!open || !menuRef.current) return;
+    const list = menuRef.current.querySelector<HTMLElement>(".cs-list") || menuRef.current;
+    const row = list.querySelector<HTMLElement>(`#${instanceId}-opt-${highlighted}`);
+    if (!row) return;
+    const top = row.offsetTop;
+    const bottom = top + row.offsetHeight;
+    if (top < list.scrollTop) list.scrollTop = top - 4;
+    else if (bottom > list.scrollTop + list.clientHeight) list.scrollTop = bottom - list.clientHeight + 4;
   }, [open, highlighted, instanceId]);
+
+  const optionsList = options.map((opt, i) => (
+    <div
+      key={opt.value}
+      id={`${instanceId}-opt-${i}`}
+      role="option"
+      aria-selected={opt.value === value}
+      aria-disabled={opt.disabled || undefined}
+      className={`cs-option${opt.value === value ? " selected" : ""}${i === highlighted ? " highlighted" : ""}${opt.disabled ? " disabled" : ""}`}
+      // Keep focus on the trigger (aria-activedescendant pattern) so a click
+      // doesn't blur it and flash a focus change.
+      onMouseDown={e => e.preventDefault()}
+      onMouseEnter={() => setHighlighted(i)}
+      onClick={() => commit(i)}
+    >
+      <span className="cs-option-label">{opt.label}</span>
+      {opt.value === value && <Check className="cs-check" aria-hidden="true" />}
+    </div>
+  ));
 
   return (
     <div className="cs" ref={rootRef}>
@@ -169,41 +209,44 @@ export default function Select({ value, onChange, options, disabled, id }: Selec
         ref={triggerRef}
         className={`cs-trigger${open ? " open" : ""}`}
         disabled={disabled}
-        onClick={() => (open ? setOpen(false) : openMenu())}
+        onClick={() => (open ? close() : openMenu())}
         onKeyDown={handleTriggerKeyDown}
+        aria-label={ariaLabel}
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={open ? `${instanceId}-menu` : undefined}
         aria-activedescendant={open ? `${instanceId}-opt-${highlighted}` : undefined}
       >
         <span className="cs-value">{selected?.label ?? ""}</span>
-        <svg className="cs-caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+        <svg className="cs-caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
       </button>
       {open && createPortal(
-        <div
-          ref={menuRef}
-          id={`${instanceId}-menu`}
-          className="cs-menu"
-          role="listbox"
-          style={{ position: "fixed", top: pos.top, bottom: pos.bottom, left: pos.left, width: pos.width }}
-        >
-          {options.map((opt, i) => (
-            <button
-              key={opt.value}
-              id={`${instanceId}-opt-${i}`}
-              type="button"
-              role="option"
-              aria-selected={opt.value === value}
-              tabIndex={-1}
-              className={`cs-option${opt.value === value ? " selected" : ""}${i === highlighted ? " highlighted" : ""}`}
-              disabled={opt.disabled}
-              onMouseEnter={() => setHighlighted(i)}
-              onClick={() => commit(i)}
+        sheet ? (
+          <div className="cs-sheet-backdrop" onClick={() => close(true)}>
+            <div
+              ref={menuRef}
+              id={`${instanceId}-menu`}
+              className="cs-sheet"
+              role="listbox"
+              aria-label={ariaLabel || selected?.label}
+              onClick={e => e.stopPropagation()}
             >
-              {opt.label}
-            </button>
-          ))}
-        </div>,
+              <span className="cs-sheet-grip" aria-hidden="true" />
+              <div className="cs-list">{optionsList}</div>
+            </div>
+          </div>
+        ) : (
+          <div
+            ref={menuRef}
+            id={`${instanceId}-menu`}
+            className={`cs-menu${pos?.bottom !== undefined ? " up" : ""}`}
+            role="listbox"
+            aria-label={ariaLabel || selected?.label}
+            style={pos ? { position: "fixed", top: pos.top, bottom: pos.bottom, left: pos.left, minWidth: pos.minWidth, maxHeight: pos.maxHeight } : undefined}
+          >
+            {optionsList}
+          </div>
+        ),
         document.body
       )}
     </div>

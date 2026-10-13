@@ -1510,3 +1510,38 @@ tr:hover td{background:rgba(255,255,255,.55)}
   .pager > button{flex:1 1 0}
   .pager > button.current{flex:0 0 44px;padding:0}
 }
+
+/* ── Select (rewritten 2026-10-13): floating list + phone bottom sheet ── */
+.cs-menu{
+  z-index:1000;padding:6px;overflow-y:auto;overscroll-behavior:contain;
+  width:max-content;max-width:min(360px,calc(100vw - 16px));
+  background:var(--surface-solid);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow-lg);
+  transform-origin:top left;animation:popIn .14s var(--ease) both;
+}
+.cs-menu.up{transform-origin:bottom left}
+.cs-option{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;
+  min-height:38px;padding:8px 10px 8px 12px;border-radius:10px;cursor:pointer;
+  background:transparent;color:var(--ink-soft);font-weight:500;font-size:14px;white-space:nowrap;user-select:none;
+}
+.cs-option-label{overflow:hidden;text-overflow:ellipsis}
+.cs-option:hover:not(.disabled),.cs-option.highlighted:not(.disabled){background:var(--soft);color:var(--ink)}
+.cs-option.highlighted:not(.selected){background:var(--soft)}
+.cs-option.selected{background:transparent;color:var(--ink);font-weight:600}
+.cs-option.selected.highlighted{background:var(--soft)}
+.cs-option.disabled{color:var(--muted-soft);cursor:not-allowed}
+.cs-check{width:16px;height:16px;flex:0 0 auto;color:var(--ink)}
+.cs-trigger.open{border-color:rgba(17,17,17,.25);box-shadow:0 0 0 3px rgba(17,17,17,.06)}
+.cs-trigger:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+
+/* Phones: bottom sheet */
+.cs-sheet-backdrop{position:fixed;inset:0;z-index:1000;background:rgba(17,17,17,.32);display:flex;align-items:flex-end;animation:fadeIn .15s var(--ease) both}
+.cs-sheet{
+  width:100%;max-height:min(70vh,520px);display:flex;flex-direction:column;padding:8px 10px calc(10px + env(safe-area-inset-bottom));
+  background:var(--surface-solid);border-radius:24px 24px 0 0;box-shadow:var(--shadow-lg);animation:sheetUp .22s var(--ease) both;
+}
+@keyframes sheetUp{from{transform:translateY(24px);opacity:.6}to{transform:none;opacity:1}}
+.cs-sheet-grip{width:40px;height:4px;border-radius:999px;background:rgba(17,17,17,.15);margin:4px auto 8px;flex:0 0 auto}
+.cs-sheet .cs-list{overflow-y:auto;overscroll-behavior:contain}
+.cs-sheet .cs-option{min-height:52px;font-size:16px;padding:0 16px;white-space:normal}
+@media(prefers-reduced-motion:reduce){.cs-menu,.cs-sheet,.cs-sheet-backdrop{animation:none}}

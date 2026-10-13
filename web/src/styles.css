@@ -401,23 +401,6 @@ h1,h2,h3{margin:0;letter-spacing:-.02em;font-weight:700;color:var(--ink)}
 .bar-row-track{height:8px;background:var(--soft);border-radius:999px;overflow:hidden}
 .bar-row-fill{height:8px;border-radius:0 999px 999px 0;transition:filter .15s ease}
 .bar-row:hover .bar-row-fill{filter:brightness(1.1)}
-.trend-chart-plot{position:relative;width:100%;touch-action:pan-y}
-.trend-chart-plot svg{display:block;cursor:crosshair}
-.trend-chart-plot svg:focus-visible{outline:2px solid var(--brand-ring);outline-offset:2px}
-.trend-chart-grid{stroke:var(--line-strong);stroke-width:1}
-.trend-chart-crosshair{stroke:var(--muted-soft);stroke-width:1}
-.trend-chart-area{fill:var(--brand);opacity:.1;stroke:none}
-.trend-chart-line{fill:none;stroke:var(--brand);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-.trend-chart-dot-ring{fill:var(--surface)}
-.trend-chart-dot{fill:var(--brand)}
-.trend-chart-axis-label{fill:var(--muted);font-size:11px;font-family:inherit}
-.trend-chart-tooltip{
-  position:absolute;top:0;transform:translate(-50%,-4px);pointer-events:none;
-  background:var(--ink);color:#fff;border-radius:var(--radius-sm);padding:6px 10px;
-  box-shadow:var(--shadow-md);white-space:nowrap;
-}
-.trend-chart-tooltip-value{font-weight:700;font-size:13px}
-.trend-chart-tooltip-label{font-size:11px;opacity:.75;margin-top:1px}
 .bulk-bar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;padding:10px 20px;background:var(--brand-soft);border-bottom:1px solid var(--line-strong);font-size:13px;font-weight:600;color:var(--ink-soft)}
 .table-filters{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding-bottom:14px}
 .table-filters .cs{min-width:160px}
@@ -1280,3 +1263,60 @@ tr:hover td{background:rgba(255,255,255,.55)}
   .popover,.nav-sheet,.sheet-backdrop,.kpi-tile{animation:none}
 }
 .nav-sheet-h .topnav-brand-name{display:inline;font-size:16px}
+
+/* UX audit fixes (2026-10-13) */
+/* Text links in card headers/rows were 16-19px tall: give them a real hit
+   area (24px desktop, WCAG 2.2 AA; 44px on touch) without changing how they look. */
+.link-btn,.card-h a{display:inline-flex;align-items:center;min-height:28px}
+@media(max-width:900px){
+  .link-btn,.card-h a{min-height:44px}
+  /* Bell/account panels: full-width under the nav instead of anchored to a
+     40px button near the edge, which pushed them off-screen. */
+  .topnav-tools .popover{position:fixed;left:12px;right:12px;top:76px;width:auto;min-width:0;max-width:none;transform-origin:top center}
+  .bell-popover{max-height:min(70vh,520px)}
+}
+
+/* ── Area trend chart (TrendLineChart, motion) ── */
+.trend-chart{--chart-line:color-mix(in srgb,var(--accent) 86%,black)}
+.trend-chart-summary{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 12px;margin:-4px 0 6px}
+.trend-chart-total{font-size:34px;font-weight:500;line-height:1;letter-spacing:-.02em;color:var(--ink)}
+.trend-chart-noun{color:var(--muted);font-size:14px}
+.trend-chart-summary .badge-tone{align-self:center}
+.trend-chart-summary .badge-tone svg{width:14px;height:14px}
+.trend-chart-plot{position:relative;width:100%;touch-action:pan-y}
+.trend-chart-plot svg{display:block;cursor:crosshair;overflow:visible}
+.trend-chart-plot svg:focus{outline:none}
+.trend-chart-plot:has(svg:focus-visible){box-shadow:0 0 0 2px var(--surface-solid),0 0 0 4px rgba(17,17,17,.55);border-radius:14px}
+.trend-chart-grid{stroke:var(--line-strong);stroke-width:1;shape-rendering:crispEdges}
+.trend-chart-line{fill:none;stroke:var(--chart-line);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.trend-chart-wash-top{stop-color:var(--accent);stop-opacity:.22}
+.trend-chart-wash-bottom{stop-color:var(--accent);stop-opacity:0}
+.trend-chart-crosshair{stroke:var(--ink);stroke-opacity:.25;stroke-width:1}
+.trend-chart-dot-ring{fill:var(--surface-solid)}
+.trend-chart-dot{fill:var(--chart-line)}
+.trend-chart-axis-label{fill:var(--muted);font-size:11.5px;font-family:inherit;font-variant-numeric:tabular-nums}
+.trend-chart-end-label{fill:var(--ink);font-size:13px;font-weight:600;font-family:inherit}
+.trend-chart-tooltip-anchor{position:absolute;top:0;left:0;pointer-events:none;z-index:2}
+.trend-chart-tooltip{
+  position:absolute;top:auto;bottom:14px;transform:translateX(-50%);display:grid;gap:1px;white-space:nowrap;
+  background:var(--selected);color:#fff;border-radius:14px;padding:8px 12px;box-shadow:var(--shadow-md);
+}
+.trend-chart-tooltip.below{bottom:auto;top:14px}
+.trend-chart-tooltip.align-end{transform:translateX(calc(-100% + 16px))}
+.trend-chart-tooltip.align-start{transform:translateX(-16px)}
+.trend-chart-tooltip-value{font-weight:600;font-size:14px;font-variant-numeric:tabular-nums}
+.trend-chart-tooltip-label{font-size:11.5px;opacity:.72}
+.trend-chart-foot{display:flex;justify-content:flex-end;margin-top:2px}
+
+/* ── Scrollbars: thin, rounded, warm gray; no track slab ── */
+/* Chrome/Edge/Safari use the rounded ::-webkit-scrollbar rules below; the
+   standard properties (which would override them in Chrome 121+) only go
+   to browsers without that pseudo-element, i.e. Firefox. */
+@supports not selector(::-webkit-scrollbar){
+  *{scrollbar-width:thin;scrollbar-color:rgba(60,52,35,.28) transparent}
+}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(60,52,35,.22);border-radius:999px;border:3px solid transparent;background-clip:padding-box}
+::-webkit-scrollbar-thumb:hover{background:rgba(60,52,35,.4);background-clip:padding-box}
+::-webkit-scrollbar-corner{background:transparent}

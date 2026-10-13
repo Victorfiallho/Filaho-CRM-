@@ -54,12 +54,31 @@ export default function TopNav({ company, canSee, userName, searchText, onSearch
   const navigate = useNavigate();
   const current = firstSegment(location.pathname);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const menuBtnRef = useRef<HTMLButtonElement | null>(null);
+  const sheetRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => { setSheetOpen(false); }, [location.pathname]);
+  // Modal sheet behavior: Escape closes, Tab cycles inside the sheet, the
+  // page behind doesn't scroll, and focus goes back to the menu button.
   useEffect(() => {
     if (!sheetOpen) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setSheetOpen(false); };
+    const menuBtn = menuBtnRef.current;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { setSheetOpen(false); return; }
+      if (e.key !== "Tab" || !sheetRef.current) return;
+      const focusables = [...sheetRef.current.querySelectorAll<HTMLElement>("button, a[href]")];
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last?.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first?.focus(); }
+    };
     document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prevOverflow;
+      menuBtn?.focus();
+    };
   }, [sheetOpen]);
 
   const groups = NAV_GROUPS
@@ -70,7 +89,7 @@ export default function TopNav({ company, canSee, userName, searchText, onSearch
     <div className="topnav-wrap">
       <nav className="topnav" aria-label="Main">
         <button className="topnav-brand" onClick={() => navigate("/dashboard")} aria-label={`${company.name} — dashboard`}>
-          <span className="logo" data-company={company.id}><CompanyLogo company={company} /></span>
+          <span className="logo" data-company={company.id} aria-hidden="true"><CompanyLogo company={company} /></span>
           <span className="topnav-brand-name">{company.name}</span>
         </button>
 
@@ -87,7 +106,7 @@ export default function TopNav({ company, canSee, userName, searchText, onSearch
           <SearchButton value={searchText} onChange={onSearch} />
           <BellButton />
           <AccountMenu userName={userName} companyName={company.name} onSwitchCompany={onSwitchCompany} onSignOut={onSignOut} />
-          <button className="round-btn topnav-menu-btn" aria-label="Open menu" aria-expanded={sheetOpen} onClick={() => setSheetOpen(true)}>
+          <button ref={menuBtnRef} className="round-btn topnav-menu-btn" aria-label="Open menu" aria-expanded={sheetOpen} onClick={() => setSheetOpen(true)}>
             <Menu aria-hidden="true" />
           </button>
         </div>
@@ -96,7 +115,7 @@ export default function TopNav({ company, canSee, userName, searchText, onSearch
       {sheetOpen && (
         <>
           <div className="sheet-backdrop" onClick={() => setSheetOpen(false)} />
-          <div className="nav-sheet" role="dialog" aria-modal="true" aria-label="Menu">
+          <div className="nav-sheet" role="dialog" aria-modal="true" aria-label="Menu" ref={sheetRef}>
             <div className="nav-sheet-h">
               <span className="topnav-brand-name">{company.name}</span>
               <button className="round-btn" aria-label="Close menu" onClick={() => setSheetOpen(false)} autoFocus><X aria-hidden="true" /></button>

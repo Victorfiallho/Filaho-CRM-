@@ -148,7 +148,7 @@ export default function Dashboard() {
           <span className="sub">Last 12 weeks</span>
         </div>
         <div className="card-b">
-          <TrendLineChart data={leadsPerWeek} />
+          <TrendLineChart data={leadsPerWeek} unit={["new lead", "new leads"]} />
         </div>
       </section>
 

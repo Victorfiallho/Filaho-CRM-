@@ -133,9 +133,6 @@ export default function Shell() {
 
   return (
     <div className="app-shell" style={{ ["--company-color" as any]: activeCompany.color || undefined }}>
-      {/* Exactly one h1 on every render, for screen-reader heading navigation;
-          each page's visible title is the PageHeader h2 below. */}
-      <h1 className="sr-only">Fialho Home Improvement — {activeCompany.name}</h1>
       <TopNav
         company={activeCompany}
         canSee={canSee}
@@ -146,6 +143,9 @@ export default function Shell() {
         onSignOut={() => signOut()}
       />
       <main className="main">
+        {/* Exactly one h1 on every render, for screen-reader heading
+            navigation; each page's visible title is the PageHeader h2. */}
+        <h1 className="sr-only">Fialho Home Improvement — {activeCompany.name}</h1>
         <PageHeader
           title={pageTitle(location.pathname)}
           subtitle={topbarSubtitle}

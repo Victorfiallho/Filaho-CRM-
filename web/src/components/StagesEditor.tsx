@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { Check, ChevronDown, ChevronUp, GripVertical, Plus, Shield, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Check, GripVertical, Info, Plus, Trash2, X } from "lucide-react";
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import Select from "./Select";
@@ -16,7 +16,6 @@ interface DraftStage extends PipelineStage {
 }
 
 const DEFAULT_COLOR = "#667085";
-const TYPE_DESCRIPTION: Record<StageType, string> = { open: "Active stage", won: "Completed deal", lost: "Lost deal" };
 
 // Local draft + explicit Save, rather than saving each keystroke: reordering
 // touches several rows at once, and stage `type` feeds Dashboard/Reports
@@ -24,7 +23,7 @@ const TYPE_DESCRIPTION: Record<StageType, string> = { open: "Active stage", won:
 // save this" moment matters more here than it does for the simpler
 // single-field settings elsewhere in the app.
 export default function StagesEditor({ companyId, stages, onClose }: { companyId: string; stages: PipelineStage[]; onClose: () => void }) {
-  const { t } = useT();
+  const { t, tn } = useT();
   const { confirm } = useConfirm();
   const [draft, setDraft] = useState<DraftStage[]>(() => [...stages].sort((a, b) => a.order - b.order).map(s => ({ ...s })));
   const [saving, setSaving] = useState(false);
@@ -39,7 +38,7 @@ export default function StagesEditor({ companyId, stages, onClose }: { companyId
     const existingIds = draft.map(s => s.id);
     const id = slugifyStageId("New stage", existingIds);
     const nextOrder = Math.max(0, ...draft.map(s => s.order)) + 1;
-    setDraft(d => [...d, { id, company_id: companyId, name: "New stage", order: nextOrder, color: DEFAULT_COLOR, type: "open", win_probability: 0.5, isNew: true }]);
+    setDraft(d => [...d, { id, company_id: companyId, name: t("stg.newStage"), order: nextOrder, color: DEFAULT_COLOR, type: "open", win_probability: 0.5, isNew: true }]);
   }
 
   function move(id: string, dir: -1 | 1) {
@@ -77,7 +76,7 @@ export default function StagesEditor({ companyId, stages, onClose }: { companyId
     if (!row.isNew) {
       const count = await countLeadsInStage(companyId, id).catch(() => 0);
       if (count > 0) {
-        toast(`Move or update the ${count} lead${count === 1 ? "" : "s"} in this stage before deleting it.`);
+        toast(tn("stg.hasLeads", count));
         return;
       }
     }
@@ -87,7 +86,7 @@ export default function StagesEditor({ companyId, stages, onClose }: { companyId
 
   async function handleSave() {
     if (!draft.length) {
-      toast("Keep at least one stage.");
+      toast(t("stg.keepOne"));
       return;
     }
     setSaving(true);
@@ -112,10 +111,10 @@ export default function StagesEditor({ companyId, stages, onClose }: { companyId
         }
       }
       queryClient.invalidateQueries({ queryKey: ["stages", companyId] });
-      toast("Pipeline stages updated.");
+      toast(t("stg.saved"));
       onClose();
     } catch (error) {
-      toastError(errorMessage(error, "Could not save pipeline stages."));
+      toastError(errorMessage(error, t("stg.saveError")));
     } finally {
       setSaving(false);
     }
@@ -130,16 +129,16 @@ export default function StagesEditor({ companyId, stages, onClose }: { companyId
   // instead of the viewport, clipping its own header off-screen.
   return createPortal(
     <div className="modal-bg" onClick={onClose}>
-      <section className="modal" style={{ width: "min(720px,100%)" }} onClick={e => e.stopPropagation()}>
+      <section className="modal" role="dialog" aria-modal="true" aria-labelledby="stages-title" style={{ width: "min(760px,100%)" }} onClick={e => e.stopPropagation()}>
         <div className="modal-h">
           <div>
-            <h3>Customize your pipeline</h3>
-            <span className="sub">Set up the steps your leads follow from first contact to a completed job.</span>
+            <h3 id="stages-title">{t("stg.title")}</h3>
+            <span className="sub">{t("stg.subtitle")}</span>
           </div>
-          <button className="icon-btn" onClick={onClose} aria-label="Close"><X /></button>
+          <button className="round-btn" onClick={onClose} aria-label={t("stg.close")}><X aria-hidden="true" /></button>
         </div>
         <div className="modal-b">
-          <div className="stage-drag-hint"><GripVertical />Drag and drop to change the order.</div>
+          <div className="stage-drag-hint"><GripVertical aria-hidden="true" />{t("stg.dragHint")}</div>
           <div className="stage-rows">
             {sorted.map((s, i) => {
               const type = (s.type || "open") as StageType;
@@ -150,76 +149,83 @@ export default function StagesEditor({ companyId, stages, onClose }: { companyId
                   onDragOver={e => e.preventDefault()}
                   onDrop={e => { e.preventDefault(); const draggedId = e.dataTransfer.getData("text/plain"); if (draggedId) reorderStage(draggedId, s.id); }}
                 >
-                  <button
-                    className="stage-drag-handle"
-                    draggable
-                    onDragStart={e => { e.dataTransfer.setData("text/plain", s.id); e.dataTransfer.effectAllowed = "move"; setDraggingId(s.id); }}
-                    onDragEnd={() => setDraggingId(null)}
-                    aria-label="Drag to reorder"
-                  >
-                    <GripVertical />
-                  </button>
-                  <div className="stage-row-order">
-                    <button className="btn ghost slim" onClick={() => move(s.id, -1)} disabled={i === 0} aria-label="Move up"><ChevronUp /></button>
-                    <button className="btn ghost slim" onClick={() => move(s.id, 1)} disabled={i === sorted.length - 1} aria-label="Move down"><ChevronDown /></button>
-                  </div>
-                  <span className={`stage-badge type-${type}`}>
-                    {type === "won" ? <Check /> : type === "lost" ? <X /> : i + 1}
-                  </span>
-                  <input
-                    type="color"
-                    value={s.color || DEFAULT_COLOR}
-                    onChange={e => updateRow(s.id, { color: e.target.value })}
-                    className="stage-color-input"
-                    aria-label="Board color"
-                    title="Board color (used on the kanban and dashboard)"
-                  />
-                  <div className="stage-row-main">
+                  <div className="stage-row-lead">
+                    <button
+                      type="button"
+                      className="stage-drag-handle"
+                      draggable
+                      onDragStart={e => { e.dataTransfer.setData("text/plain", s.id); e.dataTransfer.effectAllowed = "move"; setDraggingId(s.id); }}
+                      onDragEnd={() => setDraggingId(null)}
+                      aria-label={t("stg.dragHandle")}
+                    >
+                      <GripVertical aria-hidden="true" />
+                    </button>
+                    <span className={`stage-badge type-${type}`} aria-hidden="true">
+                      {type === "won" ? <Check /> : type === "lost" ? <X /> : i + 1}
+                    </span>
                     <input
-                      value={s.name}
-                      onChange={e => updateRow(s.id, { name: e.target.value })}
-                      className="stage-name-input"
-                      placeholder="Stage name"
+                      type="color"
+                      value={s.color || DEFAULT_COLOR}
+                      onChange={e => updateRow(s.id, { color: e.target.value })}
+                      className="stage-color-input"
+                      aria-label={t("stg.color")}
+                      title={t("stg.color")}
                     />
-                    <span className="sub">{TYPE_DESCRIPTION[type]}</span>
+                    <div className="stage-row-main">
+                      <input
+                        value={s.name}
+                        onChange={e => updateRow(s.id, { name: e.target.value })}
+                        className="stage-name-input"
+                        placeholder={t("stg.name")}
+                        aria-label={t("stg.name")}
+                      />
+                      <span className="sub">{t(`stg.desc.${type}`)}</span>
+                    </div>
                   </div>
-                  <div className={`stage-type type-${type}`}>
-                    <Select
-                      value={type}
-                      onChange={v => updateRow(s.id, { type: v as StageType })}
-                      options={STAGE_TYPES.map(t => ({ value: t, label: t.charAt(0).toUpperCase() + t.slice(1) }))}
-                    />
+                  <div className="stage-row-controls">
+                    <div className={`stage-type type-${type}`}>
+                      <Select
+                        value={type}
+                        aria-label={t("stg.type")}
+                        onChange={v => updateRow(s.id, { type: v as StageType })}
+                        options={STAGE_TYPES.map(st => ({ value: st, label: t(`stg.type.${st}`) }))}
+                      />
+                    </div>
+                    <label className="stage-prob" title={t("stg.winProbHint")}>
+                      <input
+                        type="number"
+                        min={0}
+                        max={100}
+                        inputMode="numeric"
+                        value={Math.round((s.win_probability ?? 0.5) * 100)}
+                        onChange={e => updateRow(s.id, { win_probability: Math.min(100, Math.max(0, Number(e.target.value) || 0)) / 100 })}
+                        aria-label={t("stg.winProb")}
+                      />
+                      <span aria-hidden="true">%</span>
+                    </label>
+                    <span className="stage-row-spacer" />
+                    <button type="button" className="round-btn" onClick={() => move(s.id, -1)} disabled={i === 0} aria-label={t("stg.moveUp")}><ArrowUp aria-hidden="true" /></button>
+                    <button type="button" className="round-btn" onClick={() => move(s.id, 1)} disabled={i === sorted.length - 1} aria-label={t("stg.moveDown")}><ArrowDown aria-hidden="true" /></button>
+                    <button type="button" className="round-btn danger" onClick={() => removeStage(s.id)} aria-label={t("stg.remove")} title={t("stg.remove")}><Trash2 aria-hidden="true" /></button>
                   </div>
-                  <input
-                    type="number"
-                    min={0}
-                    max={100}
-                    value={Math.round((s.win_probability ?? 0.5) * 100)}
-                    onChange={e => updateRow(s.id, { win_probability: Math.min(100, Math.max(0, Number(e.target.value) || 0)) / 100 })}
-                    className="stage-win-prob-input"
-                    aria-label="Win probability"
-                    title="Win probability — used to weight this stage's leads in the funnel forecast"
-                    style={{ width: 56 }}
-                  />
-                  <button className="icon-btn" onClick={() => removeStage(s.id)} aria-label="Remove stage" title="Remove stage"><Trash2 /></button>
                 </div>
               );
             })}
           </div>
-          <button className="btn ghost stage-add-btn" onClick={addStage}><Plus />Add another stage</button>
+          <button type="button" className="btn ghost stage-add-btn" onClick={addStage}><Plus aria-hidden="true" />{t("stg.add")}</button>
           <div className="stage-info-banner">
-            <Shield />
+            <Info aria-hidden="true" />
             <div>
-              <b>Open</b> stages count toward your pipeline. <b>Won</b> stages are counted as completed deals, <b>Lost</b> stages drop out of pipeline value.
-              <div className="sub" style={{ marginTop: 2 }}>If you remove a stage that still has leads in it, you'll be asked to move them first.</div>
+              {t("stg.info")}
+              <div className="sub" style={{ marginTop: 2 }}>{t("stg.infoSub")}</div>
             </div>
           </div>
         </div>
         <div className="modal-f between">
-          <span className="sub"><Shield />Changes apply to this company only.</span>
+          <span className="sub">{t("stg.scope")}</span>
           <div className="inline-actions">
-            <button className="btn ghost" onClick={onClose} disabled={saving}>Cancel</button>
-            <button className="btn" onClick={handleSave} disabled={saving}>{saving ? "Saving..." : "Save changes"}</button>
+            <button className="btn ghost" onClick={onClose} disabled={saving}>{t("stg.cancel")}</button>
+            <button className="btn" onClick={handleSave} disabled={saving}>{saving ? t("stg.saving") : t("stg.save")}</button>
           </div>
         </div>
       </section>

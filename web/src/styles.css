@@ -1019,12 +1019,12 @@ h1,h2,h3{font-weight:600;letter-spacing:-.01em;color:var(--ink)}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 
 /* ── One link style everywhere (no default blue underline) ── */
-.link-btn,.content a:not(.btn):not(.day-row):not(.popover-item){
+.link-btn,.content a:not(.btn):not(.day-row):not(.popover-item):not(.cell-link){
   color:var(--ink);font-weight:500;text-decoration:underline;text-decoration-color:rgba(17,17,17,.2);
   text-underline-offset:3px;background:transparent;padding:0;font-size:inherit;
   transition:text-decoration-color var(--dur) var(--ease);
 }
-.link-btn:hover,.content a:not(.btn):not(.day-row):not(.popover-item):hover{text-decoration-color:currentColor}
+.link-btn:hover,.content a:not(.btn):not(.day-row):not(.popover-item):not(.cell-link):hover{text-decoration-color:currentColor}
 .card-h .link-btn{font-size:13px;color:var(--muted)}
 .card-h .link-btn:hover{color:var(--ink)}
 
@@ -1443,3 +1443,70 @@ tr:hover td{background:rgba(255,255,255,.55)}
 .file-btn.disabled label.btn{opacity:.5;cursor:not-allowed}
 .file-btn-name{color:var(--muted);font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:260px}
 .field .file-btn label{font-weight:500;font-size:13px;color:var(--ink-soft)}
+
+/* ── Data table pattern (Clients; reused by Jobs / Audit log) ── */
+.table-card{overflow:hidden}
+.table-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:18px 22px 10px}
+.table-toolbar-filters,.table-toolbar-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.table-toolbar-filters .sub{margin-left:4px}
+.data-table th.sortable{padding:0}
+.th-sort{display:inline-flex;align-items:center;gap:4px;width:100%;padding:10px 14px;background:transparent;color:inherit;font:inherit;letter-spacing:inherit;text-transform:inherit;text-align:left}
+.th-sort svg{width:13px;height:13px;flex:0 0 auto}
+.th-sort .th-sort-idle{opacity:.35}
+.th-sort:hover{color:var(--ink)}
+.th-sort:hover .th-sort-idle{opacity:.7}
+.data-table td{vertical-align:middle}
+.person-cell{display:flex;align-items:center;gap:12px;min-width:0}
+.person-cell .lead-avatar{width:36px;height:36px;font-size:12px}
+.person-cell-text{display:grid;gap:1px;min-width:0}
+.person-cell-text b{font-weight:600;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.person-cell-text .sub{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12.5px}
+.cell-missing{color:var(--muted-soft);font-size:13px}
+.content a.cell-link,.cell-link{display:inline-flex;align-items:center;gap:6px;color:var(--ink-soft);text-decoration:none}
+.content a.cell-link:hover,.cell-link:hover{color:var(--ink);text-decoration:underline;text-decoration-color:rgba(17,17,17,.3)}
+.cell-link svg{width:14px;height:14px;color:var(--muted)}
+.bulk-bar{margin:0 16px 8px;border-radius:16px;border:0;background:var(--accent-soft);padding:8px 10px 8px 16px}
+.bulk-bar .round-btn{width:34px;height:34px}
+.table-foot{border-top:1px solid var(--line);padding:12px 22px}
+.pager{gap:8px}
+.pager > button{border-radius:var(--radius-pill);min-height:38px;padding:0 14px;background:rgba(255,255,255,.85);border:1px solid rgba(17,17,17,.08)}
+.pager > button.current{background:var(--selected);border-color:var(--selected);color:#fff}
+.pager .pill-select .cs{min-width:130px}
+.mobile-only{display:none}
+/* minmax(0,1fr): an implicit `auto` track grows to the longest unbreakable
+   text (an email address) and pushed cards past the screen edge. */
+.card-list{list-style:none;margin:0;padding:4px 12px 8px;display:grid;grid-template-columns:minmax(0,1fr);gap:8px}
+.card-list.mobile-only{display:none}
+.card-list-item{display:flex;align-items:flex-start;gap:12px;padding:14px;border-radius:18px;background:var(--surface-solid);border:1px solid rgba(17,17,17,.05);cursor:pointer}
+.card-list-item:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.card-list-check{display:grid;place-items:center;width:28px;height:44px;margin:-8px -4px -8px -6px}
+.card-list-check input{width:18px;height:18px}
+.card-list-main{display:grid;grid-template-columns:minmax(0,1fr);gap:6px;min-width:0;flex:1}
+.card-list-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.card-list-top b{font-weight:600;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.card-list-meta{display:flex;flex-wrap:wrap;gap:4px 12px;color:var(--muted);font-size:13px}
+.card-list-meta span,.card-list-meta a{display:inline-flex;align-items:center;gap:5px;min-height:24px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.card-list-meta svg{width:13px;height:13px}
+@media(max-width:900px){
+  .desktop-only{display:none}
+  .mobile-only,.card-list.mobile-only{display:grid}
+  .table-toolbar{padding:14px 14px 8px}
+  .table-toolbar-filters{width:100%}
+  .table-toolbar-filters .pill-select{flex:1 1 140px}
+  .table-toolbar-filters .pill-select .cs{min-width:0;width:100%}
+  .table-toolbar-actions{width:100%}
+  .table-toolbar-actions .btn{flex:1 1 auto;min-height:44px}
+  .bulk-bar{margin:0 12px 8px;flex-wrap:wrap}
+  .table-foot{flex-direction:column;align-items:stretch;padding:12px 14px}
+  .pager{justify-content:space-between}
+  .pager > button{min-height:44px}
+}
+.card-list-top b{min-width:0;flex:1 1 auto}
+.card-list-top .pill{flex:0 0 auto}
+@media(max-width:900px){
+  .pager{flex-wrap:wrap}
+  .pager .pill-select{flex:1 1 100%}
+  .pager .pill-select .cs{width:100%}
+  .pager > button{flex:1 1 0}
+  .pager > button.current{flex:0 0 44px;padding:0}
+}

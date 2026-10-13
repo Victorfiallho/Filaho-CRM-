@@ -1,7 +1,8 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, ChevronUp, Download, Mail, Phone, Plus, Trash2, Upload, Users, X } from "lucide-react";
+import { ChevronDown, ChevronsUpDown, ChevronUp, Download, Mail, MapPin, Phone, Plus, Trash2, Upload, Users, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import EmptyState from "../components/EmptyState";
 import PageSkeleton from "../components/PageSkeleton";
 import Select from "../components/Select";
 import { deleteCustomer } from "../data/customers";
@@ -17,19 +18,13 @@ import { useCompany } from "../state/CompanyContext";
 import { useModal } from "../state/ModalContext";
 import { useSearch } from "../state/SearchContext";
 import { useT } from "../i18n/I18nContext";
+import type { MessageKey } from "../i18n/messages";
 import { useConfirm } from "../state/ConfirmContext";
 
 type SortKey = "name" | "contact" | "location" | "service_type" | "status";
 
 const STATUS_OPTIONS = ["active", "past", "lost"];
 const PAGE_SIZE_OPTIONS = ["12", "25", "50", "100"];
-
-// Empty location/service fields read as broken/missing data rather than
-// "not provided yet" — an explicit muted label makes that distinction
-// clear instead of leaving a blank cell.
-function dash(value: string): React.ReactNode {
-  return value.trim() ? value : <span className="muted" style={{ fontStyle: "italic" }}>Not provided</span>;
-}
 
 const SORT_VALUE: Record<SortKey, (c: Customer) => string> = {
   name: c => c.name || "",
@@ -40,7 +35,7 @@ const SORT_VALUE: Record<SortKey, (c: Customer) => string> = {
 };
 
 export default function Customers() {
-  const { tn } = useT();
+  const { t, tn, locale } = useT();
   const { confirm } = useConfirm();
   const { activeCompanyId, activeCompany } = useCompany();
   const { data: allRows = [], isLoading } = useCustomers(activeCompanyId);
@@ -85,8 +80,8 @@ export default function Customers() {
   }
 
   function sortIndicator(key: SortKey) {
-    if (sortKey !== key) return null;
-    return sortDir === "asc" ? <ChevronUp /> : <ChevronDown />;
+    if (sortKey !== key) return <ChevronsUpDown className="th-sort-idle" aria-hidden="true" />;
+    return sortDir === "asc" ? <ChevronUp aria-hidden="true" /> : <ChevronDown aria-hidden="true" />;
   }
 
   function toggleRow(id: string) {
@@ -129,9 +124,9 @@ export default function Customers() {
       for (const id of selected) await deleteCustomer(id, activeCompanyId);
       setSelected(new Set());
       queryClient.invalidateQueries({ queryKey: ["customers", activeCompanyId] });
-      toast("Selected clients deleted.");
+      toast(t("clients.deleted"));
     } catch (error) {
-      toastError(errorMessage(error, "Could not delete every selected client."));
+      toastError(errorMessage(error, t("clients.deleteError")));
       queryClient.invalidateQueries({ queryKey: ["customers", activeCompanyId] });
     } finally {
       setBulkDeleting(false);
@@ -140,116 +135,163 @@ export default function Customers() {
 
   if (isLoading) return <PageSkeleton cards={1} rows={10} fullWidth />;
 
+  const statusLabel = (s: string) => t(`status.${s}` as MessageKey);
+  const missing = <span className="cell-missing">{t("clients.notProvided")}</span>;
+  const columns: { key: SortKey; label: string }[] = [
+    { key: "name", label: t("clients.col.client") },
+    { key: "contact", label: t("clients.col.contact") },
+    { key: "location", label: t("clients.col.location") },
+    { key: "service_type", label: t("clients.col.service") },
+    { key: "status", label: t("clients.col.status") }
+  ];
+  const location = (c: Customer) => [c.city, c.state, c.zip].filter(Boolean).join(" ");
+  const contactLink = (c: Customer) =>
+    c.phone ? <a className="cell-link" href={`tel:${c.phone}`} onClick={e => e.stopPropagation()}><Phone aria-hidden="true" />{c.phone}</a>
+      : c.email ? <a className="cell-link" href={`mailto:${c.email}`} onClick={e => e.stopPropagation()}><Mail aria-hidden="true" />{c.email}</a>
+        : missing;
+  const statusBadge = (c: Customer) => <span className={`pill status-${c.status || "active"}`}>{statusLabel(c.status || "active")}</span>;
+
   return (
-    <section className="card">
-      <div className="card-h">
-        <div>
-          <h3>Clients</h3>
-          <div className="sub">{allRows.length} client{allRows.length === 1 ? "" : "s"}</div>
+    <section className="card table-card">
+      <div className="table-toolbar">
+        <div className="table-toolbar-filters">
+          <div className="pill-select">
+            <Select
+              id="status-filter"
+              value={statusFilter}
+              onChange={setStatusFilter}
+              options={[{ value: "all", label: t("clients.allStatuses") }, ...STATUS_OPTIONS.map(s => ({ value: s, label: statusLabel(s) }))]}
+            />
+          </div>
+          <div className="pill-select">
+            <Select
+              id="service-filter"
+              value={serviceFilter}
+              onChange={setServiceFilter}
+              options={[{ value: "all", label: t("clients.allServices") }, ...services.map(s => ({ value: s, label: s }))]}
+            />
+          </div>
+          <span className="sub">{tn("clients.results", rows.length)}</span>
         </div>
-        <div className="inline-actions">
-          {hasPermission("import") && <button className="btn ghost slim" onClick={() => navigate("/import")}><Upload />Import</button>}
-          {hasPermission("export") && <button className="btn ghost slim" onClick={exportCSV} disabled={!rows.length}><Download />Export</button>}
-          {hasPermission("create") && <button className="btn slim" onClick={() => openRecordModal("customer")}><Plus />Add client</button>}
+        <div className="table-toolbar-actions">
+          {hasPermission("import") && <button className="btn ghost slim" onClick={() => navigate("/import")}><Upload aria-hidden="true" />{t("clients.import")}</button>}
+          {hasPermission("export") && <button className="btn ghost slim" onClick={exportCSV} disabled={!rows.length}><Download aria-hidden="true" />{t("clients.export")}</button>}
+          {hasPermission("create") && <button className="btn slim" onClick={() => openRecordModal("customer")}><Plus aria-hidden="true" />{t("clients.add")}</button>}
         </div>
       </div>
+
       {selected.size > 0 && (
-        <div className="bulk-bar">
-          <span><b>{selected.size}</b> selected</span>
+        <div className="bulk-bar" role="region" aria-label={t("clients.selected", { count: selected.size })}>
+          <span>{t("clients.selected", { count: selected.size })}</span>
           <div className="inline-actions">
-            {hasPermission("export") && <button className="btn ghost slim" onClick={exportSelected}><Download />Export selected</button>}
+            {hasPermission("export") && <button className="btn ghost slim" onClick={exportSelected}><Download aria-hidden="true" />{t("clients.exportSelected")}</button>}
             {hasPermission("edit") && (
-              <button className="btn ghost slim danger" onClick={deleteSelected} disabled={bulkDeleting}>
-                <Trash2 />{bulkDeleting ? "Deleting..." : "Delete selected"}
+              <button className="btn slim danger" onClick={deleteSelected} disabled={bulkDeleting}>
+                <Trash2 aria-hidden="true" />{bulkDeleting ? t("clients.deleting") : t("clients.deleteSelected")}
               </button>
             )}
-            <button className="icon-btn" onClick={() => setSelected(new Set())} aria-label="Clear selection" title="Clear selection"><X /></button>
+            <button className="round-btn" onClick={() => setSelected(new Set())} aria-label={t("clients.clearSelection")} title={t("clients.clearSelection")}><X aria-hidden="true" /></button>
           </div>
         </div>
       )}
-      <div className="card-b table-filters">
-        <Select
-          id="status-filter"
-          value={statusFilter}
-          onChange={setStatusFilter}
-          options={[{ value: "all", label: "All statuses" }, ...STATUS_OPTIONS.map(s => ({ value: s, label: s }))]}
-        />
-        <Select
-          id="service-filter"
-          value={serviceFilter}
-          onChange={setServiceFilter}
-          options={[{ value: "all", label: "All services" }, ...services.map(s => ({ value: s, label: s }))]}
-        />
-        <span className="sub" style={{ marginLeft: "auto" }}>{rows.length} result{rows.length === 1 ? "" : "s"}</span>
-      </div>
-      <div className="table-wrap">
-        <table>
+
+      {/* Desktop: table. Phones: the same rows as cards (CSS swaps them). */}
+      <div className="table-wrap desktop-only">
+        <table className="data-table">
           <colgroup>
-            <col style={{ width: 44 }} />
-            <col style={{ width: 220 }} />
-            <col style={{ width: 260 }} />
-            <col style={{ width: 220 }} />
-            <col style={{ width: 150 }} />
+            <col style={{ width: 48 }} />
+            <col style={{ width: "26%" }} />
+            <col style={{ width: "22%" }} />
+            <col style={{ width: "18%" }} />
+            <col style={{ width: "14%" }} />
             <col style={{ width: 110 }} />
-            <col style={{ width: 120 }} />
+            <col style={{ width: 130 }} />
           </colgroup>
           <thead>
             <tr>
               <th className="col-check">
-                <input type="checkbox" checked={allOnPageSelected} onChange={toggleSelectAllOnPage} aria-label="Select all clients on this page" />
+                <input type="checkbox" checked={allOnPageSelected} onChange={toggleSelectAllOnPage} aria-label={t("clients.selectAll")} />
               </th>
-              <th className="sortable" onClick={() => toggleSort("name")}><span className="th-sort">Client{sortIndicator("name")}</span></th>
-              <th className="sortable" onClick={() => toggleSort("contact")}><span className="th-sort">Contact{sortIndicator("contact")}</span></th>
-              <th className="sortable" onClick={() => toggleSort("location")}><span className="th-sort">Location{sortIndicator("location")}</span></th>
-              <th className="sortable" onClick={() => toggleSort("service_type")}><span className="th-sort">Service{sortIndicator("service_type")}</span></th>
-              <th className="sortable" onClick={() => toggleSort("status")}><span className="th-sort">Status{sortIndicator("status")}</span></th>
-              <th>Last activity</th>
+              {columns.map(col => (
+                <th key={col.key} className="sortable" aria-sort={sortKey === col.key ? (sortDir === "asc" ? "ascending" : "descending") : "none"}>
+                  <button type="button" className="th-sort" onClick={() => toggleSort(col.key)} aria-label={t("clients.sortBy", { column: col.label })}>
+                    {col.label}{sortIndicator(col.key)}
+                  </button>
+                </th>
+              ))}
+              <th>{t("clients.col.activity")}</th>
             </tr>
           </thead>
           <tbody>
             {pageRows.map(c => (
               <tr key={c.id} className="row-clickable" onClick={() => openRecordModal("customer", c)}>
                 <td className="col-check" onClick={e => e.stopPropagation()}>
-                  <input type="checkbox" checked={selected.has(c.id)} onChange={() => toggleRow(c.id)} aria-label={`Select ${c.name}`} />
+                  <input type="checkbox" checked={selected.has(c.id)} onChange={() => toggleRow(c.id)} aria-label={t("clients.select", { name: c.name })} />
                 </td>
                 <td>
-                  <div className="table-avatar-row">
-                    <span className="lead-avatar" style={{ background: "var(--brand-soft)", color: "var(--brand)" }}>{initials(c.name)}</span>
-                    <div><b>{c.name}</b><div className="sub">{c.source || "Manual"}</div></div>
+                  <div className="person-cell">
+                    <span className="lead-avatar tone-amber" aria-hidden="true">{initials(c.name)}</span>
+                    <div className="person-cell-text">
+                      <b>{c.name}</b>
+                      <span className="sub">{c.email || c.source || "—"}</span>
+                    </div>
                   </div>
                 </td>
-                <td onClick={e => e.stopPropagation()}>
-                  {c.phone
-                    ? <a href={`tel:${c.phone}`}><Phone />{c.phone}</a>
-                    : c.email
-                      ? <a href={`mailto:${c.email}`}><Mail />{c.email}</a>
-                      : dash("")}
-                </td>
-                <td>{dash([c.city, c.state, c.zip].filter(Boolean).join(" "))}</td>
-                <td>{dash(c.service_type || "")}</td>
-                <td><span className={`pill status-${c.status || "active"}`}>{c.status || "active"}</span></td>
-                <td className="sub">{relativeDate(c.updated_at) || "—"}</td>
+                <td>{contactLink(c)}</td>
+                <td>{location(c) || missing}</td>
+                <td>{c.service_type || missing}</td>
+                <td>{statusBadge(c)}</td>
+                <td className="sub">{relativeDate(c.updated_at, new Date(), locale) || "—"}</td>
               </tr>
             ))}
-            {!isLoading && rows.length === 0 && (
-              <tr><td colSpan={7}><div className="empty"><Users />No clients yet</div></td></tr>
-            )}
           </tbody>
         </table>
       </div>
+
+      <ul className="card-list mobile-only">
+        {pageRows.map(c => (
+          <li key={c.id}>
+            <div className="card-list-item" role="button" tabIndex={0} onClick={() => openRecordModal("customer", c)} onKeyDown={e => { if (e.key === "Enter") openRecordModal("customer", c); }}>
+              <label className="card-list-check" onClick={e => e.stopPropagation()}>
+                <input type="checkbox" checked={selected.has(c.id)} onChange={() => toggleRow(c.id)} aria-label={t("clients.select", { name: c.name })} />
+              </label>
+              <span className="lead-avatar tone-amber" aria-hidden="true">{initials(c.name)}</span>
+              <div className="card-list-main">
+                <div className="card-list-top"><b>{c.name}</b>{statusBadge(c)}</div>
+                <div className="card-list-meta">
+                  {contactLink(c)}
+                  {location(c) && <span><MapPin aria-hidden="true" />{location(c)}</span>}
+                  {c.service_type && <span>{c.service_type}</span>}
+                </div>
+              </div>
+            </div>
+          </li>
+        ))}
+      </ul>
+
+      {rows.length === 0 && (
+        <div className="card-b">
+          <EmptyState icon={Users} action={allRows.length === 0 && hasPermission("create") ? <button className="btn slim" onClick={() => openRecordModal("customer")}><Plus aria-hidden="true" />{t("clients.add")}</button> : undefined}>
+            {allRows.length === 0 ? t("clients.empty") : t("clients.noMatch")}
+          </EmptyState>
+        </div>
+      )}
+
       {rows.length > 0 && (
         <div className="table-foot">
-          <span className="sub">Showing {pageStart + 1}–{Math.min(pageStart + pageSizeNum, rows.length)} of {rows.length} clients</span>
+          <span className="sub">{t("clients.showing", { from: pageStart + 1, to: Math.min(pageStart + pageSizeNum, rows.length), total: rows.length })}</span>
           <div className="pager">
-            <Select
-              id="page-size"
-              value={pageSize}
-              onChange={setPageSize}
-              options={PAGE_SIZE_OPTIONS.map(n => ({ value: n, label: `${n} per page` }))}
-            />
-            <button type="button" disabled={currentPage <= 1} onClick={() => setPage(p => Math.max(1, p - 1))}>Previous</button>
-            <button type="button" className="current">{currentPage}</button>
-            <button type="button" disabled={currentPage >= totalPages} onClick={() => setPage(p => Math.min(totalPages, p + 1))}>Next</button>
+            <div className="pill-select">
+              <Select
+                id="page-size"
+                value={pageSize}
+                onChange={setPageSize}
+                options={PAGE_SIZE_OPTIONS.map(n => ({ value: n, label: t("clients.perPage", { count: n }) }))}
+              />
+            </div>
+            <button type="button" disabled={currentPage <= 1} onClick={() => setPage(p => Math.max(1, p - 1))}>{t("clients.prev")}</button>
+            <button type="button" className="current" aria-current="page">{currentPage}</button>
+            <button type="button" disabled={currentPage >= totalPages} onClick={() => setPage(p => Math.min(totalPages, p + 1))}>{t("clients.next")}</button>
           </div>
         </div>
       )}

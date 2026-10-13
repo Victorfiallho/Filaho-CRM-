@@ -33,6 +33,8 @@ import { errorMessage } from "../lib/errorMessage";
 import { toast, toastError } from "../lib/toast";
 import { useAuth } from "../state/AuthContext";
 import { useCompany } from "../state/CompanyContext";
+import { useT } from "../i18n/I18nContext";
+import { useConfirm } from "../state/ConfirmContext";
 import {
   COST_CATEGORIES,
   COST_LINE_ITEM_STATUSES,
@@ -683,6 +685,9 @@ function TransactionLedgerCard({ jobId, companyId, clientId, transactions, vendo
   defaultType?: TransactionType;
   onChanged: () => void;
 }) {
+  const { t } = useT();
+  // `confirm` is this card's own transaction-confirm handler below.
+  const { promptText } = useConfirm();
   const [form, setForm] = useState(() => (defaultType ? { ...EMPTY_TXN_FORM, transaction_type: defaultType } : EMPTY_TXN_FORM));
   const [saving, setSaving] = useState(false);
 
@@ -730,7 +735,7 @@ function TransactionLedgerCard({ jobId, companyId, clientId, transactions, vendo
   }
 
   async function reverse(txn: import("../domain/types").Transaction) {
-    const reason = window.prompt("Reason for reversing this transaction?", "");
+    const reason = await promptText({ title: t("confirm.reverseTitle"), label: t("confirm.reverseReason"), confirmLabel: t("confirm.reverse") });
     if (reason === null) return;
     try {
       await reverseTransaction(txn, reason || "no reason given");

@@ -22,6 +22,8 @@ import { relativeDate } from "../domain/format";
 import { errorMessage } from "../lib/errorMessage";
 import { toast, toastError } from "../lib/toast";
 import { useAuth } from "../state/AuthContext";
+import { useT } from "../i18n/I18nContext";
+import { useConfirm } from "../state/ConfirmContext";
 
 const PERMISSIONS: [string, string][] = [
   ["view", "View records"],
@@ -254,6 +256,8 @@ function ManageUserModal({
   profile: AdminProfile | null;
   onClose: () => void;
 }) {
+  const { t } = useT();
+  const { confirm } = useConfirm();
   const { session } = useAuth();
   const queryClient = useQueryClient();
   const [saving, setSaving] = useState(false);
@@ -310,7 +314,7 @@ function ManageUserModal({
 
   async function handleDeleteAccount() {
     if (isSelf) return;
-    if (!window.confirm(`Permanently delete ${authUser.email}'s account? They will lose all access and won't be able to log in again — this can't be undone.`)) return;
+    if (!(await confirm({ message: t("confirm.deleteAccount", { email: authUser.email || "" }), danger: true }))) return;
     setDeleting(true);
     try {
       await deleteUserAccount(authUser.id);

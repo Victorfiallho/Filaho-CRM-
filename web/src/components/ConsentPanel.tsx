@@ -1,6 +1,7 @@
 import { useBookingRequests, useConsentRecords, useConsentStatuses } from "../data/hooks";
 import { CONSENT_SOURCE_LABELS, consentBadge } from "../domain/consent";
-import { formatDay } from "../domain/format";
+import { formatDateTime, formatDay } from "../domain/format";
+import { useT } from "../i18n/I18nContext";
 import type { ConsentState } from "../domain/types";
 
 // Lead/client record section: where the person came from, what they asked
@@ -14,6 +15,7 @@ export default function ConsentPanel({ companyId, kind, record }: {
   kind: "lead" | "customer";
   record: { id: string; customer_id?: string | null; source?: string };
 }) {
+  const { locale } = useT();
   const contactId = kind === "customer" ? record.id : record.customer_id || null;
   const { data: requests = [] } = useBookingRequests(companyId, kind === "lead" ? { leadId: record.id } : { customerId: record.id });
   const { data: history = [] } = useConsentRecords(companyId, contactId);
@@ -27,7 +29,7 @@ export default function ConsentPanel({ companyId, kind, record }: {
         <p className="sub">Source: <b>{record.source || "—"}</b></p>
         {requests.map(b => (
           <div className="record-note" key={b.id}>
-            <p><b>Booking request</b> · {new Date(b.created_at).toLocaleString()}</p>
+            <p><b>Booking request</b> · {formatDateTime(b.created_at, locale)}</p>
             <dl className="booking-dl">
               {b.services.length > 0 && <Row label="Services" value={b.services.join(", ")} />}
               {Object.entries(b.details || {}).map(([k, v]) => <Row key={k} label={k} value={String(v)} />)}
@@ -59,7 +61,7 @@ export default function ConsentPanel({ companyId, kind, record }: {
                     <tbody>
                       {history.map(c => (
                         <tr key={c.id}>
-                          <td>{new Date(c.created_at).toLocaleString()}</td>
+                          <td>{formatDateTime(c.created_at, locale)}</td>
                           <td>{c.channel === "sms" ? "SMS" : "Email"}</td>
                           <td>{c.granted ? "Yes" : "No"}</td>
                           <td>{CONSENT_SOURCE_LABELS[c.source] || c.source}</td>

@@ -66,3 +66,22 @@ export function formatDay(ymd: string | null | undefined, now: Date = new Date()
     month: "short", day: "numeric", ...(d.getFullYear() !== now.getFullYear() ? { year: "numeric" } : {})
   });
 }
+
+// Date + time for timestamps (notes, audit log, consent history) in the
+// CRM's chosen language — `toLocaleString()` with no locale used the
+// computer's language instead, so a pt-BR Windows showed "13/10/2026,
+// 14:02:11" even with English selected in the app.
+export function formatDateTime(iso: string | null | undefined, locale = "en-US"): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleString(locale, { year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+}
+
+// Short date (no time) for a timestamp, in the CRM's language.
+export function formatShortDate(iso: string | null | undefined, locale = "en-US"): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleDateString(locale, { year: "numeric", month: "short", day: "numeric" });
+}

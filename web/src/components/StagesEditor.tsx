@@ -8,6 +8,8 @@ import { STAGE_TYPES, slugifyStageId, type StageType } from "../domain/pipelineS
 import type { PipelineStage } from "../domain/types";
 import { errorMessage } from "../lib/errorMessage";
 import { toast, toastError } from "../lib/toast";
+import { useT } from "../i18n/I18nContext";
+import { useConfirm } from "../state/ConfirmContext";
 
 interface DraftStage extends PipelineStage {
   isNew?: boolean;
@@ -22,6 +24,8 @@ const TYPE_DESCRIPTION: Record<StageType, string> = { open: "Active stage", won:
 // save this" moment matters more here than it does for the simpler
 // single-field settings elsewhere in the app.
 export default function StagesEditor({ companyId, stages, onClose }: { companyId: string; stages: PipelineStage[]; onClose: () => void }) {
+  const { t } = useT();
+  const { confirm } = useConfirm();
   const [draft, setDraft] = useState<DraftStage[]>(() => [...stages].sort((a, b) => a.order - b.order).map(s => ({ ...s })));
   const [saving, setSaving] = useState(false);
   const [draggingId, setDraggingId] = useState<string | null>(null);
@@ -77,7 +81,7 @@ export default function StagesEditor({ companyId, stages, onClose }: { companyId
         return;
       }
     }
-    if (!window.confirm(`Delete stage "${row.name}"?`)) return;
+    if (!(await confirm({ message: t("confirm.deleteStage", { name: row.name }), danger: true }))) return;
     setDraft(d => d.filter(s => s.id !== id));
   }
 

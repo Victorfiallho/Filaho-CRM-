@@ -240,7 +240,25 @@ export const en = {
   "rep.impressions": "{count} impressions",
   "rep.cpc": "Avg. CPC",
   "rep.cpcHint": "cost per click",
-  "rep.campaignLine": "{spend} · {clicks} clicks · {impressions} impressions"
+  "rep.campaignLine": "{spend} · {clicks} clicks · {impressions} impressions",
+  "file.choose": "Choose file",
+  "file.none": "No file chosen",
+  "file.upload": "Upload file",
+  "confirm.title": "Are you sure?",
+  "confirm.ok": "Confirm",
+  "confirm.cancel": "Cancel",
+  "confirm.delete": "Delete",
+  "confirm.deleteRecord": "Delete this {label}? This cannot be undone.",
+  "confirm.deleteClients.one": "Delete {count} client? This cannot be undone.",
+  "confirm.deleteClients.other": "Delete {count} clients? This cannot be undone.",
+  "confirm.deleteStage": "Delete stage \"{name}\"?",
+  "confirm.deleteAccount": "Permanently delete {email}'s account? They will lose all access and won't be able to log in again — this can't be undone.",
+  "confirm.reverseTitle": "Reverse this transaction?",
+  "confirm.reverseReason": "Reason for reversing this transaction",
+  "confirm.reverse": "Reverse",
+  "record.client": "client",
+  "record.lead": "lead",
+  "record.job": "job"
 } as const;
 
 export type MessageKey = keyof typeof en;
@@ -472,7 +490,25 @@ export const pt: Record<MessageKey, string> = {
   "rep.impressions": "{count} impressões",
   "rep.cpc": "CPC médio",
   "rep.cpcHint": "custo por clique",
-  "rep.campaignLine": "{spend} · {clicks} cliques · {impressions} impressões"
+  "rep.campaignLine": "{spend} · {clicks} cliques · {impressions} impressões",
+  "file.choose": "Escolher arquivo",
+  "file.none": "Nenhum arquivo escolhido",
+  "file.upload": "Enviar arquivo",
+  "confirm.title": "Tem certeza?",
+  "confirm.ok": "Confirmar",
+  "confirm.cancel": "Cancelar",
+  "confirm.delete": "Excluir",
+  "confirm.deleteRecord": "Excluir este {label}? Isso não pode ser desfeito.",
+  "confirm.deleteClients.one": "Excluir {count} cliente? Isso não pode ser desfeito.",
+  "confirm.deleteClients.other": "Excluir {count} clientes? Isso não pode ser desfeito.",
+  "confirm.deleteStage": "Excluir a etapa \"{name}\"?",
+  "confirm.deleteAccount": "Excluir permanentemente a conta de {email}? A pessoa perde todo o acesso e não poderá mais entrar — isso não pode ser desfeito.",
+  "confirm.reverseTitle": "Estornar esta transação?",
+  "confirm.reverseReason": "Motivo do estorno",
+  "confirm.reverse": "Estornar",
+  "record.client": "cliente",
+  "record.lead": "lead",
+  "record.job": "serviço"
 };
 
 export const MESSAGES = { en, pt } as const;

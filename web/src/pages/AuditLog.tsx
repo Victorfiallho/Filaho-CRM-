@@ -2,7 +2,8 @@ import { History } from "lucide-react";
 import { useMemo, useState } from "react";
 import Select from "../components/Select";
 import { useAuditLog, useUsers } from "../data/hooks";
-import { titleize } from "../domain/format";
+import { formatDateTime, titleize } from "../domain/format";
+import { useT } from "../i18n/I18nContext";
 import { useCompany } from "../state/CompanyContext";
 
 const ENTITY_OPTIONS = ["customers", "jobs", "pipeline_stages", "company_access", "user_account", "user_permissions"];
@@ -60,6 +61,7 @@ function DiffView({ diff }: { diff: Record<string, unknown> }) {
 // (company_members/users have no trigger of their own).
 export default function AuditLog() {
   const { activeCompanyId } = useCompany();
+  const { locale } = useT();
   const { data: users = [] } = useUsers();
   const [entityFilter, setEntityFilter] = useState("all");
   const [actionFilter, setActionFilter] = useState("all");
@@ -118,7 +120,7 @@ export default function AuditLog() {
           <tbody>
             {rows.map(row => (
               <tr key={row.id}>
-                <td className="sub">{new Date(row.created_at).toLocaleString()}</td>
+                <td className="sub">{formatDateTime(row.created_at, locale)}</td>
                 <td>{userNameByAuthId.get(row.user_id || "") || "System"}</td>
                 <td>{titleize(row.entity)} <span className="sub">{row.entity_id}</span></td>
                 <td><span className={`pill status-${row.action === "delete" ? "lost" : row.action === "insert" ? "active" : "in-progress"}`}>{row.action}</span></td>

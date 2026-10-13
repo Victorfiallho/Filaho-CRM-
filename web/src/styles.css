@@ -1419,3 +1419,27 @@ tr:hover td{background:rgba(255,255,255,.55)}
   .meter-row .progress-pill{grid-column:1 / -1;order:3}
   .mini-stats{grid-template-columns:1fr}
 }
+
+/* ── In-app confirm/prompt (ConfirmContext) ── */
+.confirm-bg{z-index:1000;display:grid;place-items:center;padding:16px}
+.confirm-dialog{
+  width:min(420px,100%);display:grid;gap:12px;padding:24px;border-radius:24px;
+  background:var(--surface-solid);box-shadow:var(--shadow-lg);animation:popIn var(--dur) var(--ease) both;
+}
+.confirm-dialog h3{font-size:19px;font-weight:600}
+.confirm-message{margin:0;color:var(--ink-soft);line-height:1.5}
+.confirm-icon{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;background:var(--tone-rose-bg);color:var(--tone-rose-fg)}
+.confirm-icon svg{width:20px;height:20px}
+.confirm-dialog .field{margin-top:0}
+.confirm-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:4px}
+.btn.danger{background:#b4233c;color:#fff}
+.btn.danger:hover{background:#9a1d33}
+@media(max-width:760px){.confirm-actions{flex-direction:column-reverse}.confirm-actions .btn{min-height:44px}}
+
+/* ── FileButton ── */
+.file-btn{display:inline-flex;align-items:center;gap:10px;flex-wrap:wrap;min-width:0}
+.file-btn label.btn{cursor:pointer;margin:0}
+.file-btn:focus-within label.btn{outline:2px solid var(--ink);outline-offset:2px}
+.file-btn.disabled label.btn{opacity:.5;cursor:not-allowed}
+.file-btn-name{color:var(--muted);font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:260px}
+.field .file-btn label{font-weight:500;font-size:13px;color:var(--ink-soft)}

@@ -11,6 +11,7 @@ import { clearGoogleSession, connectGoogleWorkspace, isGoogleSessionConnected, m
 import { toast, toastError } from "../lib/toast";
 import { useAuth } from "../state/AuthContext";
 import { useCompany } from "../state/CompanyContext";
+import FileButton from "../components/FileButton";
 
 // Ported verbatim from app.js (renderIntegrations, oauthCard, integrationCard,
 // saveIntegrationSetting, toggleIntegration, saveCompanyIntegrationValue,
@@ -217,7 +218,7 @@ export default function Integrations() {
         <div className="card-b">
           <p className="sub">Upload the Google Web OAuth JSON. The CRM stores the Client ID and project only; it does not store the client secret.</p>
           <div className="form-row">
-            <div className="field"><label>OAuth JSON from Google Cloud</label><input type="file" accept=".json,application/json" onChange={e => loadGoogleOAuthJson(e.target.files?.[0] || null)} /></div>
+            <div className="field"><label>OAuth JSON from Google Cloud</label><FileButton accept=".json,application/json" onFiles={files => loadGoogleOAuthJson(files?.[0] || null)} /></div>
             <div className="field"><label>OAuth Client ID</label><DebouncedField value={settings.google_oauth.client_id || ""} onCommit={v => saveOAuthField("client_id", v)} /></div>
           </div>
           <div className="form-row">

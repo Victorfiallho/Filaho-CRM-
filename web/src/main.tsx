@@ -6,6 +6,7 @@ import { BrowserRouter } from "react-router-dom";
 import App from "./App";
 import SessionTimeoutGuard from "./components/SessionTimeoutGuard";
 import { I18nProvider } from "./i18n/I18nContext";
+import { ConfirmProvider } from "./state/ConfirmContext";
 import { AuthProvider } from "./state/AuthContext";
 import { CalendarProvider } from "./state/CalendarContext";
 import { CompanyProvider } from "./state/CompanyContext";
@@ -29,6 +30,7 @@ createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <I18nProvider>
+      <ConfirmProvider>
       <AuthProvider>
         <SessionTimeoutGuard />
         <CompanyProvider>
@@ -45,6 +47,7 @@ createRoot(document.getElementById("root")!).render(
           </SearchProvider>
         </CompanyProvider>
       </AuthProvider>
+      </ConfirmProvider>
       </I18nProvider>
     </QueryClientProvider>
   </StrictMode>

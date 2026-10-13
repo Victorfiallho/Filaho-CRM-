@@ -16,6 +16,8 @@ import { toast, toastError } from "../lib/toast";
 import { useCompany } from "../state/CompanyContext";
 import { useModal } from "../state/ModalContext";
 import { useSearch } from "../state/SearchContext";
+import { useT } from "../i18n/I18nContext";
+import { useConfirm } from "../state/ConfirmContext";
 
 type SortKey = "name" | "contact" | "location" | "service_type" | "status";
 
@@ -38,6 +40,8 @@ const SORT_VALUE: Record<SortKey, (c: Customer) => string> = {
 };
 
 export default function Customers() {
+  const { tn } = useT();
+  const { confirm } = useConfirm();
   const { activeCompanyId, activeCompany } = useCompany();
   const { data: allRows = [], isLoading } = useCustomers(activeCompanyId);
   const { searchText } = useSearch();
@@ -119,7 +123,7 @@ export default function Customers() {
 
   async function deleteSelected() {
     if (!activeCompanyId || selected.size === 0) return;
-    if (!window.confirm(`Delete ${selected.size} client${selected.size === 1 ? "" : "s"}? This cannot be undone.`)) return;
+    if (!(await confirm({ message: tn("confirm.deleteClients", selected.size), danger: true }))) return;
     setBulkDeleting(true);
     try {
       for (const id of selected) await deleteCustomer(id, activeCompanyId);

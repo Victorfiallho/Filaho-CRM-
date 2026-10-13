@@ -27,6 +27,7 @@ import { errorMessage } from "../lib/errorMessage";
 import { connectGoogleWorkspace, googleAccessTokenFor } from "../lib/googleOAuth";
 import { toast, toastError } from "../lib/toast";
 import { useCompany } from "../state/CompanyContext";
+import FileButton from "../components/FileButton";
 
 type CustomerPreviewRow = {
   index: number;
@@ -325,7 +326,7 @@ export default function ImportCenter() {
             </div>
             <div className="field">
               <label>CSV, ICS, or Calendar ZIP file</label>
-              <input type="file" accept=".csv,.ics,.zip,text/csv,text/calendar,application/zip" onChange={e => loadImportFile(e.target.files?.[0] || null)} />
+              <FileButton accept=".csv,.ics,.zip,text/csv,text/calendar,application/zip" onFiles={files => loadImportFile(files?.[0] || null)} />
             </div>
           </div>
           <div className="field">

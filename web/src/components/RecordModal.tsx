@@ -15,7 +15,10 @@ import { upsertClientFromLead } from "../data/leadClientSync";
 import { insertLead, updateLead, deleteLead } from "../data/leads";
 import { deleteNote, insertNote } from "../data/notes";
 import { createProjectFinancials } from "../data/projectFinancials";
-import { now, uid } from "../domain/format";
+import { formatDateTime, now, uid } from "../domain/format";
+import { useT } from "../i18n/I18nContext";
+import { useConfirm } from "../state/ConfirmContext";
+import FileButton from "./FileButton";
 import { titleize } from "../domain/format";
 import { LOST_REASONS } from "../domain/followUp";
 import { findJobForLead, jobDraftFromLead } from "../domain/leadConversion";
@@ -45,6 +48,8 @@ function RecordModalContent() {
   // on every render — so the "no modal / no company" bail-out is a plain variable,
   // not an early return, and the actual `return null` happens after all hooks.
   const { modal, closeModal, openRecordModal } = useModal();
+  const { locale, t } = useT();
+  const { confirm } = useConfirm();
   const { activeCompanyId, services, stages } = useCompany();
   const { session } = useAuth();
   const queryClient = useQueryClient();
@@ -377,8 +382,8 @@ function RecordModalContent() {
 
   async function handleDelete() {
     if (!activeCompanyId || !r.id) return;
-    const label = type === "job" ? "job" : type === "lead" ? "lead" : "client";
-    if (!window.confirm(`Delete this ${label}? This cannot be undone.`)) return;
+    const label = t(type === "job" ? "record.job" : type === "lead" ? "record.lead" : "record.client");
+    if (!(await confirm({ message: t("confirm.deleteRecord", { label }), danger: true }))) return;
     setDeleting(true);
     try {
       if (type === "job") {
@@ -746,7 +751,7 @@ function RecordModalContent() {
                       <div className="record-note" key={n.id}>
                         <p>{n.body}</p>
                         <div className="record-note-meta">
-                          <span className="sub">{userNameById.get(n.user_id || "") || "Someone"} · {new Date(n.created_at).toLocaleString()}</span>
+                          <span className="sub">{userNameById.get(n.user_id || "") || "Someone"} · {formatDateTime(n.created_at, locale)}</span>
                           <button className="btn ghost slim" onClick={() => handleDeleteNote(n.id)}>Remove</button>
                         </div>
                       </div>
@@ -784,12 +789,14 @@ function RecordModalContent() {
                       <Select value={uploadSubfolder} onChange={setUploadSubfolder} options={PROJECT_DRIVE_SUBFOLDERS.map(s => ({ value: s, label: s }))} />
                     </div>
                   )}
-                  <input
-                    type="file"
-                    style={{ marginTop: 8 }}
-                    disabled={uploadingFile || !form.drive_folder_url}
-                    onChange={e => { handleUploadToDrive(e.target.files); e.target.value = ""; }}
-                  />
+                  <div style={{ marginTop: 8 }}>
+                    <FileButton
+                      label={t("file.upload")}
+                      disabled={uploadingFile || !form.drive_folder_url}
+                      resetAfterPick
+                      onFiles={files => handleUploadToDrive(files)}
+                    />
+                  </div>
                   {!form.drive_folder_url && <p className="sub">Create the Drive folder above before uploading a file here.</p>}
                   {uploadingFile && <p className="sub">Uploading to Drive...</p>}
                 </div>

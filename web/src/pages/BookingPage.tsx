@@ -14,7 +14,8 @@ import {
   renderConsentText,
   slugify
 } from "../domain/consent";
-import { uid } from "../domain/format";
+import { formatDateTime, formatShortDate, uid } from "../domain/format";
+import { useT } from "../i18n/I18nContext";
 import type { BookingFaq, BookingPage as BookingPageRow, BookingReview, BookingService, ConsentTextKind, ConsentTextVersion } from "../domain/types";
 import { errorMessage } from "../lib/errorMessage";
 import { toast, toastError } from "../lib/toast";
@@ -350,6 +351,7 @@ function ConsentTextEditor({ kind, companyId, businessName, versions, canEdit, o
   kind: ConsentTextKind; companyId: string; businessName: string; versions: ConsentTextVersion[]; canEdit: boolean; onPublished: () => void;
 }) {
   const current = versions[0];
+  const { locale } = useT();
   const [text, setText] = useState(current?.template || "");
   const [publishing, setPublishing] = useState(false);
   useEffect(() => { setText(current?.template || ""); }, [current?.template]);
@@ -372,7 +374,7 @@ function ConsentTextEditor({ kind, companyId, businessName, versions, canEdit, o
     <div className="booking-row">
       <div className="between">
         <b>{CONSENT_TEXT_LABELS[kind]}</b>
-        {current && <span className="pill">v{current.version} · {new Date(current.created_at).toLocaleDateString()}</span>}
+        {current && <span className="pill">v{current.version} · {formatShortDate(current.created_at, locale)}</span>}
       </div>
       <div className="field" style={{ marginTop: 8 }}>
         <textarea rows={kind === "sms" ? 4 : 2} value={text} disabled={!canEdit || publishing} onChange={e => setText(e.target.value)} aria-label={CONSENT_TEXT_LABELS[kind]} />
@@ -390,7 +392,7 @@ function ConsentTextEditor({ kind, companyId, businessName, versions, canEdit, o
           {versions.slice(1).map(v => (
             <div className="record-note" key={v.version}>
               <p>{v.template}</p>
-              <span className="sub">v{v.version} · {new Date(v.created_at).toLocaleString()}</span>
+              <span className="sub">v{v.version} · {formatDateTime(v.created_at, locale)}</span>
             </div>
           ))}
         </details>

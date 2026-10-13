@@ -27,7 +27,7 @@ describe("booking page admin helpers", () => {
   it("lists what blocks activation", () => {
     const ready = { address_line: "1 Main", address_city: "Marietta", address_state: "GA", address_zip: "30060", phone: "1", email: "a@b.c", zip_prefixes: ["300"] };
     expect(activationProblems(ready)).toEqual([]);
-    expect(activationProblems({ ...ready, address_zip: "", zip_prefixes: [] })).toHaveLength(2);
+    expect(activationProblems({ ...ready, address_zip: "", zip_prefixes: [] })).toEqual(["address", "zips"]);
   });
 
   it("only accepts https or same-site logo URLs", () => {

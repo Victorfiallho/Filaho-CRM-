@@ -11,12 +11,6 @@ export const DEFAULT_CONSENT_TEXTS: Record<ConsentTextKind, string> = {
   transactional: "By booking, you agree to receive texts and emails about this appointment (confirmations, reminders, and updates)."
 };
 
-export const CONSENT_TEXT_LABELS: Record<ConsentTextKind, string> = {
-  sms: "SMS marketing checkbox",
-  email: "Email marketing checkbox",
-  transactional: "Notice under the Book button"
-};
-
 export const CONSENT_STATE_LABELS: Record<ConsentState, string> = {
   opted_in: "opted in",
   not_opted_in: "not opted in",
@@ -59,13 +53,14 @@ export function parseZipPrefixes(value: string): { prefixes: string[]; invalid: 
 
 // What's still missing before a page can be switched on — mirrors the
 // booking_pages_activation check constraint, so the admin sees it before
-// the database says no.
-export function activationProblems(page: Pick<BookingPage, "address_line" | "address_city" | "address_state" | "address_zip" | "phone" | "email" | "zip_prefixes">): string[] {
-  const missing: string[] = [];
-  if (!page.address_line || !page.address_city || !page.address_state || !page.address_zip) missing.push("full business address (required by CAN-SPAM)");
+// the database says no. Returns codes; the UI words them ("bp.missing.*").
+export type ActivationProblem = "address" | "phone" | "email" | "zips";
+export function activationProblems(page: Pick<BookingPage, "address_line" | "address_city" | "address_state" | "address_zip" | "phone" | "email" | "zip_prefixes">): ActivationProblem[] {
+  const missing: ActivationProblem[] = [];
+  if (!page.address_line || !page.address_city || !page.address_state || !page.address_zip) missing.push("address");
   if (!page.phone) missing.push("phone");
   if (!page.email) missing.push("email");
-  if (!page.zip_prefixes.length) missing.push("at least one accepted ZIP prefix");
+  if (!page.zip_prefixes.length) missing.push("zips");
   return missing;
 }
 

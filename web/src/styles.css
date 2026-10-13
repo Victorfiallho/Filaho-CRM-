@@ -1695,3 +1695,19 @@ tr:hover td{background:rgba(255,255,255,.55)}
 .attention-card .attention-row{align-items:center}
 .cell-strong{font-weight:600;color:var(--ink)}
 @media(max-width:900px){.mini-stats.six{grid-template-columns:repeat(2,minmax(0,1fr))}.page-toolbar{justify-content:stretch}.page-toolbar .pill-select{flex:1}.page-toolbar .cs{width:100%}}
+
+/* ── Integrations ── */
+.integration-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:20px;align-items:start}
+.integration-card .card-b{display:grid;gap:4px}
+.integration-card .switch-row{margin-top:8px}
+.integration-card .action-pill{justify-self:start;margin-top:4px}
+.secret-field input{padding-right:44px}
+.help-details{margin-top:14px}
+.help-details summary{cursor:pointer;color:var(--muted);font-size:13px;font-weight:500}
+.help-details p{margin:6px 0 0}
+.status-list{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.status-list li{display:flex;align-items:flex-start;gap:10px;color:var(--ink-soft);font-size:14px;line-height:1.45}
+.status-list li::before{content:"";flex:0 0 auto;width:9px;height:9px;border-radius:50%;margin-top:6px;background:var(--tone-dot)}
+@media(max-width:760px){.integration-grid{grid-template-columns:minmax(0,1fr)}}
+/* .field input{width:100%} outranked .sr-only and stretched the hidden native file input. */
+.file-btn input.sr-only{position:absolute;width:1px;height:1px;min-height:0;padding:0;margin:-1px;border:0;overflow:hidden;clip:rect(0,0,0,0)}

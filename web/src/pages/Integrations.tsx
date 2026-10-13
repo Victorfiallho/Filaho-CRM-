@@ -12,6 +12,9 @@ import { toast, toastError } from "../lib/toast";
 import { useAuth } from "../state/AuthContext";
 import { useCompany } from "../state/CompanyContext";
 import FileButton from "../components/FileButton";
+import { Eye, EyeOff } from "lucide-react";
+import { useT } from "../i18n/I18nContext";
+import type { MessageKey } from "../i18n/messages";
 
 // Ported verbatim from app.js (renderIntegrations, oauthCard, integrationCard,
 // saveIntegrationSetting, toggleIntegration, saveCompanyIntegrationValue,
@@ -19,6 +22,7 @@ import FileButton from "../components/FileButton";
 export default function Integrations() {
   const { activeCompanyId, activeCompany } = useCompany();
   const { session } = useAuth();
+  const { t } = useT();
   const { data: settings } = useIntegrationSettings();
   const queryClient = useQueryClient();
   const [connectingService, setConnectingService] = useState<string | null>(null);
@@ -56,8 +60,8 @@ export default function Integrations() {
         window.close();
         return;
       }
-      if (connected === "calendar") toast("Google Calendar connected — background sync will pick up scheduled jobs.");
-      else if (calendarError) toastError(`Google Calendar connection failed: ${calendarError}`);
+      if (connected === "calendar") toast(t("int.calConnected"));
+      else if (calendarError) toastError(t("int.calFailed", { error: calendarError }));
       searchParams.delete("connected");
       searchParams.delete("calendar_error");
       setSearchParams(searchParams, { replace: true });
@@ -74,9 +78,9 @@ export default function Integrations() {
       if (e.origin !== window.location.origin || e.data?.source !== "fialho-google-oauth") return;
       if (e.data.connected) {
         queryClient.invalidateQueries({ queryKey: ["integration_settings"] });
-        toast("Google Calendar connected — background sync will pick up scheduled jobs.");
+        toast(t("int.calConnected"));
       } else if (e.data.error) {
-        toastError(`Google Calendar connection failed: ${e.data.error}`);
+        toastError(t("int.calFailed", { error: String(e.data.error) }));
       }
     }
     window.addEventListener("message", onOAuthMessage);
@@ -88,8 +92,8 @@ export default function Integrations() {
   const companyId = activeCompanyId;
 
   async function startCalendarOAuth() {
-    if (!activeSettings.google_oauth.client_id) { toast("Import the Google OAuth JSON first."); return; }
-    if (!session?.access_token) { toast("Your session expired — sign in again."); return; }
+    if (!activeSettings.google_oauth.client_id) { toast(t("int.importFirst")); return; }
+    if (!session?.access_token) { toast(t("int.sessionExpired")); return; }
     // Opened synchronously, before the await below, so it's still tied to
     // this click — most browsers block a window.open() that happens after
     // an await, treating it as an unsolicited popup rather than a
@@ -102,7 +106,7 @@ export default function Integrations() {
       else location.href = url; // popup blocked — fall back to the old same-tab redirect
     } catch (err) {
       popup?.close();
-      toastError(errorMessage(err, "Could not start the Google connection."));
+      toastError(errorMessage(err, t("int.calendarError")));
     }
   }
 
@@ -129,32 +133,32 @@ export default function Integrations() {
     patch(s => key === "google_maps"
       ? { ...s, google_maps: { ...s.google_maps, api_key: value } }
       : { ...s, [key]: { ...(s[key] as any), notes: value } });
-    toast("Integration setting saved.");
+    toast(t("int.saved"));
   }
 
   function savePickerApiKey(value: string) {
     patch(s => ({ ...s, google_drive: { ...s.google_drive, picker_api_key: value } }));
-    toast("Drive Picker API key saved.");
+    toast(t("int.saved"));
   }
 
   function saveEmailSmsField(field: "from_email" | "from_phone", value: string) {
     patch(s => ({ ...s, email_sms: { ...s.email_sms, [field]: value } }));
-    toast("Email/SMS setting saved.");
+    toast(t("int.saved"));
   }
 
   function saveMetaAdAccountId(value: string) {
     patch(s => ({ ...s, meta_ads: { ...s.meta_ads, ad_account_ids: { ...s.meta_ads.ad_account_ids, [companyId]: value } } }));
-    toast("Meta Ads account id saved.");
+    toast(t("int.saved"));
   }
 
   function saveCompanyIntegrationValue(key: "google_sheets" | "google_drive" | "google_calendar", field: string, value: string) {
     patch(s => ({ ...s, [key]: { ...(s[key] as any), [field]: { ...((s[key] as any)[field] || {}), [companyId]: value } } }));
-    toast("Company integration setting saved.");
+    toast(t("int.saved"));
   }
 
   function saveOAuthField(field: string, value: string) {
     patch(s => ({ ...s, google_oauth: { ...s.google_oauth, [field]: value, enabled: field === "client_id" ? Boolean(value) : Boolean(s.google_oauth.client_id) } }));
-    toast("Google OAuth setting saved.");
+    toast(t("int.saved"));
   }
 
   function loadGoogleOAuthJson(file: File | null) {
@@ -176,16 +180,16 @@ export default function Integrations() {
             connected_at: ""
           }
         }));
-        toast("Google OAuth config imported. Client secret was ignored.");
+        toast(t("int.oauthImported"));
       } catch {
-        toastError("Could not read that OAuth JSON.");
+        toastError(t("int.oauthBad"));
       }
     };
     reader.readAsText(file);
   }
 
   async function handleConnect(service: "basic" | "calendar" | "drive" | "sheets") {
-    if (!activeSettings.google_oauth.client_id) { toast("Import the Google OAuth JSON first."); return; }
+    if (!activeSettings.google_oauth.client_id) { toast(t("int.importFirst")); return; }
     setConnectingService(service);
     try {
       const { grantedScope } = await connectGoogleWorkspace(activeSettings.google_oauth.client_id, service);
@@ -196,9 +200,9 @@ export default function Integrations() {
         ...(service === "drive" ? { google_drive: { ...s.google_drive, enabled: true } } : {}),
         ...(service === "sheets" ? { google_sheets: { ...s.google_sheets, enabled: true } } : {})
       }));
-      toast(`Google ${service} connected for this browser session.`);
+      toast(t("int.connected", { service }));
     } catch {
-      toast("Google connection was not completed.");
+      toast(t("int.notCompleted"));
     } finally {
       setConnectingService(null);
     }
@@ -206,125 +210,110 @@ export default function Integrations() {
 
   function handleClearSession() {
     clearGoogleSession();
-    toast("Google session disconnected.");
+    toast(t("int.disconnected"));
   }
 
-  const connectedLabel = isGoogleSessionConnected() ? "connected this session" : settings.google_oauth.enabled ? "configured" : "not configured";
+  const sessionConnected = isGoogleSessionConnected();
+  const oauthState = sessionConnected ? "session" : settings.google_oauth.enabled ? "configured" : "notConfigured";
 
   return (
     <>
-      <section className="card" style={{ marginBottom: 14 }}>
-        <div className="card-h"><h3>Google OAuth</h3><span className="pill">{connectedLabel}</span></div>
+      <section className="card" style={{ marginBottom: 20 }}>
+        <div className="card-h">
+          <h3>{t("int.oauth")}</h3>
+          <span className={`badge-tone tone-${oauthState === "notConfigured" ? "slate" : "green"}`}>{t(`int.status.${oauthState}` as MessageKey)}</span>
+        </div>
         <div className="card-b">
-          <p className="sub">Upload the Google Web OAuth JSON. The CRM stores the Client ID and project only; it does not store the client secret.</p>
+          <p className="sub">{t("int.oauthText")}</p>
           <div className="form-row">
-            <div className="field"><label>OAuth JSON from Google Cloud</label><FileButton accept=".json,application/json" onFiles={files => loadGoogleOAuthJson(files?.[0] || null)} /></div>
-            <div className="field"><label>OAuth Client ID</label><DebouncedField value={settings.google_oauth.client_id || ""} onCommit={v => saveOAuthField("client_id", v)} /></div>
+            <div className="field"><label>{t("int.oauthJson")}</label><FileButton accept=".json,application/json" onFiles={files => loadGoogleOAuthJson(files?.[0] || null)} /></div>
+            <div className="field"><label htmlFor="int-client-id">{t("int.clientId")}</label><DebouncedField id="int-client-id" value={settings.google_oauth.client_id || ""} onCommit={v => saveOAuthField("client_id", v)} /></div>
           </div>
           <div className="form-row">
-            <div className="field"><label>Project ID</label><DebouncedField value={settings.google_oauth.project_id || ""} onCommit={v => saveOAuthField("project_id", v)} /></div>
-            <div className="field"><label>Granted scopes</label><input value={settings.google_oauth.granted_scopes || ""} readOnly /></div>
+            <div className="field"><label htmlFor="int-project">{t("int.projectId")}</label><DebouncedField id="int-project" value={settings.google_oauth.project_id || ""} onCommit={v => saveOAuthField("project_id", v)} /></div>
+            <div className="field"><label htmlFor="int-scopes">{t("int.scopes")}</label><input id="int-scopes" value={settings.google_oauth.granted_scopes || ""} readOnly /></div>
           </div>
-          <div className="inline-actions">
-            <button className="btn ghost slim" onClick={() => handleConnect("basic")} disabled={connectingService !== null}>Connect basic</button>
-            <button className="btn ghost slim" onClick={() => handleConnect("calendar")} disabled={connectingService !== null}>Allow Calendar</button>
-            <button className="btn ghost slim" onClick={() => handleConnect("drive")} disabled={connectingService !== null}>Allow Drive</button>
-            <button className="btn ghost slim" onClick={() => handleConnect("sheets")} disabled={connectingService !== null}>Allow Sheets</button>
-            <button className="btn ghost slim" onClick={handleClearSession}>Disconnect session</button>
+          <div className="inline-actions" style={{ marginTop: 14 }}>
+            <button className="btn slim" onClick={() => handleConnect("basic")} disabled={connectingService !== null}>{t("int.connectBasic")}</button>
+            <button className="btn ghost slim" onClick={() => handleConnect("calendar")} disabled={connectingService !== null}>{t("int.allowCalendar")}</button>
+            <button className="btn ghost slim" onClick={() => handleConnect("drive")} disabled={connectingService !== null}>{t("int.allowDrive")}</button>
+            <button className="btn ghost slim" onClick={() => handleConnect("sheets")} disabled={connectingService !== null}>{t("int.allowSheets")}</button>
+            {sessionConnected && <button className="btn ghost slim" onClick={handleClearSession}>{t("int.disconnect")}</button>}
           </div>
-          <p className="sub">Authorized origin needed in Google Cloud: {location.origin}</p>
-          <p className="sub"><b>Access blocked?</b> In production, Google blocks OAuth if the request includes sensitive scopes that are not listed or approved in Google Auth platform &gt; Data Access.</p>
+          <details className="help-details">
+            <summary>{t("int.blocked").split("?")[0]}?</summary>
+            <p className="sub">{t("int.origin", { origin: location.origin })}</p>
+            <p className="sub">{t("int.blocked")}</p>
+          </details>
         </div>
       </section>
 
-      <div className="grid three">
-        <IntegrationCard
-          k="google_maps" title="Map & Geocoding" description="Powers the Company map, address geocoding, and route optimization/directions on Map & Routes."
-          setting={settings.google_maps} onSaveSetting={saveIntegrationSetting} onToggle={toggleIntegration}
-          extra={
-            <p className="sub">
-              Needs Maps JavaScript API, Geocoding API, and Directions API enabled (with billing) on an
-              HTTP-referrer-restricted key in Google Cloud Console.
-            </p>
-          }
-        />
-        <IntegrationCard
-          k="google_calendar" title="Google Calendar" description="Scheduled jobs sync automatically to this company's Google Calendar, no need to keep the CRM open."
-          setting={settings.google_calendar} onSaveSetting={saveIntegrationSetting} onToggle={toggleIntegration}
-          extra={
-            <>
-              <div className="field">
-                <label>Company Google Calendar ID</label>
-                <DebouncedField value={settings.google_calendar.calendar_ids?.[companyId] || ""} onCommit={v => saveCompanyIntegrationValue("google_calendar", "calendar_ids", v)} placeholder="primary" />
-                <p className="sub">Leave blank to use the connected account's primary calendar.</p>
-              </div>
-              <button className="btn ghost slim" onClick={startCalendarOAuth}>Connect for background sync</button>
-            </>
-          }
-        />
-        <IntegrationCard
-          k="google_sheets" title="Google Sheets" description="Used for future direct sheet imports and exports."
-          setting={settings.google_sheets} onSaveSetting={saveIntegrationSetting} onToggle={toggleIntegration}
-          extra={
-            <div className="field">
-              <label>Default Google Sheet URL for {activeCompany?.name}</label>
-              <DebouncedField value={settings.google_sheets.source_urls?.[companyId] || ""} onCommit={v => saveCompanyIntegrationValue("google_sheets", "source_urls", v)} />
-            </div>
-          }
-        />
-        <IntegrationCard
-          k="google_drive" title="Google Drive" description="Used for client/job folders, files, and project documents."
-          setting={settings.google_drive} onSaveSetting={saveIntegrationSetting} onToggle={toggleIntegration}
-          extra={
-            <>
-              <div className="field">
-                <label>Company Google Drive root folder URL</label>
-                <DebouncedField value={settings.google_drive.folder_urls?.[companyId] || ""} onCommit={v => saveCompanyIntegrationValue("google_drive", "folder_urls", v)} />
-              </div>
-              {settings.google_drive.folder_urls?.[companyId] && (
-                <a className="btn ghost slim" target="_blank" rel="noreferrer" href={settings.google_drive.folder_urls[companyId]}>Open Drive folder</a>
-              )}
-              <div className="field">
-                <label>Google Picker API key</label>
-                <DebouncedField value={settings.google_drive.picker_api_key || ""} onCommit={savePickerApiKey} placeholder="Enables the 'Attach from Drive' file picker" />
-                <p className="sub">Enable the Google Picker API on the same Cloud project as your OAuth client, then paste its API key here.</p>
-              </div>
-            </>
-          }
-        />
-        <section className="card">
-          <div className="card-h"><h3>Email &amp; SMS</h3><span className="pill">{settings.email_sms.enabled ? "enabled" : "planned"}</span></div>
-          <div className="card-b">
-            <p className="sub">Sends a reminder (SMS if the client has a phone on file, else email) the day before a scheduled job, plus a manual "Send reminder now" button on jobs.</p>
-            <div className="field"><label>From email (Resend)</label><DebouncedField value={settings.email_sms.from_email} onCommit={v => saveEmailSmsField("from_email", v)} placeholder="notifications@yourdomain.com" /></div>
-            <div className="field"><label>From phone (Twilio)</label><DebouncedField value={settings.email_sms.from_phone} onCommit={v => saveEmailSmsField("from_phone", v)} placeholder="+15555550123" /></div>
-            <p className="sub">Real API keys (Resend, Twilio) are set as Vercel/GitHub Actions secrets, not here — ask Victor if those aren't set up yet.</p>
-            <button className="btn ghost slim" onClick={() => toggleIntegration("email_sms")}>{settings.email_sms.enabled ? "Mark planned" : "Mark ready"}</button>
+      <div className="integration-grid">
+        <IntegrationCard title={t("int.maps")} description={t("int.mapsText")} enabled={settings.google_maps.enabled} onToggle={() => toggleIntegration("google_maps")}>
+          <div className="field">
+            <label htmlFor="int-maps-key">{t("int.mapsKey")}</label>
+            <SecretField id="int-maps-key" value={settings.google_maps.api_key || ""} onCommit={v => saveIntegrationSetting("google_maps", v)} />
+            <p className="sub">{t("int.mapsHelp")}</p>
           </div>
-        </section>
-        <section className="card">
-          <div className="card-h"><h3>Meta Ads</h3><span className="pill">{settings.meta_ads.enabled ? "enabled" : "planned"}</span></div>
-          <div className="card-b">
-            <p className="sub">Daily ad spend/impressions/clicks sync from Meta Ads Manager into Reports.</p>
-            <div className="field">
-              <label>Ad account ID for {activeCompany?.name}</label>
-              <DebouncedField value={settings.meta_ads.ad_account_ids?.[companyId] || ""} onCommit={saveMetaAdAccountId} placeholder="act_1234567890" />
-            </div>
-            <p className="sub">The Marketing API access token is a GitHub Actions secret, set up by Victor separately.</p>
-            <button className="btn ghost slim" onClick={() => toggleIntegration("meta_ads")}>{settings.meta_ads.enabled ? "Mark planned" : "Mark ready"}</button>
+        </IntegrationCard>
+
+        <IntegrationCard title={t("int.calendar")} description={t("int.calendarText")} enabled={settings.google_calendar.enabled} onToggle={() => toggleIntegration("google_calendar")}>
+          <div className="field">
+            <label htmlFor="int-cal-id">{t("int.calendarId")}</label>
+            <DebouncedField id="int-cal-id" value={settings.google_calendar.calendar_ids?.[companyId] || ""} onCommit={v => saveCompanyIntegrationValue("google_calendar", "calendar_ids", v)} placeholder="primary" />
+            <p className="sub">{t("int.calendarIdHelp")}</p>
           </div>
-        </section>
+          <button className="btn ghost slim" onClick={startCalendarOAuth}>{t("int.calendarConnect")}</button>
+        </IntegrationCard>
+
+        <IntegrationCard title={t("int.sheets")} description={t("int.sheetsText")} enabled={settings.google_sheets.enabled} onToggle={() => toggleIntegration("google_sheets")}>
+          <div className="field">
+            <label htmlFor="int-sheet">{t("int.sheetUrl", { company: activeCompany?.name || "" })}</label>
+            <DebouncedField id="int-sheet" value={settings.google_sheets.source_urls?.[companyId] || ""} onCommit={v => saveCompanyIntegrationValue("google_sheets", "source_urls", v)} />
+          </div>
+        </IntegrationCard>
+
+        <IntegrationCard title={t("int.drive")} description={t("int.driveText")} enabled={settings.google_drive.enabled} onToggle={() => toggleIntegration("google_drive")}>
+          <div className="field">
+            <label htmlFor="int-drive">{t("int.driveRoot")}</label>
+            <DebouncedField id="int-drive" value={settings.google_drive.folder_urls?.[companyId] || ""} onCommit={v => saveCompanyIntegrationValue("google_drive", "folder_urls", v)} />
+          </div>
+          {settings.google_drive.folder_urls?.[companyId] && (
+            <a className="action-pill" target="_blank" rel="noreferrer" href={settings.google_drive.folder_urls[companyId]}>{t("int.openDrive")}</a>
+          )}
+          <div className="field">
+            <label htmlFor="int-picker">{t("int.pickerKey")}</label>
+            <SecretField id="int-picker" value={settings.google_drive.picker_api_key || ""} onCommit={savePickerApiKey} />
+            <p className="sub">{t("int.pickerHelp")}</p>
+          </div>
+        </IntegrationCard>
+
+        <IntegrationCard title={t("int.emailSms")} description={t("int.emailSmsText")} enabled={settings.email_sms.enabled} onToggle={() => toggleIntegration("email_sms")}>
+          <div className="field"><label htmlFor="int-from-email">{t("int.fromEmail")}</label><DebouncedField id="int-from-email" value={settings.email_sms.from_email} onCommit={v => saveEmailSmsField("from_email", v)} placeholder="notifications@yourdomain.com" /></div>
+          <div className="field"><label htmlFor="int-from-phone">{t("int.fromPhone")}</label><DebouncedField id="int-from-phone" value={settings.email_sms.from_phone} onCommit={v => saveEmailSmsField("from_phone", v)} placeholder="+15555550123" /></div>
+          <p className="sub">{t("int.serverKeys")}</p>
+        </IntegrationCard>
+
+        <IntegrationCard title={t("int.meta")} description={t("int.metaText")} enabled={settings.meta_ads.enabled} onToggle={() => toggleIntegration("meta_ads")}>
+          <div className="field">
+            <label htmlFor="int-meta">{t("int.adAccount", { company: activeCompany?.name || "" })}</label>
+            <DebouncedField id="int-meta" value={settings.meta_ads.ad_account_ids?.[companyId] || ""} onCommit={saveMetaAdAccountId} placeholder="act_1234567890" />
+          </div>
+          <p className="sub">{t("int.serverKeys")}</p>
+        </IntegrationCard>
       </div>
 
-      <section className="card" style={{ marginTop: 14 }}>
-        <div className="card-h"><h3>Connection status</h3><span className="sub">Local CRM with optional Google OAuth</span></div>
+      <section className="card" style={{ marginTop: 20 }}>
+        <div className="card-h"><h3>{t("int.overview")}</h3></div>
         <div className="card-b">
-          <p><b>Maps:</b> {settings.google_maps.enabled ? "Google Maps API key configured." : "Add a Google Maps API key above to enable the map, geocoding, and route optimization."}</p>
-          <p><b>Calendar:</b> ICS import/export plus background OAuth sync to Google Calendar are active.</p>
-          <p><b>Drive:</b> folder URL fields are active; "Attach from Drive" opens a real file picker once a Picker API key is set above.</p>
-          <p><b>Sheets:</b> public/published CSV import is active; "Connect Google & load private sheet" (Import Center) reads private sheets directly via OAuth.</p>
-          <p><b>Email/SMS:</b> {settings.email_sms.enabled ? "Enabled — reminders send via Resend/Twilio once their API keys are set as server secrets." : "Not enabled yet."}</p>
-          <p><b>Meta Ads:</b> {settings.meta_ads.enabled ? "Enabled — daily ad performance sync runs once the Marketing API token secret is set." : "Not enabled yet."}</p>
+          <ul className="status-list">
+            <li className={`tone-${settings.google_maps.enabled ? "green" : "slate"}`}>{t("int.ov.maps", { state: settings.google_maps.enabled ? t("int.ov.mapsOn") : t("int.ov.mapsOff") })}</li>
+            <li className="tone-green">{t("int.ov.calendar")}</li>
+            <li className="tone-green">{t("int.ov.drive")}</li>
+            <li className="tone-green">{t("int.ov.sheets")}</li>
+            <li className={`tone-${settings.email_sms.enabled ? "green" : "slate"}`}>{t("int.ov.email", { state: settings.email_sms.enabled ? t("int.ov.on") : t("int.ov.off") })}</li>
+            <li className={`tone-${settings.meta_ads.enabled ? "green" : "slate"}`}>{t("int.ov.meta", { state: settings.meta_ads.enabled ? t("int.ov.on") : t("int.ov.off") })}</li>
+          </ul>
         </div>
       </section>
     </>
@@ -332,17 +321,10 @@ export default function Integrations() {
 }
 
 // Every text field on this page used to be a plain <input value={live query
-// data} onChange={fires a full save+refetch per keystroke}/> — fine for a
-// single paste, but typing more than one character raced the save against
-// the query refetch: each keystroke kicked off an async write, and the
-// input's value snapped back to the (still-stale) server value on every
-// re-render in between, effectively eating whatever was being typed (found
-// 2026-09-04 when Victor genuinely couldn't type a new Google OAuth Client
-// ID into place). This decouples typing from saving: local draft state
-// while focused, one save on blur, and only re-syncs from the live value
-// while NOT focused — so it still picks up saves from elsewhere (e.g. a
-// different field's edit invalidating this whole shared settings row)
-// without clobbering an in-progress edit.
+// data} onChange={fires a full save+refetch per keystroke}/> — typing more
+// than one character raced the save against the refetch and ate keystrokes
+// (2026-09-04). Local draft while focused, one save on blur, and re-sync
+// from the live value only while NOT focused.
 function DebouncedField({ value, onCommit, ...props }: { value: string; onCommit: (v: string) => void } & Omit<React.InputHTMLAttributes<HTMLInputElement>, "value" | "onChange" | "onBlur" | "onFocus">) {
   const [draft, setDraft] = useState(value);
   const [focused, setFocused] = useState(false);
@@ -363,26 +345,47 @@ function DebouncedField({ value, onCommit, ...props }: { value: string; onCommit
   );
 }
 
-function IntegrationCard({ k, title, description, setting, onSaveSetting, onToggle, extra }: {
-  k: keyof IntegrationSettings;
+// API keys: masked by default (they used to sit in plain text on screen),
+// with a Show/Hide toggle and an "ends in …XXXX" hint so you can tell which
+// key is saved without revealing it.
+function SecretField({ id, value, onCommit }: { id: string; value: string; onCommit: (v: string) => void }) {
+  const { t } = useT();
+  const [reveal, setReveal] = useState(false);
+  return (
+    <>
+      <div className="input-with-icon secret-field">
+        <DebouncedField id={id} value={value} onCommit={onCommit} type={reveal ? "text" : "password"} autoComplete="off" spellCheck={false} />
+        <button type="button" className="input-icon-btn" onClick={() => setReveal(v => !v)} aria-label={reveal ? t("int.hide") : t("int.show")} aria-controls={id}>
+          {reveal ? <EyeOff /> : <Eye />}
+        </button>
+      </div>
+      {value && !reveal && <span className="sub">{t("int.endsWith", { last: value.slice(-4) })}</span>}
+    </>
+  );
+}
+
+function IntegrationCard({ title, description, enabled, onToggle, children }: {
   title: string;
   description: string;
-  setting: { enabled: boolean; api_key?: string; notes: string };
-  onSaveSetting: (key: keyof IntegrationSettings, value: string) => void;
-  onToggle: (key: keyof IntegrationSettings) => void;
-  extra?: React.ReactNode;
+  enabled: boolean;
+  onToggle: () => void;
+  children?: React.ReactNode;
 }) {
+  const { t } = useT();
   return (
-    <section className="card">
-      <div className="card-h"><h3>{title}</h3><span className="pill">{setting.enabled ? "enabled" : "planned"}</span></div>
+    <section className="card integration-card">
+      <div className="card-h">
+        <h3>{title}</h3>
+        <span className={`badge-tone tone-${enabled ? "green" : "slate"}`}>{enabled ? t("int.status.ready") : t("int.status.planned")}</span>
+      </div>
       <div className="card-b">
         <p className="sub">{description}</p>
-        <div className="field">
-          <label>API key / OAuth note</label>
-          <DebouncedField value={setting.api_key || ""} placeholder={setting.notes} onCommit={v => onSaveSetting(k, v)} />
-        </div>
-        {extra}
-        <button className="btn ghost slim" onClick={() => onToggle(k)}>{setting.enabled ? "Mark planned" : "Mark ready"}</button>
+        {children}
+        <label className="switch-row">
+          <input type="checkbox" role="switch" checked={enabled} onChange={onToggle} />
+          <span className="switch" aria-hidden="true" />
+          <span>{t("int.markReady")}</span>
+        </label>
       </div>
     </section>
   );

@@ -1736,3 +1736,16 @@ tr:hover td{background:rgba(255,255,255,.55)}
   .access-list .pill-select{width:100%}
   .access-list .cs{width:100%}
 }
+
+/* ── Import Center ── */
+.import-layout{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:20px;align-items:start}
+.import-main{display:grid;gap:20px;min-width:0}
+.mapping-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:4px 16px}
+.history-list{list-style:none;margin:0;padding:0;display:grid}
+.history-list li{display:grid;gap:2px;padding:10px 0;border-top:1px solid var(--line)}
+.history-list li:first-child{border-top:0;padding-top:0}
+.history-list b{font-weight:600;color:var(--ink);overflow-wrap:anywhere}
+.notice-box{margin-top:14px;padding:14px 16px;border-radius:16px;background:var(--tone-amber-bg);color:var(--tone-amber-fg);display:grid;gap:10px}
+.notice-box p{margin:0}
+.notice-box .btn.ghost{background:rgba(255,255,255,.8)}
+@media(max-width:1100px){.import-layout{grid-template-columns:minmax(0,1fr)}}

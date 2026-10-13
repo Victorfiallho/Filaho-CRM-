@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, type LucideIcon, PlusCircle, SkipForward, Upload } from "lucide-react";
+import { Upload } from "lucide-react";
 import { useRef, useState } from "react";
 import { Navigate } from "react-router-dom";
 import Select from "../components/Select";
@@ -28,6 +28,10 @@ import { connectGoogleWorkspace, googleAccessTokenFor } from "../lib/googleOAuth
 import { toast, toastError } from "../lib/toast";
 import { useCompany } from "../state/CompanyContext";
 import FileButton from "../components/FileButton";
+import EmptyState from "../components/EmptyState";
+import KpiStrip from "../components/KpiStrip";
+import { useT } from "../i18n/I18nContext";
+import { en, type MessageKey } from "../i18n/messages";
 
 type CustomerPreviewRow = {
   index: number;
@@ -53,6 +57,7 @@ type PreviewRow = CustomerPreviewRow | JobPreviewRow;
 // personal/work classification and per-row company reassignment for .ics imports.
 export default function ImportCenter() {
   const { activeCompanyId, activeCompany, companies, services } = useCompany();
+  const { t, tn } = useT();
   const { data: customers = [] } = useCustomers(activeCompanyId);
   const { data: settings } = useIntegrationSettings();
   const { data: history = [] } = useImportsHistory(activeCompanyId);
@@ -96,7 +101,7 @@ export default function ImportCenter() {
     setRows(parsed.slice(1));
     setMapping(autoMapHeaders(nextHeaders, type));
     setPreview([]);
-    toast("CSV loaded. Review mapping.");
+    toast(t("imp.t.csvLoaded"));
   }
 
   async function loadICS(text: string, icsFileName: string) {
@@ -127,7 +132,7 @@ export default function ImportCenter() {
       })
       .filter(row => row.record.title || row.record.scheduled_date || row.record.address);
     setPreview(previewRows);
-    toast(`${previewRows.length} calendar event${previewRows.length === 1 ? "" : "s"} ready to preview.`);
+    toast(tn("imp.t.calendarReady", previewRows.length));
   }
 
   async function loadImportFile(file: File | null) {
@@ -138,7 +143,7 @@ export default function ImportCenter() {
         const text = await extractFirstIcsFromZip(await file.arrayBuffer());
         await loadICS(text, file.name);
       } catch {
-        toastError("Could not read that ZIP. Upload the .ics file inside it.");
+        toastError(t("imp.t.zipBad"));
       }
       return;
     }
@@ -151,9 +156,9 @@ export default function ImportCenter() {
   }
 
   async function loadGoogleSheetCsv() {
-    if (!sheetUrl.trim() || !activeCompanyId || !settings) { toast("Paste a Google Sheet URL first."); return; }
+    if (!sheetUrl.trim() || !activeCompanyId || !settings) { toast(t("imp.t.pasteUrl")); return; }
     const csvUrl = toGoogleSheetCsvUrl(sheetUrl.trim());
-    if (!csvUrl) { toastError("Could not read that Google Sheet URL."); return; }
+    if (!csvUrl) { toastError(t("imp.t.badUrl")); return; }
     try {
       const nextSettings = { ...settings, google_sheets: { ...settings.google_sheets, source_urls: { ...settings.google_sheets.source_urls, [activeCompanyId]: sheetUrl.trim() } } };
       await saveIntegrationSettings(nextSettings);
@@ -169,9 +174,9 @@ export default function ImportCenter() {
       setRows(parsed.slice(1));
       setMapping(autoMapHeaders(nextHeaders, "sheets"));
       setPreview([]);
-      toast("Google Sheet loaded. Review mapping.");
+      toast(t("imp.t.sheetLoaded"));
     } catch {
-      toastError("Could not load Sheet. Publish it as CSV or share it publicly first.");
+      toastError(t("imp.t.sheetFailed"));
     }
   }
 
@@ -180,10 +185,10 @@ export default function ImportCenter() {
   // already mints for Calendar/Drive — no "publish to web" step needed, but
   // does need the Google OAuth client configured on Integrations first.
   async function loadPrivateGoogleSheet() {
-    if (!sheetUrl.trim() || !activeCompanyId || !settings) { toast("Paste a Google Sheet URL first."); return; }
+    if (!sheetUrl.trim() || !activeCompanyId || !settings) { toast(t("imp.t.pasteUrl")); return; }
     const spreadsheetId = extractSpreadsheetId(sheetUrl.trim());
-    if (!spreadsheetId) { toastError("Could not read that Google Sheet URL."); return; }
-    if (!settings.google_oauth.client_id) { toast("Import the Google OAuth JSON in Integrations first."); return; }
+    if (!spreadsheetId) { toastError(t("imp.t.badUrl")); return; }
+    if (!settings.google_oauth.client_id) { toast(t("imp.t.oauthFirst")); return; }
     setConnectingSheet(true);
     try {
       let token = googleAccessTokenFor("sheets");
@@ -202,9 +207,9 @@ export default function ImportCenter() {
       setRows(values.slice(1));
       setMapping(autoMapHeaders(nextHeaders, "sheets"));
       setPreview([]);
-      toast("Private Google Sheet loaded. Review mapping.");
+      toast(t("imp.t.privateLoaded"));
     } catch (error) {
-      toastError(errorMessage(error, "Could not load that private Sheet."));
+      toastError(errorMessage(error, t("imp.t.privateFailed")));
     } finally {
       setConnectingSheet(false);
     }
@@ -304,92 +309,106 @@ export default function ImportCenter() {
 
       resetImportState();
       invalidate();
-      toast(`${created} created, ${updated} updated, ${skipped} skipped.`);
+      toast(t("imp.t.done", { created, updated, skipped }));
     } catch (error) {
-      toastError(errorMessage(error, "Could not save the import."));
+      toastError(errorMessage(error, t("imp.t.saveFailed")));
     } finally {
       setCommitting(false);
     }
   }
 
   const isCalendarImport = type === "calendar_ics";
+  const presetLabel = (k: string) => (`imp.preset.${k}` in en ? t(`imp.preset.${k}` as MessageKey) : IMPORT_PRESETS[k as ImportSourceType]?.label || k);
 
   return (
-    <div className="grid two">
-      <section className="card">
-        <div className="card-h"><h3>CSV Import Center</h3><span className="sub">Imports into {activeCompany?.name} only</span></div>
-        <div className="card-b">
-          <div className="form-row">
-            <div className="field">
-              <label>Import source</label>
-              <Select value={type} onChange={v => changeType(v as ImportSourceType)} options={Object.entries(IMPORT_PRESETS).map(([k, p]) => ({ value: k, label: p.label }))} />
-            </div>
-            <div className="field">
-              <label>CSV, ICS, or Calendar ZIP file</label>
-              <FileButton accept=".csv,.ics,.zip,text/csv,text/calendar,application/zip" onFiles={files => loadImportFile(files?.[0] || null)} />
-            </div>
-          </div>
-          <div className="field">
-            <label>Google Sheets URL</label>
-            <div className="inline-actions">
-              <input value={sheetUrl} onChange={e => setSheetUrl(e.target.value)} placeholder="Paste Google Sheet URL or published CSV link" />
-              <button className="btn ghost" onClick={loadGoogleSheetCsv}>Load published CSV</button>
-              <button className="btn ghost" onClick={loadPrivateGoogleSheet} disabled={connectingSheet}>
-                {connectingSheet ? "Connecting..." : "Connect Google & load private sheet"}
-              </button>
-            </div>
-          </div>
-
-          {isCalendarImport && preview.length ? (
-            <PreviewTable
-              preview={preview} isCalendarImport companies={companies}
-              onAction={setRowAction} onCompanyChange={setImportRowCompany} onCleanup={applyCalendarCleanup}
-              onCommit={commitImport} committing={committing} companyName={activeCompany?.name || ""}
-            />
-          ) : headers.length ? (
-            <>
-              <div className="grid three">
-                {IMPORT_FIELDS.map(([field, label]) => (
-                  <div className="field" key={field}>
-                    <label>{label}</label>
-                    <Select
-                      value={mapping[field] || ""}
-                      onChange={v => setMapping(m => ({ ...m, [field]: v }))}
-                      options={[{ value: "", label: "Do not import" }, ...headers.map(h => ({ value: h, label: h }))]}
-                    />
-                  </div>
-                ))}
+    <div className="import-layout">
+      <div className="import-main">
+        <section className="card">
+          <div className="card-h"><div><h3>{t("imp.step1")}</h3><span className="sub">{t("imp.step1Sub", { company: activeCompany?.name || "" })}</span></div></div>
+          <div className="card-b">
+            <div className="form-row">
+              <div className="field">
+                <label>{t("imp.source")}</label>
+                <Select aria-label={t("imp.source")} value={type} onChange={v => changeType(v as ImportSourceType)} options={Object.keys(IMPORT_PRESETS).map(k => ({ value: k, label: presetLabel(k) }))} />
               </div>
-              <button className="btn ghost" onClick={buildPreview}>Preview before saving</button>
-              {preview.length > 0 && (
-                <PreviewTable
-                  preview={preview} isCalendarImport={false} companies={companies}
-                  onAction={setRowAction} onCompanyChange={setImportRowCompany} onCleanup={applyCalendarCleanup}
-                  onCommit={commitImport} committing={committing} companyName={activeCompany?.name || ""}
-                />
-              )}
-            </>
-          ) : (
-            <div className="empty"><Upload />Upload a CSV, Google Calendar .ics, or .ical.zip file to preview.</div>
-          )}
-        </div>
-      </section>
-      <section className="card">
-        <div className="card-h"><h3>Import history</h3><span className="sub">{history.length} import{history.length === 1 ? "" : "s"}</span></div>
+              <div className="field">
+                <label>{t("imp.file")}</label>
+                <FileButton accept=".csv,.ics,.zip,text/csv,text/calendar,application/zip" onFiles={files => loadImportFile(files?.[0] || null)} />
+              </div>
+            </div>
+            <div className="field">
+              <label htmlFor="imp-sheet">{t("imp.sheetUrl")}</label>
+              <input id="imp-sheet" value={sheetUrl} onChange={e => setSheetUrl(e.target.value)} placeholder={t("imp.sheetPlaceholder")} />
+              <div className="inline-actions" style={{ marginTop: 8 }}>
+                <button className="btn ghost slim" onClick={loadGoogleSheetCsv}>{t("imp.loadPublished")}</button>
+                <button className="btn ghost slim" onClick={loadPrivateGoogleSheet} disabled={connectingSheet}>
+                  {connectingSheet ? t("imp.connecting") : t("imp.loadPrivate")}
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {isCalendarImport && preview.length ? (
+          <PreviewTable
+            preview={preview} isCalendarImport companies={companies}
+            onAction={setRowAction} onCompanyChange={setImportRowCompany} onCleanup={applyCalendarCleanup}
+            onCommit={commitImport} committing={committing} companyName={activeCompany?.name || ""}
+          />
+        ) : headers.length ? (
+          <>
+            <section className="card">
+              <div className="card-h"><div><h3>{t("imp.step2")}</h3><span className="sub">{t("imp.step2Sub")}</span></div></div>
+              <div className="card-b">
+                <div className="mapping-grid">
+                  {IMPORT_FIELDS.map(([field, label]) => (
+                    <div className="field" key={field}>
+                      <label>{`imp.field.${field}` in en ? t(`imp.field.${field}` as MessageKey) : label}</label>
+                      <Select
+                        aria-label={`imp.field.${field}` in en ? t(`imp.field.${field}` as MessageKey) : label}
+                        value={mapping[field] || ""}
+                        onChange={v => setMapping(m => ({ ...m, [field]: v }))}
+                        options={[{ value: "", label: t("imp.doNotImport") }, ...headers.map(h => ({ value: h, label: h }))]}
+                      />
+                    </div>
+                  ))}
+                </div>
+                <button className="btn" style={{ marginTop: 16 }} onClick={buildPreview}>{t("imp.preview")}</button>
+              </div>
+            </section>
+            {preview.length > 0 && (
+              <PreviewTable
+                preview={preview} isCalendarImport={false} companies={companies}
+                onAction={setRowAction} onCompanyChange={setImportRowCompany} onCleanup={applyCalendarCleanup}
+                onCommit={commitImport} committing={committing} companyName={activeCompany?.name || ""}
+              />
+            )}
+          </>
+        ) : (
+          <section className="card"><div className="card-b"><EmptyState icon={Upload}>{t("imp.emptyHint")}</EmptyState></div></section>
+        )}
+      </div>
+
+      <section className="card self-start">
+        <div className="card-h"><h3>{t("imp.history")}</h3><span className="sub">{history.length}</span></div>
         <div className="card-b">
-          {history.length
-            ? history.map(h => (
-              <p key={h.id}>
-                <b>{h.file_name}</b><br />
-                <span className="sub">{h.source_type} | {h.created_count} created | {h.updated_count} updated | {h.skipped_count} skipped</span>
-              </p>
-            ))
-            : <div className="empty"><Upload />No imports yet</div>}
+          {history.length ? (
+            <ul className="history-list">
+              {history.map(h => (
+                <li key={h.id}>
+                  <b>{h.file_name}</b>
+                  <span className="sub">{t("imp.historyLine", { source: h.source_type, created: h.created_count, updated: h.updated_count, skipped: h.skipped_count })}</span>
+                </li>
+              ))}
+            </ul>
+          ) : <EmptyState icon={Upload}>{t("imp.noHistory")}</EmptyState>}
         </div>
       </section>
     </div>
   );
 }
+
+const PREVIEW_LIMIT = 80;
 
 function PreviewTable({ preview, isCalendarImport, companies, onAction, onCompanyChange, onCleanup, onCommit, committing, companyName }: {
   preview: PreviewRow[];
@@ -402,6 +421,7 @@ function PreviewTable({ preview, isCalendarImport, companies, onAction, onCompan
   committing: boolean;
   companyName: string;
 }) {
+  const { t } = useT();
   const counts = preview.reduce((acc: Record<string, number>, row) => { acc[row.action] = (acc[row.action] || 0) + 1; return acc; }, {});
   const reviewCounts = preview.reduce((acc: Record<string, number>, row) => {
     if (row.kind !== "job") return acc;
@@ -409,79 +429,79 @@ function PreviewTable({ preview, isCalendarImport, companies, onAction, onCompan
     acc[label] = (acc[label] || 0) + 1;
     return acc;
   }, {});
+  const tr = (prefix: string, value: string) => (`${prefix}.${value}` in en ? t(`${prefix}.${value}` as MessageKey) : value);
 
   return (
-    <div style={{ marginTop: 16 }}>
-      <div className="grid three">
-        <Kpi icon={PlusCircle} label="Create" value={counts.create || 0} hint="new records" />
-        <Kpi icon={CheckCircle2} label="Update" value={counts.update || 0} hint="matched duplicates" />
-        <Kpi icon={SkipForward} label="Skip" value={counts.skip || 0} hint="ignored rows" />
-      </div>
-      {isCalendarImport && (
-        <div className="empty" style={{ marginTop: 12 }}>
-          This calendar can contain jobs for multiple companies plus personal events. Review Company and Action before saving.
-          <div className="inline-actions" style={{ marginTop: 10 }}>
-            <button className="btn ghost slim" onClick={() => onCleanup("skip-personal")}>Skip suggested personal</button>
-            <button className="btn ghost slim" onClick={() => onCleanup("skip-review")}>Skip needs review</button>
-            <button className="btn ghost slim" onClick={() => onCleanup("restore-work")}>Restore work suggestions</button>
+    <section className="card">
+      <div className="card-h"><h3>{t("imp.step3")}</h3></div>
+      <div className="card-b">
+        <KpiStrip items={[
+          { label: t("imp.kpi.create"), value: counts.create || 0, hint: t("imp.kpi.createHint"), tone: "green" },
+          { label: t("imp.kpi.update"), value: counts.update || 0, hint: t("imp.kpi.updateHint"), tone: "blue" },
+          { label: t("imp.kpi.skip"), value: counts.skip || 0, hint: t("imp.kpi.skipHint"), tone: "slate" }
+        ]} />
+        {isCalendarImport && (
+          <div className="notice-box">
+            <p>{t("imp.calendarNote")}</p>
+            <div className="inline-actions">
+              <button className="btn ghost slim" onClick={() => onCleanup("skip-personal")}>{t("imp.skipPersonal")}</button>
+              <button className="btn ghost slim" onClick={() => onCleanup("skip-review")}>{t("imp.skipReview")}</button>
+              <button className="btn ghost slim" onClick={() => onCleanup("restore-work")}>{t("imp.restoreWork")}</button>
+            </div>
+            <span className="sub">{t("imp.reviewCounts", { personal: reviewCounts.personal || 0, review: reviewCounts.review || 0, job: reviewCounts.job || 0 })}</span>
           </div>
-          <span className="sub">Suggested personal: {reviewCounts.personal || 0} | Needs review: {reviewCounts.review || 0} | Work-like: {reviewCounts.job || 0}</span>
-        </div>
-      )}
-      <div className="table-wrap" style={{ marginTop: 12 }}>
-        <table>
-          <thead>
-            <tr>
-              <th>Action</th>
-              {isCalendarImport && <><th>Company</th><th>Review</th></>}
-              <th>Name</th><th>Contact</th><th>Duplicate</th>
-            </tr>
-          </thead>
-          <tbody>
-            {preview.slice(0, 80).map(row => (
-              <tr key={row.index}>
-                <td>
-                  <Select
-                    value={row.action}
-                    onChange={v => onAction(row.index, v as PreviewRow["action"])}
-                    options={[
-                      { value: "create", label: "Create new" },
-                      { value: "update", label: "Update existing", disabled: !row.duplicate },
-                      { value: "skip", label: "Skip" }
-                    ]}
-                  />
-                </td>
-                {isCalendarImport && row.kind === "job" && (
-                  <>
-                    <td>
-                      <Select value={row.company_id} onChange={v => onCompanyChange(row.index, v)} options={companies.map(c => ({ value: c.id, label: c.name }))} />
-                    </td>
-                    <td><span className="pill">{row.review_label || "job"}</span><br /><span className="sub">{row.review_reason || "Looks like work"}</span></td>
-                  </>
-                )}
-                <td>{row.kind === "job" ? row.record.title : row.record.name}</td>
-                <td>{row.kind === "job" ? [row.record.scheduled_date, row.record.address, row.record.city].filter(Boolean).join(" | ") : row.record.phone || row.record.email || ""}</td>
-                <td>{row.duplicate ? <>{(row.duplicate.match as any).name || (row.duplicate.match as any).title} <span className="sub">{row.duplicate.reasons.join(", ")}</span></> : <span className="muted">No match</span>}</td>
+        )}
+        <div className="table-wrap" style={{ marginTop: 12 }}>
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>{t("imp.col.action")}</th>
+                {isCalendarImport && <><th>{t("imp.col.company")}</th><th>{t("imp.col.review")}</th></>}
+                <th>{t("imp.col.name")}</th><th>{t("imp.col.contact")}</th><th>{t("imp.col.duplicate")}</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <button className="btn" style={{ marginTop: 12 }} onClick={onCommit} disabled={committing}>
-        {committing ? "Saving..." : isCalendarImport ? "Save calendar import" : `Save import to ${companyName}`}
-      </button>
-    </div>
-  );
-}
-
-function Kpi({ label, value, hint, icon: Icon }: { label: string; value: number; hint: string; icon: LucideIcon }) {
-  return (
-    <section className="card kpi">
-      <div className="kpi-icon"><Icon /></div>
-      <div>
-        <div className="label">{label}</div>
-        <div className="value">{value}</div>
-        <div className="hint">{hint}</div>
+            </thead>
+            <tbody>
+              {preview.slice(0, PREVIEW_LIMIT).map(row => (
+                <tr key={row.index}>
+                  <td style={{ minWidth: 170 }}>
+                    <Select
+                      aria-label={t("imp.col.action")}
+                      value={row.action}
+                      onChange={v => onAction(row.index, v as PreviewRow["action"])}
+                      options={[
+                        { value: "create", label: t("imp.action.create") },
+                        { value: "update", label: t("imp.action.update"), disabled: !row.duplicate },
+                        { value: "skip", label: t("imp.action.skip") }
+                      ]}
+                    />
+                  </td>
+                  {isCalendarImport && row.kind === "job" && (
+                    <>
+                      <td style={{ minWidth: 170 }}>
+                        <Select aria-label={t("imp.col.company")} value={row.company_id} onChange={v => onCompanyChange(row.index, v)} options={companies.map(c => ({ value: c.id, label: c.name }))} />
+                      </td>
+                      <td>
+                        <span className={`badge-tone tone-${row.review_label === "personal" ? "slate" : row.review_label === "review" ? "amber" : "green"}`}>{tr("imp.label", row.review_label || "job")}</span>
+                        <div className="sub">{tr("imp.reason", row.review_reason || "Has job details")}</div>
+                      </td>
+                    </>
+                  )}
+                  <td><b className="cell-strong">{row.kind === "job" ? row.record.title : row.record.name}</b></td>
+                  <td className="sub">{row.kind === "job" ? [row.record.scheduled_date, row.record.address, row.record.city].filter(Boolean).join(" · ") : row.record.phone || row.record.email || ""}</td>
+                  <td>
+                    {row.duplicate
+                      ? <>{(row.duplicate.match as any).name || (row.duplicate.match as any).title} <span className="sub">({row.duplicate.reasons.map(r => tr("dup", r)).join(", ")})</span></>
+                      : <span className="cell-missing">{t("imp.noMatch")}</span>}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {preview.length > PREVIEW_LIMIT && <p className="sub" style={{ marginTop: 8 }}>{t("imp.showing", { count: PREVIEW_LIMIT })}</p>}
+        <button className="btn" style={{ marginTop: 14 }} onClick={onCommit} disabled={committing}>
+          {committing ? t("imp.saving") : isCalendarImport ? t("imp.saveCalendar") : t("imp.saveTo", { company: companyName })}
+        </button>
       </div>
     </section>
   );

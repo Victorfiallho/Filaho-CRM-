@@ -1711,3 +1711,28 @@ tr:hover td{background:rgba(255,255,255,.55)}
 @media(max-width:760px){.integration-grid{grid-template-columns:minmax(0,1fr)}}
 /* .field input{width:100%} outranked .sr-only and stretched the hidden native file input. */
 .file-btn input.sr-only{position:absolute;width:1px;height:1px;min-height:0;padding:0;margin:-1px;border:0;overflow:hidden;clip:rect(0,0,0,0)}
+
+/* ── Users & access ── */
+.page-toolbar.spread{justify-content:space-between;align-items:center}
+.user-list{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:minmax(0,1fr)}
+.user-row{display:flex;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--line)}
+.user-row:first-child{border-top:0;padding-top:0}
+.user-row .lead-avatar{width:38px;height:38px;font-size:12.5px}
+.user-row-main{flex:1;min-width:0;display:grid;gap:3px}
+.user-row-main b{font-weight:600;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.user-row-main .sub{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.user-row-access{display:flex;flex-wrap:wrap;gap:6px;margin-top:3px}
+.user-row-access .badge-tone{font-size:11.5px;padding:3px 9px}
+.access-list{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.access-list li{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:6px 0;border-top:1px solid var(--line)}
+.access-list li:first-child{border-top:0}
+.access-list .cs{min-width:150px}
+.check-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px}
+.check-grid .check-row{min-height:36px;padding:6px 10px;border-radius:12px;background:rgba(255,255,255,.7);border:1px solid var(--line);font-size:13.5px}
+@media(max-width:760px){
+  .user-row{flex-wrap:wrap}
+  .user-row > .btn{width:100%;min-height:44px}
+  .access-list li{flex-wrap:wrap}
+  .access-list .pill-select{width:100%}
+  .access-list .cs{width:100%}
+}

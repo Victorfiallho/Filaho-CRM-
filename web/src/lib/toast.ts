@@ -6,6 +6,9 @@
 // error toast (toastError) stays, styled red, until dismissed — error
 // messages are longer and used to vanish before anyone could read them.
 let hideTimer: ReturnType<typeof setTimeout> | null = null;
+// Set by I18nProvider so the error toast's button follows the app language.
+let dismissLabel = "Dismiss";
+export function setToastDismissLabel(label: string) { dismissLabel = label; }
 
 function show(message: string, kind: "info" | "error") {
   const el = document.getElementById("toast");
@@ -27,7 +30,7 @@ function show(message: string, kind: "info" | "error") {
     const close = document.createElement("button");
     close.type = "button";
     close.className = "toast-close";
-    close.textContent = "Dismiss";
+    close.textContent = dismissLabel;
     close.addEventListener("click", hide);
     el.append(close);
   } else {
@@ -42,4 +45,15 @@ export function toast(message: string) {
 
 export function toastError(message: string) {
   show(message, "error");
+}
+
+// Hides whatever toast is showing. Error toasts stay until dismissed, so a
+// failed attempt followed by a successful one (e.g. a wrong password, then
+// the right one) used to carry "Invalid login credentials" onto the next
+// screen.
+export function clearToast() {
+  const el = document.getElementById("toast");
+  if (hideTimer !== null) clearTimeout(hideTimer);
+  hideTimer = null;
+  el?.classList.remove("show");
 }

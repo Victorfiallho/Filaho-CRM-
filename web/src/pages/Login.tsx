@@ -3,7 +3,9 @@ import { useState, type FormEvent } from "react";
 import { Navigate } from "react-router-dom";
 import { requestPasswordReset } from "../data/auth";
 import { errorMessage } from "../lib/errorMessage";
-import { toast, toastError } from "../lib/toast";
+import { clearToast, toast, toastError } from "../lib/toast";
+import LanguageSwitch from "../components/LanguageSwitch";
+import { useT } from "../i18n/I18nContext";
 import { useAuth } from "../state/AuthContext";
 
 // Google's official multi-color "G" mark — standard usage for a
@@ -21,6 +23,7 @@ function GoogleIcon() {
 
 export default function Login() {
   const { session, signIn, signInWithGoogle } = useAuth();
+  const { t } = useT();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -28,16 +31,33 @@ export default function Login() {
   const [submitting, setSubmitting] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [googleSubmitting, setGoogleSubmitting] = useState(false);
+  // Our own messages instead of the browser's "Please fill out this field"
+  // bubble, which speaks the browser's language, not the app's.
+  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
 
   if (session) return <Navigate to="/companies" replace />;
 
+  // Supabase answers in English; the one message people actually hit gets a
+  // translated wording.
+  const signInError = (error: unknown) => {
+    const msg = errorMessage(error, t("login.error"));
+    return /invalid login credentials/i.test(msg) ? t("login.invalid") : msg;
+  };
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    const next: typeof errors = {};
+    if (!email.trim()) next.email = t("login.needEmail");
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) next.email = t("login.badEmail");
+    if (!password) next.password = t("login.needPassword");
+    setErrors(next);
+    if (next.email || next.password) return;
     setSubmitting(true);
     try {
-      await signIn(email, password, rememberMe);
+      await signIn(email.trim(), password, rememberMe);
+      clearToast();
     } catch (error) {
-      toastError(errorMessage(error, "Could not sign in."));
+      toastError(signInError(error));
     } finally {
       setSubmitting(false);
     }
@@ -48,19 +68,19 @@ export default function Login() {
     try {
       await signInWithGoogle();
     } catch (error) {
-      toastError(errorMessage(error, "Could not sign in with Google."));
+      toastError(errorMessage(error, t("login.googleError")));
       setGoogleSubmitting(false);
     }
   };
 
   const handleForgotPassword = async () => {
-    if (!email.trim()) { toast("Enter your email above first."); return; }
+    if (!email.trim()) { setErrors({ email: t("login.resetFirst") }); return; }
     setResetting(true);
     try {
       await requestPasswordReset(email.trim());
-      toast(`Password reset link sent to ${email.trim()}.`);
+      toast(t("login.resetSent", { email: email.trim() }));
     } catch (error) {
-      toastError(errorMessage(error, "Could not send the reset link."));
+      toastError(errorMessage(error, t("login.resetError")));
     } finally {
       setResetting(false);
     }
@@ -71,52 +91,57 @@ export default function Login() {
       <div className="login-hero">
         <div className="login-hero-brand"><div className="login-hero-mark" /><b>Fialho Home Improvement</b></div>
         <div className="login-hero-copy">
-          <h1>Your business, organized.</h1>
-          <p>Manage clients, projects, schedules, and routes in one place.</p>
+          <h1>{t("login.heroTitle")}</h1>
+          <p>{t("login.heroText")}</p>
           <div className="login-hero-rule" />
-          <span>Built for the way your team works.</span>
+          <span>{t("login.heroNote")}</span>
         </div>
       </div>
       <section className="login-card login-card-flat">
+        <div className="login-top"><LanguageSwitch /></div>
         <img src="/logo.png" alt="Fialho Home Improvement" className="login-logo" />
-        <h1>Welcome back</h1>
-        <p className="sub">Sign in to continue to your workspace.</p>
+        <h1>{t("login.welcome")}</h1>
+        <p className="sub">{t("login.subtitle")}</p>
         <button type="button" className="btn ghost google-btn" style={{ width: "100%", marginTop: 20 }} onClick={handleGoogleSignIn} disabled={googleSubmitting}>
-          <GoogleIcon />{googleSubmitting ? "Redirecting…" : "Continue with Google"}
+          <GoogleIcon />{googleSubmitting ? t("login.redirecting") : t("login.google")}
         </button>
-        <div className="auth-divider"><span>or</span></div>
-        <form onSubmit={handleSubmit}>
+        <div className="auth-divider"><span>{t("login.or")}</span></div>
+        <form onSubmit={handleSubmit} noValidate>
           <div className="field">
-            <label>Email address</label>
+            <label htmlFor="login-email">{t("login.email")}</label>
             <div className="input-with-icon">
-              <Mail />
-              <input value={email} onChange={e => setEmail(e.target.value)} type="email" autoComplete="username" required />
+              <Mail aria-hidden="true" />
+              <input id="login-email" value={email} onChange={e => { setEmail(e.target.value); setErrors(x => ({ ...x, email: undefined })); }} type="email" autoComplete="username"
+                aria-invalid={Boolean(errors.email)} aria-describedby={errors.email ? "login-email-err" : undefined} />
             </div>
+            {errors.email && <p className="field-error" id="login-email-err">{errors.email}</p>}
           </div>
           <div className="field">
-            <label>Password</label>
+            <label htmlFor="login-password">{t("login.password")}</label>
             <div className="input-with-icon">
-              <Lock />
-              <input value={password} onChange={e => setPassword(e.target.value)} type={showPassword ? "text" : "password"} autoComplete="current-password" required />
-              <button type="button" className="input-icon-btn" onClick={() => setShowPassword(v => !v)} aria-label={showPassword ? "Hide password" : "Show password"}>
+              <Lock aria-hidden="true" />
+              <input id="login-password" value={password} onChange={e => { setPassword(e.target.value); setErrors(x => ({ ...x, password: undefined })); }} type={showPassword ? "text" : "password"} autoComplete="current-password"
+                aria-invalid={Boolean(errors.password)} aria-describedby={errors.password ? "login-password-err" : undefined} />
+              <button type="button" className="input-icon-btn" onClick={() => setShowPassword(v => !v)} aria-label={showPassword ? t("login.hidePassword") : t("login.showPassword")}>
                 {showPassword ? <EyeOff /> : <Eye />}
               </button>
             </div>
+            {errors.password && <p className="field-error" id="login-password-err">{errors.password}</p>}
           </div>
           <div className="between" style={{ marginTop: 16 }}>
             <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
               <input type="checkbox" checked={rememberMe} onChange={e => setRememberMe(e.target.checked)} />
-              <span className="sub" style={{ fontWeight: 500 }}>Keep me signed in</span>
+              <span className="sub" style={{ fontWeight: 500 }}>{t("login.remember")}</span>
             </label>
             <button type="button" className="link-btn" onClick={handleForgotPassword} disabled={resetting}>
-              {resetting ? "Sending..." : "Forgot password?"}
+              {resetting ? t("login.sending") : t("login.forgot")}
             </button>
           </div>
           <button className="btn" style={{ width: "100%", marginTop: 18 }} type="submit" disabled={submitting}>
-            {submitting ? "Signing in..." : "Sign in"}
+            {submitting ? t("login.signingIn") : t("login.signIn")}
           </button>
         </form>
-        <div className="login-secure-note"><ShieldCheck />Your connection is secure</div>
+        <div className="login-secure-note"><ShieldCheck aria-hidden="true" />{t("login.secure")}</div>
       </section>
     </main>
   );

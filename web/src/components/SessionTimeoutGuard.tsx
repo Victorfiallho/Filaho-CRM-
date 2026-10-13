@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { authStorageDriver, getRememberMe } from "../lib/authStorage";
 import { toast } from "../lib/toast";
 import { useAuth } from "../state/AuthContext";
+import { useT } from "../i18n/I18nContext";
 
 // Two limits, which one applies depends on the "Keep me connected" choice
 // made at login (see lib/authStorage.ts):
@@ -21,6 +22,7 @@ const ACTIVITY_EVENTS = ["mousemove", "mousedown", "keydown", "touchstart", "scr
 export default function SessionTimeoutGuard() {
   const { session, signOut } = useAuth();
   const lastActivityRef = useRef(Date.now());
+  const { t } = useT();
 
   useEffect(() => {
     const store = authStorageDriver();
@@ -43,10 +45,10 @@ export default function SessionTimeoutGuard() {
       const startedAt = Number(store.getItem(SESSION_STARTED_KEY)) || now;
       const maxSessionMs = remembered ? REMEMBERED_MAX_SESSION_MS : MAX_SESSION_MS;
       if (!remembered && now - lastActivityRef.current >= INACTIVITY_LIMIT_MS) {
-        toast("Signed out after 30 minutes of inactivity.");
+        toast(t("session.inactive"));
         signOut();
       } else if (now - startedAt >= maxSessionMs) {
-        toast(remembered ? "Signed out — 24-hour session limit reached." : "Signed out — 8-hour session limit reached.");
+        toast(remembered ? t("session.limit24") : t("session.limit8"));
         signOut();
       }
     }, CHECK_INTERVAL_MS);
@@ -55,7 +57,7 @@ export default function SessionTimeoutGuard() {
       ACTIVITY_EVENTS.forEach(evt => window.removeEventListener(evt, markActive));
       clearInterval(interval);
     };
-  }, [session, signOut]);
+  }, [session, signOut, t]);
 
   return null;
 }

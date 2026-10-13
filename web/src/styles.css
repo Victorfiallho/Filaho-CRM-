@@ -1599,3 +1599,34 @@ tr:hover td{background:rgba(255,255,255,.55)}
   .audit-details dl > div{grid-template-columns:1fr;gap:2px}
   .switch-row{min-height:44px}
 }
+
+/* ── Login / Company picker / Reset on the new look ── */
+.lang-switch{display:inline-flex;align-items:center;gap:8px;color:var(--muted)}
+.lang-switch > svg{width:16px;height:16px}
+.lang-switch .seg button{min-width:40px;min-height:32px}
+.login-top{display:flex;justify-content:flex-end;margin:-8px 0 12px}
+.field-error{margin:2px 0 0;color:var(--tone-rose-fg);font-size:13px;font-weight:500}
+.field input[aria-invalid="true"]{border-color:#c2415d;box-shadow:0 0 0 3px rgba(194,65,93,.12)}
+.login-split{background:var(--app-bg) var(--app-glow)}
+.login-hero{border-radius:28px;margin:16px 0 16px 16px}
+.login-card-flat h1{font-weight:500;font-size:30px;letter-spacing:-.02em}
+.login-card-flat .btn:not(.ghost){height:48px}
+.google-btn{height:48px;background:#fff}
+.field .input-with-icon input{min-height:48px}
+.login-shell{background:var(--app-bg) var(--app-glow)}
+.login-card{border:1px solid rgba(255,255,255,.8);border-radius:28px;background:var(--surface);box-shadow:var(--shadow-md)}
+.login-card h1{font-weight:500}
+.company-pick{background:var(--app-bg) var(--app-glow)}
+.company-panel{background:var(--surface);border:1px solid rgba(255,255,255,.8);border-radius:28px;box-shadow:var(--shadow-md);backdrop-filter:blur(10px)}
+.company-panel h1{font-weight:500;font-size:32px;letter-spacing:-.02em}
+.company-panel-tools{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.company-card{border:1px solid rgba(17,17,17,.06);border-left:4px solid var(--company-color);border-radius:20px;background:var(--surface-solid)}
+.company-card:hover{box-shadow:var(--shadow-md);border-color:rgba(17,17,17,.1);border-left-color:var(--company-color)}
+.company-card.last-opened{background:color-mix(in srgb,var(--company-color) 7%,#fff);border-left-color:var(--company-color)}
+.company-card-badge{background:var(--selected);color:#fff}
+.company-card h3{font-weight:600}
+.toast{border-radius:16px}
+@media(max-width:900px){
+  .login-hero{display:none}
+  .company-panel-tools{width:100%;justify-content:space-between}
+}

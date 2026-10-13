@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { setToastDismissLabel } from "../lib/toast";
 import { detectLang, translate, translatePlural, type Lang, type MessageKey } from "./messages";
 
 const STORAGE_KEY = "fialho_lang";
@@ -24,7 +25,10 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     return detectLang(stored, typeof navigator !== "undefined" ? navigator.language : undefined);
   });
 
-  useEffect(() => { document.documentElement.lang = lang === "pt" ? "pt-BR" : "en"; }, [lang]);
+  useEffect(() => {
+    document.documentElement.lang = lang === "pt" ? "pt-BR" : "en";
+    setToastDismissLabel(translate(lang, "toast.dismiss"));
+  }, [lang]);
 
   const setLang = useCallback((next: Lang) => {
     setLangState(next);

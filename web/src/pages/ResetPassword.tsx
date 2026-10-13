@@ -4,6 +4,7 @@ import { updatePassword } from "../data/auth";
 import { errorMessage } from "../lib/errorMessage";
 import { toast, toastError } from "../lib/toast";
 import { useAuth } from "../state/AuthContext";
+import { useT } from "../i18n/I18nContext";
 
 // Landing page for the email link from requestPasswordReset() (Login.tsx's
 // "Forgot password?"). Supabase's client auto-detects the recovery token in
@@ -14,6 +15,7 @@ import { useAuth } from "../state/AuthContext";
 export default function ResetPassword() {
   const { session, loading } = useAuth();
   const navigate = useNavigate();
+  const { t } = useT();
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -21,15 +23,15 @@ export default function ResetPassword() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (password.length < 6) { toast("Password must be at least 6 characters."); return; }
-    if (password !== confirm) { toast("Passwords don't match."); return; }
+    if (password.length < 6) { toast(t("reset.tooShort")); return; }
+    if (password !== confirm) { toast(t("reset.mismatch")); return; }
     setSubmitting(true);
     try {
       await updatePassword(password);
       setDone(true);
-      toast("Password updated.");
+      toast(t("reset.updated"));
     } catch (error) {
-      toastError(errorMessage(error, "Could not update the password."));
+      toastError(errorMessage(error, t("reset.error")));
     } finally {
       setSubmitting(false);
     }
@@ -43,31 +45,31 @@ export default function ResetPassword() {
         <img src="/logo.png" alt="Fialho Home Improvement" className="login-logo" />
         {!session ? (
           <>
-            <h1>Reset link invalid or expired</h1>
-            <p className="sub">Request a new password reset link from the login page.</p>
-            <button className="btn" style={{ width: "100%", marginTop: 18 }} onClick={() => navigate("/login")}>Back to login</button>
+            <h1>{t("reset.invalidTitle")}</h1>
+            <p className="sub">{t("reset.invalidText")}</p>
+            <button className="btn" style={{ width: "100%", marginTop: 18 }} onClick={() => navigate("/login")}>{t("reset.backToLogin")}</button>
           </>
         ) : done ? (
           <>
-            <h1>Password updated</h1>
-            <p className="sub">You can now continue to your workspace.</p>
-            <button className="btn" style={{ width: "100%", marginTop: 18 }} onClick={() => navigate("/companies")}>Continue</button>
+            <h1>{t("reset.doneTitle")}</h1>
+            <p className="sub">{t("reset.doneText")}</p>
+            <button className="btn" style={{ width: "100%", marginTop: 18 }} onClick={() => navigate("/companies")}>{t("reset.continue")}</button>
           </>
         ) : (
           <>
-            <h1>Set a new password</h1>
-            <p className="sub">Choose a new password for your account.</p>
-            <form onSubmit={handleSubmit}>
+            <h1>{t("reset.title")}</h1>
+            <p className="sub">{t("reset.text")}</p>
+            <form onSubmit={handleSubmit} noValidate>
               <div className="field">
-                <label>New password</label>
-                <input value={password} onChange={e => setPassword(e.target.value)} type="password" autoComplete="new-password" required />
+                <label htmlFor="reset-new">{t("reset.new")}</label>
+                <input id="reset-new" value={password} onChange={e => setPassword(e.target.value)} type="password" autoComplete="new-password" />
               </div>
               <div className="field">
-                <label>Confirm password</label>
-                <input value={confirm} onChange={e => setConfirm(e.target.value)} type="password" autoComplete="new-password" required />
+                <label htmlFor="reset-confirm">{t("reset.confirm")}</label>
+                <input id="reset-confirm" value={confirm} onChange={e => setConfirm(e.target.value)} type="password" autoComplete="new-password" />
               </div>
               <button className="btn" style={{ width: "100%", marginTop: 18 }} type="submit" disabled={submitting}>
-                {submitting ? "Updating..." : "Update password"}
+                {submitting ? t("reset.updating") : t("reset.update")}
               </button>
             </form>
           </>

@@ -4,6 +4,7 @@ import { sendChatMessage, type ChatTurn } from "../data/chatAgent";
 import { errorMessage } from "../lib/errorMessage";
 import { toastError } from "../lib/toast";
 import { useCompany } from "../state/CompanyContext";
+import { useT } from "../i18n/I18nContext";
 
 // Global support-style assistant, mounted once in Shell.tsx so it floats
 // over every page. Read-only (see web/api/chat-agent.js) and session-only —
@@ -19,6 +20,7 @@ export function openAssistant() {
 
 export default function ChatWidget() {
   const { activeCompanyId } = useCompany();
+  const { t } = useT();
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<ChatTurn[]>([]);
   const [input, setInput] = useState("");
@@ -48,8 +50,8 @@ export default function ChatWidget() {
       const reply = await sendChatMessage(activeCompanyId, history, text);
       setMessages(m => [...m, { role: "assistant", text: reply }]);
     } catch (error) {
-      toastError(errorMessage(error, "Could not reach the assistant."));
-      setMessages(m => [...m, { role: "assistant", text: "Sorry, I couldn't respond right now. Please try again in a moment." }]);
+      toastError(errorMessage(error, t("chat.error")));
+      setMessages(m => [...m, { role: "assistant", text: t("chat.sorry") }]);
     } finally {
       setSending(false);
     }
@@ -60,19 +62,19 @@ export default function ChatWidget() {
       {open && (
         <section className="chat-panel">
           <div className="chat-panel-h">
-            <b>Assistant</b>
-            <button className="icon-btn" onClick={() => setOpen(false)} aria-label="Close chat">
+            <b>{t("chat.title")}</b>
+            <button className="icon-btn" onClick={() => setOpen(false)} aria-label={t("chat.close")}>
               <X />
             </button>
           </div>
           <div className="chat-panel-body" ref={listRef}>
             {messages.length === 0 && (
-              <p className="sub">Ask about your leads, jobs, customers, or campaigns — I'll answer with real data from the active company.</p>
+              <p className="sub">{t("chat.intro")}</p>
             )}
             {messages.map((m, i) => (
               <div key={i} className={`chat-bubble chat-bubble-${m.role}`}>{m.text}</div>
             ))}
-            {sending && <div className="chat-bubble chat-bubble-assistant chat-bubble-loading">Thinking...</div>}
+            {sending && <div className="chat-bubble chat-bubble-assistant chat-bubble-loading">{t("chat.thinking")}</div>}
           </div>
           <div className="chat-panel-input">
             <input
@@ -84,16 +86,17 @@ export default function ChatWidget() {
                   handleSend();
                 }
               }}
-              placeholder="Ask something..."
+              placeholder={t("chat.placeholder")}
+              aria-label={t("chat.placeholder")}
               disabled={sending}
             />
-            <button className="btn slim" onClick={handleSend} disabled={sending || !input.trim()} aria-label="Send message">
+            <button className="btn slim" onClick={handleSend} disabled={sending || !input.trim()} aria-label={t("chat.send")}>
               <Send />
             </button>
           </div>
         </section>
       )}
-      <button className="chat-fab" onClick={() => setOpen(v => !v)} aria-label="Toggle assistant chat">
+      <button className="chat-fab" onClick={() => setOpen(v => !v)} aria-label={t("chat.open")} aria-expanded={open}>
         <MessageCircle />
       </button>
     </div>

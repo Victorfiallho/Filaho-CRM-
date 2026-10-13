@@ -1,6 +1,8 @@
 import { ArrowRight, Star } from "lucide-react";
 import { Navigate, useNavigate } from "react-router-dom";
 import CompanyLogo from "../components/CompanyLogo";
+import LanguageSwitch from "../components/LanguageSwitch";
+import { useT } from "../i18n/I18nContext";
 import { useAuth } from "../state/AuthContext";
 import { useCompany } from "../state/CompanyContext";
 
@@ -15,6 +17,7 @@ export default function CompanyPicker() {
   const { session, loading: authLoading, signOut } = useAuth();
   const { companies, companiesLoading, selectCompany } = useCompany();
   const navigate = useNavigate();
+  const { t } = useT();
 
   // See Shell.tsx's identical guard for why authLoading has to gate this —
   // `session` reads null for a moment on every mount, not just when signed
@@ -37,15 +40,18 @@ export default function CompanyPicker() {
       <section className="company-panel view-enter">
         <div className="between">
           <div>
-            <h1>Select company</h1>
-            <p className="sub">Choose a workspace to continue. Your data stays separated by company.</p>
+            <h1>{t("company.title")}</h1>
+            <p className="sub">{t("company.subtitle")}</p>
           </div>
-          <button className="btn ghost" onClick={() => signOut()}>Logout</button>
+          <div className="company-panel-tools">
+            <LanguageSwitch />
+            <button className="btn ghost" onClick={() => signOut()}>{t("company.logout")}</button>
+          </div>
         </div>
         <div className="company-grid">
-          {companiesLoading && <p className="sub">Loading companies...</p>}
+          {companiesLoading && <p className="sub">{t("company.loading")}</p>}
           {!companiesLoading && companies.length === 0 && (
-            <p className="sub">No companies are linked to your account yet. Ask an admin to add a company_members row for you.</p>
+            <p className="sub">{t("company.none")}</p>
           )}
           {companies.map(c => (
             <button
@@ -55,14 +61,14 @@ export default function CompanyPicker() {
               style={{ ["--company-color" as any]: c.color || undefined }}
               onClick={() => pick(c.id)}
             >
-              {c.id === lastCompanyId && <span className="company-card-badge"><Star />Last opened</span>}
+              {c.id === lastCompanyId && <span className="company-card-badge"><Star aria-hidden="true" />{t("company.lastOpened")}</span>}
               <div className="company-card-row">
                 <div className="logo"><CompanyLogo company={c} /></div>
                 <div className="company-card-body">
                   <h3>{c.name}</h3>
                   {c.industry && <span className="pill">{c.industry}</span>}
                 </div>
-                <span className="company-card-arrow"><ArrowRight /></span>
+                <span className="company-card-arrow" aria-hidden="true"><ArrowRight /></span>
               </div>
             </button>
           ))}

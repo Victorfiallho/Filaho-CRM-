@@ -1,7 +1,8 @@
-import { Award, BarChart3, DollarSign, Megaphone, Percent, Target, TrendingUp, Users } from "lucide-react";
+import { BarChart3, Megaphone, Percent, Target } from "lucide-react";
 import { useMemo, useState } from "react";
-import BarRow from "../components/BarRow";
-import KpiCard from "../components/KpiCard";
+import EmptyState from "../components/EmptyState";
+import KpiStrip from "../components/KpiStrip";
+import MeterRow from "../components/MeterRow";
 import PageSkeleton from "../components/PageSkeleton";
 import Select from "../components/Select";
 import {
@@ -11,20 +12,23 @@ import {
 import { money } from "../domain/format";
 import { isWonStage } from "../domain/pipelineStages";
 import { lostReasonCounts } from "../domain/followUp";
+import { weeklyTrend } from "../domain/trend";
+import { stageTone, TONES } from "../domain/visual";
+import { useT } from "../i18n/I18nContext";
+import type { MessageKey } from "../i18n/messages";
 import { useCompany } from "../state/CompanyContext";
 
-const ROI_PERIODS = [
-  { value: "30", label: "Last 30 days" },
-  { value: "90", label: "Last 90 days" },
-  { value: "365", label: "Last 12 months" }
-];
+const ROI_PERIODS = ["30", "90", "365"] as const;
+// Categorical tones in a fixed order (never cycled by rank): service and
+// campaign rows keep their tone as long as their position doesn't change.
+const SERIES_TONES = TONES.filter(t => t !== "slate");
 
-// Ported verbatim from app.js (metrics, renderReports), then extended with a
-// Meta Ads "Ad performance" section fed by scripts/sync-meta-ads.mjs's daily
-// Marketing API pull (see data/metaAds.ts) — spend/impressions/clicks only,
-// no lead creation, matching what was actually asked for.
+// Ported from app.js (metrics, renderReports), then extended with a Meta Ads
+// "Ad performance" section fed by scripts/sync-meta-ads.mjs's daily
+// Marketing API pull (see data/metaAds.ts) — spend/impressions/clicks only.
 export default function Reports() {
   const { activeCompanyId, stages } = useCompany();
+  const { t, tn, locale } = useT();
   const { data: customers = [], isLoading: customersLoading } = useCustomers(activeCompanyId);
   const { data: leads = [], isLoading: leadsLoading } = useLeads(activeCompanyId);
   const { data: jobs = [], isLoading: jobsLoading } = useJobs(activeCompanyId);
@@ -32,14 +36,10 @@ export default function Reports() {
   const { data: settings } = useIntegrationSettings();
   const { data: adInsights = [] } = useMetaAdsInsights(activeCompanyId);
   const { data: funnel = [] } = useFunnelSummary(activeCompanyId);
-  const [roiPeriod, setRoiPeriod] = useState("90");
-  // Was computed inline on every render — a fresh `new Date().toISOString()`
-  // differs (at least in milliseconds) from the previous render's value, and
-  // useCampaignRoi() puts both dates straight into its query key, so every
-  // render produced a "new" query, which fetched, which caused a render,
-  // forever. Found as an actual infinite request loop hitting
-  // rpc/get_campaign_roi nonstop while this page was open. Memoized to only
-  // recompute when the selected period actually changes.
+  const [roiPeriod, setRoiPeriod] = useState<string>("90");
+  // Memoized: useCampaignRoi() puts both dates in its query key, and a fresh
+  // `new Date()` per render meant a "new" query (and a fetch) every render —
+  // an infinite request loop on rpc/get_campaign_roi while this page was open.
   const [roiDateFrom, roiDateTo] = useMemo(() => {
     const to = new Date();
     const from = new Date(to.getTime() - Number(roiPeriod) * 86400000);
@@ -49,21 +49,22 @@ export default function Reports() {
 
   if (customersLoading || leadsLoading || jobsLoading || importsLoading) return <PageSkeleton kpis={4} cards={2} />;
 
+  const num = (n: number) => n.toLocaleString(locale);
   const won = leads.filter(l => isWonStage(l.stage_id, stages));
   const lostReasons = lostReasonCounts(leads, stages);
   const maxLostReason = Math.max(1, ...lostReasons.map(r => r.count));
-  const jobValue = jobs.reduce((t, j) => t + Number(j.estimated_value || 0), 0);
+  const jobValue = jobs.reduce((sum, j) => sum + Number(j.estimated_value || 0), 0);
   const byService: Record<string, number> = {};
   leads.forEach(l => {
-    const key = l.service_type || "Unassigned";
+    const key = l.service_type || "";
     byService[key] = (byService[key] || 0) + Number(l.value || 0);
   });
-  const serviceEntries = Object.entries(byService);
+  const serviceEntries = Object.entries(byService).sort((a, b) => b[1] - a[1]);
   const maxServiceRevenue = Math.max(1, ...serviceEntries.map(([, v]) => v));
 
-  const adSpend = adInsights.reduce((t, r) => t + Number(r.spend || 0), 0);
-  const adImpressions = adInsights.reduce((t, r) => t + Number(r.impressions || 0), 0);
-  const adClicks = adInsights.reduce((t, r) => t + Number(r.clicks || 0), 0);
+  const adSpend = adInsights.reduce((sum, r) => sum + Number(r.spend || 0), 0);
+  const adImpressions = adInsights.reduce((sum, r) => sum + Number(r.impressions || 0), 0);
+  const adClicks = adInsights.reduce((sum, r) => sum + Number(r.clicks || 0), 0);
   const adCpc = adClicks ? adSpend / adClicks : 0;
   const byCampaign: Record<string, { spend: number; clicks: number; impressions: number }> = {};
   adInsights.forEach(r => {
@@ -75,134 +76,157 @@ export default function Reports() {
     byCampaign[key] = entry;
   });
   const campaignEntries = Object.entries(byCampaign);
-  // Spend is the one metric driving bar width — clicks/impressions ride
-  // along as plain text in valueLabel instead of a second bar/axis, since a
-  // campaign's spend and click count live on entirely different scales.
+  // Spend drives bar length; clicks/impressions ride along as text instead
+  // of a second bar on a different scale.
   const maxCampaignSpend = Math.max(1, ...campaignEntries.map(([, v]) => v.spend));
+  const metaOn = Boolean(settings?.meta_ads.enabled);
 
   return (
     <div className="view-enter">
-      <div className="grid kpis">
-        <KpiCard icon={DollarSign} label="Estimated job revenue" value={money(jobValue)} hint="from jobs/projects" />
-        <KpiCard icon={Award} label="Won leads" value={won.length} hint="closed pipeline" />
-        <KpiCard icon={Users} label="Client count" value={customers.length} hint="current company" />
-        <KpiCard icon={TrendingUp} label="Imports" value={imports.length} hint="CSV history" />
+      <KpiStrip items={[
+        { label: t("rep.kpi.revenue"), value: money(jobValue), hint: t("rep.kpi.revenueHint"), tone: "green", series: weeklyTrend(jobs, j => j.created_at, j => Number(j.estimated_value || 0), 10).map(p => p.value) },
+        { label: t("rep.kpi.won"), value: won.length, hint: t("rep.kpi.wonHint"), tone: "blue", series: weeklyTrend(won, l => l.updated_at, () => 1, 10).map(p => p.value) },
+        { label: t("rep.kpi.clients"), value: customers.length, hint: t("rep.kpi.clientsHint"), tone: "amber", series: weeklyTrend(customers, c => c.created_at, () => 1, 10).map(p => p.value) },
+        { label: t("rep.kpi.imports"), value: imports.length, hint: t("rep.kpi.importsHint"), tone: "purple" }
+      ]} />
+
+      <div className="grid two" style={{ marginTop: 20 }}>
+        <section className="card">
+          <div className="card-h"><div><h3>{t("rep.revenueByService")}</h3><span className="sub">{t("rep.revenueByServiceSub")}</span></div></div>
+          <div className="card-b">
+            {serviceEntries.length
+              ? serviceEntries.map(([name, v], i) => {
+                const label = name || t("rep.unassigned");
+                return <MeterRow key={name} label={label} value={v} max={maxServiceRevenue} tone={SERIES_TONES[i % SERIES_TONES.length]} valueLabel={money(v)} ariaLabel={`${label}: ${money(v)}`} />;
+              })
+              : <EmptyState icon={BarChart3}>{t("rep.noRevenue")}</EmptyState>}
+          </div>
+        </section>
+        <section className="card">
+          <div className="card-h"><div><h3>{t("rep.lostReasons")}</h3><span className="sub">{t("rep.lostReasonsSub")}</span></div></div>
+          <div className="card-b">
+            {lostReasons.length
+              ? lostReasons.map(r => {
+                const label = r.reason === "Not recorded" ? t("rep.notRecorded") : r.reason;
+                return <MeterRow key={r.reason} label={label} value={r.count} max={maxLostReason} tone="rose" valueLabel={tn("rep.leadsCount", r.count)} ariaLabel={`${label}: ${tn("rep.leadsCount", r.count)}`} />;
+              })
+              : <EmptyState icon={Target}>{t("rep.noLost")}</EmptyState>}
+          </div>
+        </section>
       </div>
-      <section className="card" style={{ marginTop: 14 }}>
-        <div className="card-h"><h3>Revenue by service</h3></div>
-        <div className="card-b">
-          {serviceEntries.length
-            ? serviceEntries.map(([k, v]) => (
-              <BarRow key={k} label={k} magnitude={v} max={maxServiceRevenue} valueLabel={<span className="muted">{money(v)}</span>} />
-            ))
-            : <div className="empty"><BarChart3 />No revenue yet</div>}
-        </div>
-      </section>
-      <section className="card" style={{ marginTop: 14 }}>
-        <div className="card-h"><h3>Why leads are lost</h3><span className="sub">Leads in a lost stage, by reason — all time</span></div>
-        <div className="card-b">
-          {lostReasons.length
-            ? lostReasons.map(r => (
-              <BarRow key={r.reason} label={r.reason} magnitude={r.count} max={maxLostReason} valueLabel={<span className="pill">{r.count}</span>} />
-            ))
-            : <div className="empty"><Target />No lost leads yet</div>}
-        </div>
-      </section>
-      <section className="card" style={{ marginTop: 14 }}>
-        <div className="card-h"><h3>Funnel</h3><span className="sub">Conversion, velocity &amp; weighted forecast by stage — all time</span></div>
+
+      <section className="card" style={{ marginTop: 20 }}>
+        <div className="card-h"><div><h3>{t("rep.funnel")}</h3><span className="sub">{t("rep.funnelSub")}</span></div></div>
         <div className="card-b">
           {funnel.length === 0 ? (
-            <div className="empty"><Target />No pipeline stages yet</div>
+            <EmptyState icon={Target}>{t("rep.noStages")}</EmptyState>
           ) : (
             <div className="table-wrap">
-              <table>
+              <table className="data-table">
                 <thead>
                   <tr>
-                    <th>Stage</th><th>Leads</th><th>Conversion</th><th>Avg. days in stage</th><th>Value</th><th>Weighted forecast</th>
+                    <th>{t("rep.col.stage")}</th><th className="num">{t("rep.col.leads")}</th><th>{t("rep.col.conversion")}</th>
+                    <th className="num">{t("rep.col.avgDays")}</th><th className="num">{t("rep.col.value")}</th><th className="num">{t("rep.col.forecast")}</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {funnel.map(f => (
-                    <tr key={f.stage_id}>
-                      <td>{f.stage_name}</td>
-                      <td>{f.lead_count}</td>
-                      <td>{Math.round(f.conversion_rate * 100)}%</td>
-                      <td>{f.avg_days_in_stage != null ? `${Math.round(f.avg_days_in_stage)}d` : "—"}</td>
-                      <td>{money(f.total_value)}</td>
-                      <td>{money(f.weighted_forecast)}</td>
-                    </tr>
-                  ))}
+                  {funnel.map(f => {
+                    const index = stages.findIndex(s => s.id === f.stage_id);
+                    const tone = stageTone(stages[index] || { id: f.stage_id }, Math.max(0, index));
+                    const pct = Math.round(f.conversion_rate * 100);
+                    return (
+                      <tr key={f.stage_id}>
+                        <td><span className={`stage-meter-name tone-${tone}`}>{f.stage_name}</span></td>
+                        <td className="num">{num(f.lead_count)}</td>
+                        <td>
+                          <span className="conv-cell">
+                            <span className={`conv-bar tone-${tone}`}><span style={{ width: `${Math.min(100, pct)}%` }} /></span>
+                            {pct}%
+                          </span>
+                        </td>
+                        <td className="num">{f.avg_days_in_stage != null ? `${Math.round(f.avg_days_in_stage)}d` : "—"}</td>
+                        <td className="num">{money(f.total_value)}</td>
+                        <td className="num">{money(f.weighted_forecast)}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
           )}
         </div>
       </section>
-      <section className="card" style={{ marginTop: 14 }}>
-        <div className="card-h">
-          <div>
-            <h3>ROI by campaign</h3>
-            <span className="sub">Ad spend vs. attributed job revenue</span>
-          </div>
-          <div className="field" style={{ margin: 0, minWidth: 160 }}>
-            <Select value={roiPeriod} onChange={setRoiPeriod} options={ROI_PERIODS} />
-          </div>
-        </div>
-        <div className="card-b">
-          {!settings?.meta_ads.enabled ? (
-            <div className="empty"><Percent />Meta Ads not enabled yet — set it up on Integrations.</div>
-          ) : campaignRoi.length === 0 ? (
-            <div className="empty"><Percent />No campaign data for this period yet.</div>
-          ) : (
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr><th>Campaign</th><th>Spend</th><th>Revenue</th><th>ROAS</th><th>CPL</th><th>Leads</th></tr>
-                </thead>
-                <tbody>
-                  {campaignRoi.map(c => (
-                    <tr key={c.campaign_id ?? "unattributed"}>
-                      <td>{c.campaign_name || c.campaign_id || "—"}</td>
-                      <td>{money(c.spend)}</td>
-                      <td>{money(c.revenue)}</td>
-                      <td>{c.spend > 0 ? `${c.roas.toFixed(2)}x` : "—"}</td>
-                      <td>{c.leads_count > 0 ? money(c.cpl) : "—"}</td>
-                      <td>{c.leads_count || "—"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+
+      <div className="grid two" style={{ marginTop: 20 }}>
+        <section className="card">
+          <div className="card-h">
+            <div><h3>{t("rep.roi")}</h3><span className="sub">{t("rep.roiSub")}</span></div>
+            <div className="pill-select">
+              <Select value={roiPeriod} onChange={setRoiPeriod} options={ROI_PERIODS.map(p => ({ value: p, label: t(`rep.period.${p}` as MessageKey) }))} />
             </div>
-          )}
-        </div>
-      </section>
-      <section className="card" style={{ marginTop: 14 }}>
-        <div className="card-h"><h3>Ad performance</h3><span className="sub">Meta Ads, last 30 days</span></div>
-        <div className="card-b">
-          {!settings?.meta_ads.enabled ? (
-            <div className="empty"><Megaphone />Meta Ads not enabled yet — set it up on Integrations.</div>
-          ) : adInsights.length === 0 ? (
-            <div className="empty"><Megaphone />No ad data synced yet — the daily sync runs once an ad account id and access token are configured.</div>
-          ) : (
-            <>
-              <div className="grid three" style={{ marginBottom: 14 }}>
-                <KpiCard icon={DollarSign} label="Ad spend" value={money(adSpend)} hint="last 30 days" />
-                <KpiCard icon={TrendingUp} label="Clicks" value={adClicks} hint={`${adImpressions.toLocaleString()} impressions`} />
-                <KpiCard icon={Megaphone} label="Avg. CPC" value={money(adCpc)} hint="cost per click" />
+          </div>
+          <div className="card-b">
+            {!metaOn ? (
+              <EmptyState icon={Percent}>{t("rep.metaOff")}</EmptyState>
+            ) : campaignRoi.length === 0 ? (
+              <EmptyState icon={Percent}>{t("rep.noCampaigns")}</EmptyState>
+            ) : (
+              <div className="table-wrap">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>{t("rep.col.campaign")}</th><th className="num">{t("rep.col.spend")}</th><th className="num">{t("rep.col.revenue")}</th>
+                      <th className="num">{t("rep.col.roas")}</th><th className="num">{t("rep.col.cpl")}</th><th className="num">{t("rep.col.leads")}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {campaignRoi.map(c => (
+                      <tr key={c.campaign_id ?? "unattributed"}>
+                        <td>{c.campaign_name || c.campaign_id || "—"}</td>
+                        <td className="num">{money(c.spend)}</td>
+                        <td className="num">{money(c.revenue)}</td>
+                        <td className="num">{c.spend > 0 ? `${c.roas.toFixed(2)}x` : "—"}</td>
+                        <td className="num">{c.leads_count > 0 ? money(c.cpl) : "—"}</td>
+                        <td className="num">{c.leads_count || "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-              {campaignEntries.map(([name, v]) => (
-                <BarRow
-                  key={name}
-                  label={name}
-                  magnitude={v.spend}
-                  max={maxCampaignSpend}
-                  valueLabel={<span className="muted">{money(v.spend)} · {v.clicks} clicks · {v.impressions.toLocaleString()} impressions</span>}
-                />
-              ))}
-            </>
-          )}
-        </div>
-      </section>
+            )}
+          </div>
+        </section>
+
+        <section className="card">
+          <div className="card-h"><div><h3>{t("rep.adPerformance")}</h3><span className="sub">{t("rep.adPerformanceSub")}</span></div></div>
+          <div className="card-b">
+            {!metaOn ? (
+              <EmptyState icon={Megaphone}>{t("rep.metaOff")}</EmptyState>
+            ) : adInsights.length === 0 ? (
+              <EmptyState icon={Megaphone}>{t("rep.noAdData")}</EmptyState>
+            ) : (
+              <>
+                <div className="mini-stats">
+                  <div><span className="label">{t("rep.adSpend")}</span><b>{money(adSpend)}</b><span className="sub">{t("rep.last30")}</span></div>
+                  <div><span className="label">{t("rep.clicks")}</span><b>{num(adClicks)}</b><span className="sub">{t("rep.impressions", { count: num(adImpressions) })}</span></div>
+                  <div><span className="label">{t("rep.cpc")}</span><b>{money(adCpc)}</b><span className="sub">{t("rep.cpcHint")}</span></div>
+                </div>
+                {campaignEntries.map(([name, v], i) => (
+                  <MeterRow
+                    key={name}
+                    label={name}
+                    value={v.spend}
+                    max={maxCampaignSpend}
+                    tone={SERIES_TONES[i % SERIES_TONES.length]}
+                    valueLabel={money(v.spend)}
+                    ariaLabel={t("rep.campaignLine", { spend: money(v.spend), clicks: num(v.clicks), impressions: num(v.impressions) })}
+                  />
+                ))}
+              </>
+            )}
+          </div>
+        </section>
+      </div>
     </div>
   );
 }

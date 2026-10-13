@@ -1,15 +1,18 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { Award, AlertTriangle, CalendarClock, Clock, Inbox, MapPin, Plus, Settings, Target, Wallet } from "lucide-react";
+import { AlertTriangle, CalendarClock, Clock, MapPin, Plus, Settings, SlidersHorizontal, X } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
-import KpiCard from "../components/KpiCard";
+import KpiStrip from "../components/KpiStrip";
 import PageSkeleton from "../components/PageSkeleton";
 import Select from "../components/Select";
 import StagesEditor from "../components/StagesEditor";
 import { updateLead } from "../data/leads";
 import { useConsentStatuses, useCurrentAppUser, useJobs, useLeads, useStagnantLeads, useUsers } from "../data/hooks";
-import { CONSENT_STATE_LABELS } from "../domain/consent";
 import { filterRowsBySearch } from "../domain/search";
 import { formatDay, initials, money, relativeDate, unique } from "../domain/format";
+import { weeklyTrend } from "../domain/trend";
+import { stageTone, type Tone } from "../domain/visual";
+import { useT } from "../i18n/I18nContext";
+import type { MessageKey } from "../i18n/messages";
 import { followUpStatus, type FollowUpStatus } from "../domain/followUp";
 import { localToday } from "../domain/jobFilters";
 import { findJobForLead, jobDraftFromLead } from "../domain/leadConversion";
@@ -47,6 +50,8 @@ export default function Pipeline() {
   const { searchText } = useSearch();
   const { openRecordModal } = useModal();
   const queryClient = useQueryClient();
+  const { t } = useT();
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const leads = filterRowsBySearch(allLeads, searchText);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dragOverStage, setDragOverStage] = useState<string | null>(null);
@@ -100,16 +105,16 @@ export default function Pipeline() {
       // Closing a deal is the moment a job should exist — open its form
       // pre-filled from the lead (still cancelable) unless one already does.
       if (isWonStage(stageId, stages) && !findJobForLead(leadId, jobs)) {
-        toast("Lead won — confirm the new job.");
+        toast(t("pipe.wonToast"));
         openRecordModal("job", undefined, { ...jobDraftFromLead(lead) });
       } else if (isLostStage(stageId, stages) && !lead.lost_reason) {
         // Ask why while it's fresh — the lead form shows the reason picker
         // for leads in a lost stage.
-        toast("Lead lost — pick a reason so Reports can show why.");
+        toast(t("pipe.lostToast"));
         openRecordModal("lead", { ...lead, stage_id: stageId });
       }
     } catch (error) {
-      toastError(errorMessage(error, "Could not move the lead."));
+      toastError(errorMessage(error, t("pipe.moveError")));
     } finally {
       queryClient.invalidateQueries({ queryKey: ["leads", activeCompanyId] });
     }
@@ -136,92 +141,111 @@ export default function Pipeline() {
 
   if (isLoading) return <PageSkeleton kpis={4} cards={0} />;
 
+  const CONSENT_STATES: ConsentState[] = ["opted_in", "not_opted_in", "suppressed"];
+  const activeFilters = [sourceFilter, ownerFilter, stageFilter, smsFilter, emailFilter].filter(v => v !== "all").length;
+  const clearFilters = () => { setSourceFilter("all"); setOwnerFilter("all"); setStageFilter("all"); setSmsFilter("all"); setEmailFilter("all"); };
+  const newLeadsWeekly = weeklyTrend(filteredLeads, l => l.created_at, () => 1, 10).map(p => p.value);
+  const wonWeekly = weeklyTrend(wonLeads, l => l.updated_at, () => 1, 10).map(p => p.value);
+
+  const filterControls = (
+    <>
+      <div className="pill-select">
+        <Select value={sourceFilter} onChange={setSourceFilter} options={[{ value: "all", label: t("pipe.allSources") }, ...sources.map(s => ({ value: s, label: s }))]} />
+      </div>
+      <div className="pill-select">
+        <Select
+          value={ownerFilter}
+          onChange={setOwnerFilter}
+          options={[
+            { value: "all", label: t("pipe.allOwners") },
+            { value: "mine", label: t("pipe.myLeads") },
+            { value: "unassigned", label: t("pipe.unassigned") },
+            ...users.map(u => ({ value: u.id, label: u.name }))
+          ]}
+        />
+      </div>
+      <div className="pill-select">
+        <Select value={stageFilter} onChange={setStageFilter} options={[{ value: "all", label: t("pipe.allStatuses") }, ...stages.map(s => ({ value: s.id, label: s.name }))]} />
+      </div>
+      <div className="pill-select">
+        <Select
+          value={smsFilter}
+          onChange={setSmsFilter}
+          options={[{ value: "all", label: t("pipe.smsAny") }, ...CONSENT_STATES.map(k => ({ value: k, label: t("pipe.sms", { state: t(`consent.${k}` as MessageKey) }) }))]}
+        />
+      </div>
+      <div className="pill-select">
+        <Select
+          value={emailFilter}
+          onChange={setEmailFilter}
+          options={[{ value: "all", label: t("pipe.emailAny") }, ...CONSENT_STATES.map(k => ({ value: k, label: t("pipe.email", { state: t(`consent.${k}` as MessageKey) }) }))]}
+        />
+      </div>
+      {activeFilters > 0 && (
+        <button type="button" className="btn ghost slim" onClick={clearFilters}><X aria-hidden="true" />{t("pipe.clearFilters")}</button>
+      )}
+    </>
+  );
+
   return (
     <div className="view-enter">
-      <div className="grid kpis" style={{ marginBottom: 14 }}>
-        <KpiCard icon={Target} label="Open leads" value={openLeads.length} hint="across all open stages" />
-        <KpiCard icon={Wallet} label="Pipeline value" value={money(pipelineValue)} hint="open leads" />
-        <KpiCard icon={Award} label="Won leads" value={wonLeads.length} hint="closed pipeline" />
-        <KpiCard icon={Award} label="Won value" value={money(wonValue)} hint="closed pipeline" />
+      <KpiStrip items={[
+        { label: t("pipe.kpi.open"), value: openLeads.length, hint: t("pipe.kpi.openHint"), tone: "blue", series: newLeadsWeekly, seriesLabel: t("pipe.kpi.trend") },
+        { label: t("pipe.kpi.value"), value: money(pipelineValue), hint: t("pipe.kpi.valueHint"), tone: "amber" },
+        { label: t("pipe.kpi.won"), value: wonLeads.length, hint: t("pipe.kpi.wonHint"), tone: "green", series: wonWeekly, seriesLabel: t("pipe.kpi.wonHint") },
+        { label: t("pipe.kpi.wonValue"), value: money(wonValue), hint: t("pipe.kpi.wonValueHint"), tone: "purple" }
+      ]} />
+
+      {/* Filters: one row of pills on desktop; behind a "Filters (n)" toggle on phones. */}
+      <div className="filter-bar">
+        <button
+          type="button"
+          className={`btn ghost slim filter-toggle${activeFilters ? " has-active" : ""}`}
+          aria-expanded={filtersOpen}
+          aria-controls="pipeline-filters"
+          onClick={() => setFiltersOpen(v => !v)}
+        >
+          <SlidersHorizontal aria-hidden="true" />{activeFilters ? t("pipe.filtersCount", { count: activeFilters }) : t("pipe.filters")}
+        </button>
+        <div id="pipeline-filters" className={`filter-bar-controls${filtersOpen ? " open" : ""}`}>{filterControls}</div>
+        <button className="btn ghost slim filter-bar-end" onClick={() => setEditingStages(true)}><Settings aria-hidden="true" />{t("pipe.editStages")}</button>
       </div>
-      <div className="between" style={{ marginBottom: 12 }}>
-        <div className="inline-actions">
-          <div className="field" style={{ margin: 0, minWidth: 180 }}>
-            <Select
-              value={sourceFilter}
-              onChange={setSourceFilter}
-              options={[{ value: "all", label: "All sources" }, ...sources.map(s => ({ value: s, label: s }))]}
-            />
-          </div>
-          <div className="field" style={{ margin: 0, minWidth: 180 }}>
-            <Select
-              value={ownerFilter}
-              onChange={setOwnerFilter}
-              options={[
-                { value: "all", label: "All owners" },
-                { value: "mine", label: "My leads" },
-                { value: "unassigned", label: "Unassigned" },
-                ...users.map(u => ({ value: u.id, label: u.name }))
-              ]}
-            />
-          </div>
-          <div className="field" style={{ margin: 0, minWidth: 160 }}>
-            <Select
-              value={stageFilter}
-              onChange={setStageFilter}
-              options={[{ value: "all", label: "All statuses" }, ...stages.map(s => ({ value: s.id, label: s.name }))]}
-            />
-          </div>
-          <div className="field" style={{ margin: 0, minWidth: 170 }}>
-            <Select
-              value={smsFilter}
-              onChange={setSmsFilter}
-              options={[{ value: "all", label: "SMS: any" }, ...(Object.keys(CONSENT_STATE_LABELS) as ConsentState[]).map(k => ({ value: k, label: `SMS: ${CONSENT_STATE_LABELS[k]}` }))]}
-            />
-          </div>
-          <div className="field" style={{ margin: 0, minWidth: 170 }}>
-            <Select
-              value={emailFilter}
-              onChange={setEmailFilter}
-              options={[{ value: "all", label: "Email: any" }, ...(Object.keys(CONSENT_STATE_LABELS) as ConsentState[]).map(k => ({ value: k, label: `Email: ${CONSENT_STATE_LABELS[k]}` }))]}
-            />
-          </div>
-          <span className="sub">{stages.length} stage{stages.length === 1 ? "" : "s"}</span>
-        </div>
-        <button className="btn ghost slim" onClick={() => setEditingStages(true)}><Settings />Edit stages</button>
-      </div>
-      <div className="pipeline">
-      {stages.map(stage => {
-        const stageLeads = filteredLeads.filter(l => l.stage_id === stage.id);
-        return (
-          <section
-            className={`stage${dragOverStage === stage.id ? " drag-over" : ""}`}
-            key={stage.id}
-            data-stage-id={stage.id}
-            style={{ borderTop: `3px solid ${stage.color || "var(--line-strong)"}` }}
-            onDragOver={e => { e.preventDefault(); setDragOverStage(stage.id); }}
-            onDragLeave={() => setDragOverStage(prev => (prev === stage.id ? null : prev))}
-            onDrop={e => {
-              e.preventDefault();
-              setDragOverStage(null);
-              const leadId = e.dataTransfer.getData("text/plain") || draggingId;
-              // Cleared here, not just in onDragEnd: the optimistic update
-              // below re-renders the card into a different column right
-              // away, which can unmount the original dragged DOM node before
-              // the browser gets a chance to fire "dragend" on it — leaving
-              // draggingId stuck and the card permanently faded.
-              setDraggingId(null);
-              if (leadId) moveLead(leadId, stage.id);
-            }}
-          >
-            <div className="stage-h"><span>{stage.name}</span><span>{stageLeads.length}</span></div>
-            <div className="stage-scroll">
-              {stageLeads.length
-                ? stageLeads.slice(0, STAGE_RENDER_CAP).map(lead => (
+
+      <div className="board" style={{ ["--board-cols" as any]: stages.length }}>
+        {stages.map((stage, index) => {
+          const stageLeads = filteredLeads.filter(l => l.stage_id === stage.id);
+          const tone = stageTone(stage, index);
+          return (
+            <section
+              className={`board-col tone-${tone}${dragOverStage === stage.id ? " drag-over" : ""}`}
+              key={stage.id}
+              data-stage-id={stage.id}
+              aria-label={`${stage.name}, ${stageLeads.length}`}
+              onDragOver={e => { e.preventDefault(); setDragOverStage(stage.id); }}
+              onDragLeave={() => setDragOverStage(prev => (prev === stage.id ? null : prev))}
+              onDrop={e => {
+                e.preventDefault();
+                setDragOverStage(null);
+                const leadId = e.dataTransfer.getData("text/plain") || draggingId;
+                // Cleared here, not just in onDragEnd: the optimistic update
+                // below re-renders the card into a different column right
+                // away, which can unmount the original dragged DOM node before
+                // the browser gets a chance to fire "dragend" on it — leaving
+                // draggingId stuck and the card permanently faded.
+                setDraggingId(null);
+                if (leadId) moveLead(leadId, stage.id);
+              }}
+            >
+              <header className="board-col-h">
+                <span className="board-col-name">{stage.name}</span>
+                <span className="board-col-count">{stageLeads.length}</span>
+              </header>
+              <div className="board-col-cards">
+                {stageLeads.slice(0, STAGE_RENDER_CAP).map(lead => (
                   <LeadCard
                     key={lead.id}
                     lead={lead}
-                    color={stage.color || "var(--muted)"}
+                    tone={tone}
                     stagnantDays={stagnantById.get(lead.id)?.days_in_stage}
                     followUp={followUpStatus(lead, stages, today)}
                     dragging={draggingId === lead.id}
@@ -232,26 +256,18 @@ export default function Pipeline() {
                     onTouchDragOver={handleTouchDragOver}
                     onTouchDrop={handleTouchDrop}
                   />
-                ))
-                : (
-                  <div className="empty">
-                    <Inbox />
-                    No leads yet
-                    <span className="sub" style={{ margin: 0 }}>Leads added will appear here.</span>
-                  </div>
+                ))}
+                {stageLeads.length === 0 && <p className="board-col-empty">{t("pipe.noLeads")}</p>}
+                {stageLeads.length > STAGE_RENDER_CAP && (
+                  <p className="board-col-more">{t("pipe.more", { count: stageLeads.length - STAGE_RENDER_CAP })}</p>
                 )}
-              {stageLeads.length > STAGE_RENDER_CAP && (
-                <div className="stage-more">
-                  +{stageLeads.length - STAGE_RENDER_CAP} more — use search to narrow down
-                </div>
-              )}
-            </div>
-            <button className="stage-add-lead" onClick={() => openRecordModal("lead", undefined, { stage_id: stage.id })}>
-              <Plus />Add lead
-            </button>
-          </section>
-        );
-      })}
+              </div>
+              <button className="board-col-add" onClick={() => openRecordModal("lead", undefined, { stage_id: stage.id })}>
+                <Plus aria-hidden="true" />{t("pipe.addLead")}
+              </button>
+            </section>
+          );
+        })}
       </div>
       {editingStages && activeCompanyId && (
         <StagesEditor companyId={activeCompanyId} stages={stages} onClose={() => setEditingStages(false)} />
@@ -263,13 +279,14 @@ export default function Pipeline() {
 const TOUCH_LONG_PRESS_MS = 260;
 const TOUCH_CANCEL_THRESHOLD_PX = 10;
 
-function LeadCard({ lead, color, stagnantDays, followUp, dragging, onClick, onDragStart, onDragEnd, onTouchDragStart, onTouchDragOver, onTouchDrop }: {
-  lead: Lead; color: string; stagnantDays?: number; followUp: FollowUpStatus | null; dragging: boolean; onClick: () => void;
+function LeadCard({ lead, tone, stagnantDays, followUp, dragging, onClick, onDragStart, onDragEnd, onTouchDragStart, onTouchDragOver, onTouchDrop }: {
+  lead: Lead; tone: Tone; stagnantDays?: number; followUp: FollowUpStatus | null; dragging: boolean; onClick: () => void;
   onDragStart: (e: React.DragEvent) => void; onDragEnd: () => void;
   onTouchDragStart: () => void;
   onTouchDragOver: (clientX: number, clientY: number) => void;
   onTouchDrop: (clientX: number, clientY: number) => void;
 }) {
+  const { t, locale } = useT();
   const longPressTimer = useRef<number | null>(null);
   const pointerStart = useRef<{ x: number; y: number } | null>(null);
   const touchDragActive = useRef(false);
@@ -333,29 +350,31 @@ function LeadCard({ lead, color, stagnantDays, followUp, dragging, onClick, onDr
       onPointerMove={handlePointerMove}
       onPointerUp={e => endTouchSequence(e, true)}
       onPointerCancel={e => endTouchSequence(e, false)}
-      style={{ width: "calc(100% - 20px)", textAlign: "left", touchAction: dragging ? "none" : undefined }}
+      style={{ touchAction: dragging ? "none" : undefined }}
     >
       <div className="lead-card-head">
-        <span className="lead-avatar" style={{ background: `color-mix(in srgb, ${color} 16%, white)`, color }}>{initials(lead.name)}</span>
-        <div style={{ minWidth: 0 }}>
-          <b>{lead.name}</b>
-          <div className="sub">{lead.service_type || "Service"} · {money(lead.value)}</div>
-        </div>
+        <span className={`lead-avatar tone-${tone}`} aria-hidden="true">{initials(lead.name)}</span>
+        <b className="lead-card-name">{lead.name}</b>
       </div>
-      {(lead.city || lead.zip) && <div className="lead-card-meta"><MapPin />{[lead.city, lead.zip].filter(Boolean).join(" ")}</div>}
-      {lead.updated_at && <div className="lead-card-meta"><Clock />Updated {relativeDate(lead.updated_at)}</div>}
+      <div className="lead-card-service">{lead.service_type || t("pipe.service")}</div>
+      <div className="lead-card-chips">
+        {Number(lead.value) > 0 && <span className="chip chip-value">{money(lead.value)}</span>}
+        {(lead.city || lead.zip) && <span className="chip"><MapPin aria-hidden="true" />{lead.city || lead.zip}</span>}
+      </div>
       {followUp && (
         <div className={`lead-card-meta follow-up-${followUp}`}>
-          <CalendarClock />
-          {followUp === "overdue" ? "Overdue: " : followUp === "today" ? "Today: " : `${formatDay(lead.next_action_date)}: `}
-          {lead.next_action || "follow up"}
+          <CalendarClock aria-hidden="true" />
+          <span>{followUp === "overdue" ? t("pipe.overdue") : followUp === "today" ? t("pipe.today") : formatDay(lead.next_action_date, undefined, locale)}: {lead.next_action || t("dash.followUp")}</span>
         </div>
       )}
-      {stagnantDays !== undefined && (
-        <div className="lead-card-meta stagnant-badge" title="No movement in this stage for a while">
-          <AlertTriangle />{Math.floor(stagnantDays)}d stuck in stage
-        </div>
-      )}
+      <div className="lead-card-foot">
+        {lead.updated_at && <span className="lead-card-meta"><Clock aria-hidden="true" />{t("pipe.updated", { date: relativeDate(lead.updated_at, new Date(), locale) })}</span>}
+        {stagnantDays !== undefined && (
+          <span className="badge-tone tone-amber" title={t("pipe.stuckTitle")}>
+            <AlertTriangle aria-hidden="true" />{t("pipe.stuck", { days: Math.floor(stagnantDays) })}
+          </span>
+        )}
+      </div>
     </button>
   );
 }

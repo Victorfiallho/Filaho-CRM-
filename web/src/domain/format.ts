@@ -38,14 +38,19 @@ export function initials(name: string): string {
 
 // "Today" / "Yesterday" / "Mon D" for a timestamp — `now` is injectable so
 // this stays a pure, testable function instead of reading the real clock.
-export function relativeDate(iso: string, now: Date = new Date()): string {
+// `locale` (default en-US) localizes all three: "Hoje" / "Ontem" / "5 de out."
+export function relativeDate(iso: string, now: Date = new Date(), locale = "en-US"): string {
   if (!iso) return "";
   const d = new Date(iso);
-  if (d.toDateString() === now.toDateString()) return "Today";
+  const relative = (days: number) => {
+    const word = new Intl.RelativeTimeFormat(locale, { numeric: "auto" }).format(days, "day");
+    return word.charAt(0).toLocaleUpperCase(locale) + word.slice(1);
+  };
+  if (d.toDateString() === now.toDateString()) return relative(0);
   const yesterday = new Date(now);
   yesterday.setDate(now.getDate() - 1);
-  if (d.toDateString() === yesterday.toDateString()) return "Yesterday";
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  if (d.toDateString() === yesterday.toDateString()) return relative(-1);
+  return d.toLocaleDateString(locale, { month: "short", day: "numeric" });
 }
 
 // For date-only YYYY-MM-DD values (jobs.scheduled_date, leads.next_action_date).
@@ -53,11 +58,11 @@ export function relativeDate(iso: string, now: Date = new Date()): string {
 // renders as Oct 19 — so the parts are read as a local calendar date instead.
 // Same "Oct 20" style the rest of the app uses; the year only when it isn't
 // the current one.
-export function formatDay(ymd: string | null | undefined, now: Date = new Date()): string {
+export function formatDay(ymd: string | null | undefined, now: Date = new Date(), locale = "en-US"): string {
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(ymd || "");
   if (!m) return "";
   const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
-  return d.toLocaleDateString("en-US", {
+  return d.toLocaleDateString(locale, {
     month: "short", day: "numeric", ...(d.getFullYear() !== now.getFullYear() ? { year: "numeric" } : {})
   });
 }

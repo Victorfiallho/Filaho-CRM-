@@ -1,13 +1,15 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { Bell, ChevronDown, LayoutDashboard, LogOut, Menu, MessageCircle, RefreshCw, Repeat, Search, X } from "lucide-react";
+import { Bell, ChevronDown, Languages, LayoutDashboard, LogOut, Menu, MessageCircle, RefreshCw, Repeat, Search, X } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { activityWhen, useActivityFeed } from "../data/activityFeed";
-import { MODULE_ICONS, MODULES, NAV_GROUPS } from "../domain/constants";
+import { MODULE_ICONS, NAV_GROUPS } from "../domain/constants";
 import { avatarInitials } from "../domain/visual";
 import type { Company } from "../domain/types";
 import { openAssistant } from "./ChatWidget";
 import CompanyLogo from "./CompanyLogo";
+import { useT } from "../i18n/I18nContext";
+import { LANGS, navKey, type MessageKey } from "../i18n/messages";
 
 // Horizontal pill navigation (replaces the icon sidebar). Dashboard is its
 // own pill; every other NAV_GROUPS group is a pill with a dropdown. The
@@ -16,7 +18,9 @@ import CompanyLogo from "./CompanyLogo";
 
 const LAST_SEEN_KEY = "fialho_activity_seen_at";
 
-const labelOf = (id: string) => MODULES.find(m => m[0] === id)?.[1] || id;
+// Module and group labels come from the i18n dictionary ("nav.<id>",
+// "navGroup.<name>").
+const groupKey = (name: string) => `navGroup.${name}` as MessageKey;
 const firstSegment = (path: string) => path.replace(/^\//, "").split("/")[0];
 
 // Closes on outside pointer-down and on Escape (returning focus to the
@@ -52,6 +56,7 @@ export default function TopNav({ company, canSee, userName, searchText, onSearch
 }) {
   const location = useLocation();
   const navigate = useNavigate();
+  const { t } = useT();
   const current = firstSegment(location.pathname);
   const [sheetOpen, setSheetOpen] = useState(false);
   const menuBtnRef = useRef<HTMLButtonElement | null>(null);
@@ -88,14 +93,14 @@ export default function TopNav({ company, canSee, userName, searchText, onSearch
   return (
     <div className="topnav-wrap">
       <nav className="topnav" aria-label="Main">
-        <button className="topnav-brand" onClick={() => navigate("/dashboard")} aria-label={`${company.name} — dashboard`}>
+        <button className="topnav-brand" onClick={() => navigate("/dashboard")} aria-label={t("topnav.goDashboard", { company: company.name })}>
           <span className="logo" data-company={company.id} aria-hidden="true"><CompanyLogo company={company} /></span>
           <span className="topnav-brand-name">{company.name}</span>
         </button>
 
         <div className="topnav-pills">
           <button className={`nav-pill${current === "dashboard" ? " active" : ""}`} aria-current={current === "dashboard" ? "page" : undefined} onClick={() => navigate("/dashboard")}>
-            <LayoutDashboard aria-hidden="true" />Dashboard
+            <LayoutDashboard aria-hidden="true" />{t("nav.dashboard")}
           </button>
           {groups.map(([name, ids]) => (
             <NavGroup key={name} name={name} ids={ids} current={current} onPick={id => navigate(`/${id}`)} />
@@ -106,7 +111,7 @@ export default function TopNav({ company, canSee, userName, searchText, onSearch
           <SearchButton value={searchText} onChange={onSearch} />
           <BellButton />
           <AccountMenu userName={userName} companyName={company.name} onSwitchCompany={onSwitchCompany} onSignOut={onSignOut} />
-          <button ref={menuBtnRef} className="round-btn topnav-menu-btn" aria-label="Open menu" aria-expanded={sheetOpen} onClick={() => setSheetOpen(true)}>
+          <button ref={menuBtnRef} className="round-btn topnav-menu-btn" aria-label={t("topnav.openMenu")} aria-expanded={sheetOpen} onClick={() => setSheetOpen(true)}>
             <Menu aria-hidden="true" />
           </button>
         </div>
@@ -115,22 +120,22 @@ export default function TopNav({ company, canSee, userName, searchText, onSearch
       {sheetOpen && (
         <>
           <div className="sheet-backdrop" onClick={() => setSheetOpen(false)} />
-          <div className="nav-sheet" role="dialog" aria-modal="true" aria-label="Menu" ref={sheetRef}>
+          <div className="nav-sheet" role="dialog" aria-modal="true" aria-label={t("topnav.menu")} ref={sheetRef}>
             <div className="nav-sheet-h">
               <span className="topnav-brand-name">{company.name}</span>
-              <button className="round-btn" aria-label="Close menu" onClick={() => setSheetOpen(false)} autoFocus><X aria-hidden="true" /></button>
+              <button className="round-btn" aria-label={t("topnav.closeMenu")} onClick={() => setSheetOpen(false)} autoFocus><X aria-hidden="true" /></button>
             </div>
             <button className={`nav-sheet-item${current === "dashboard" ? " active" : ""}`} onClick={() => navigate("/dashboard")}>
-              <LayoutDashboard aria-hidden="true" />Dashboard
+              <LayoutDashboard aria-hidden="true" />{t("nav.dashboard")}
             </button>
             {groups.map(([name, ids]) => (
               <div key={name} className="nav-sheet-group">
-                <span className="nav-sheet-label">{name}</span>
+                <span className="nav-sheet-label">{t(groupKey(name))}</span>
                 {ids.map(id => {
                   const Icon = MODULE_ICONS[id];
                   return (
                     <button key={id} className={`nav-sheet-item${current === id ? " active" : ""}`} aria-current={current === id ? "page" : undefined} onClick={() => navigate(`/${id}`)}>
-                      {Icon && <Icon aria-hidden="true" />}{labelOf(id)}
+                      {Icon && <Icon aria-hidden="true" />}{t(navKey(id))}
                     </button>
                   );
                 })}
@@ -145,6 +150,7 @@ export default function TopNav({ company, canSee, userName, searchText, onSearch
 
 function NavGroup({ name, ids, current, onPick }: { name: string; ids: string[]; current: string; onPick: (id: string) => void }) {
   const { open, setOpen, ref } = usePopover();
+  const { t } = useT();
   const active = ids.includes(current);
   return (
     <div className="nav-group-pop" ref={ref}>
@@ -155,17 +161,17 @@ function NavGroup({ name, ids, current, onPick }: { name: string; ids: string[];
         aria-haspopup="true"
         onClick={() => setOpen(v => !v)}
       >
-        {active ? labelOf(current) : name}
+        {active ? t(navKey(current)) : t(groupKey(name))}
         <ChevronDown className="nav-pill-chevron" aria-hidden="true" />
       </button>
       {open && (
         <div className="popover nav-popover">
-          <span className="popover-label">{name}</span>
+          <span className="popover-label">{t(groupKey(name))}</span>
           {ids.map(id => {
             const Icon = MODULE_ICONS[id];
             return (
               <button key={id} className={`popover-item${current === id ? " active" : ""}`} aria-current={current === id ? "page" : undefined} onClick={() => onPick(id)}>
-                {Icon && <Icon aria-hidden="true" />}{labelOf(id)}
+                {Icon && <Icon aria-hidden="true" />}{t(navKey(id))}
               </button>
             );
           })}
@@ -179,20 +185,21 @@ function NavGroup({ name, ids, current, onPick }: { name: string; ids: string[];
 // page already filters by). Stays expanded while it holds a query.
 function SearchButton({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const [open, setOpen] = useState(false);
+  const { t } = useT();
   const inputRef = useRef<HTMLInputElement | null>(null);
   const expanded = open || Boolean(value);
   useEffect(() => { if (open) inputRef.current?.focus(); }, [open]);
   return (
     <div className={`topnav-search${expanded ? " open" : ""}`}>
-      <button className="round-btn" aria-label="Search this company" aria-expanded={expanded} onClick={() => (expanded ? inputRef.current?.focus() : setOpen(true))}>
+      <button className="round-btn" aria-label={t("topnav.search")} aria-expanded={expanded} onClick={() => (expanded ? inputRef.current?.focus() : setOpen(true))}>
         <Search aria-hidden="true" />
       </button>
       {expanded && (
         <input
           ref={inputRef}
           type="search"
-          placeholder="Search this company…"
-          aria-label="Search this company"
+          placeholder={t("topnav.searchPlaceholder")}
+          aria-label={t("topnav.search")}
           value={value}
           onChange={e => onChange(e.target.value)}
           onBlur={() => { if (!value) setOpen(false); }}
@@ -208,6 +215,7 @@ function SearchButton({ value, onChange }: { value: string; onChange: (v: string
 function BellButton() {
   const { open, setOpen, ref } = usePopover();
   const { items } = useActivityFeed(8);
+  const { t } = useT();
   const [seenAt, setSeenAt] = useState(() => {
     try { return localStorage.getItem(LAST_SEEN_KEY) || ""; } catch { return ""; }
   });
@@ -225,14 +233,14 @@ function BellButton() {
 
   return (
     <div className="nav-group-pop" ref={ref}>
-      <button data-popover-trigger className="round-btn" aria-label={unread ? `Activity, ${unread} new` : "Activity"} aria-expanded={open} onClick={toggle}>
+      <button data-popover-trigger className="round-btn" aria-label={unread ? t("topnav.activityNew", { count: unread }) : t("topnav.activity")} aria-expanded={open} onClick={toggle}>
         <Bell aria-hidden="true" />
         {unread > 0 && <span className="round-btn-dot" aria-hidden="true" />}
       </button>
       {open && (
         <div className="popover bell-popover">
-          <span className="popover-label">Latest activity</span>
-          {items.length === 0 && <p className="sub" style={{ padding: "6px 10px" }}>Nothing yet.</p>}
+          <span className="popover-label">{t("topnav.latestActivity")}</span>
+          {items.length === 0 && <p className="sub" style={{ padding: "6px 10px" }}>{t("topnav.nothingYet")}</p>}
           {items.map(({ row, actor, text }) => (
             <div className="bell-item" key={row.id}>
               <span><b>{actor}</b> {text}</span>
@@ -250,24 +258,35 @@ function AccountMenu({ userName, companyName, onSwitchCompany, onSignOut }: {
 }) {
   const { open, setOpen, ref } = usePopover();
   const queryClient = useQueryClient();
+  const { t, lang, setLang } = useT();
   const item = (icon: ReactNode, label: string, onClick: () => void) => (
     <button className="popover-item" onClick={() => { setOpen(false); onClick(); }}>{icon}{label}</button>
   );
   return (
     <div className="nav-group-pop" ref={ref}>
-      <button data-popover-trigger className="avatar-btn" aria-label={`Account: ${userName || "you"}`} aria-expanded={open} onClick={() => setOpen(v => !v)}>
+      <button data-popover-trigger className="avatar-btn" aria-label={t("topnav.account", { name: userName || "" })} aria-expanded={open} onClick={() => setOpen(v => !v)}>
         {avatarInitials(userName)}
       </button>
       {open && (
         <div className="popover account-popover">
           <div className="account-head">
-            <b>{userName || "Signed in"}</b>
+            <b>{userName || t("topnav.signedIn")}</b>
             <span className="sub">{companyName}</span>
           </div>
-          {item(<MessageCircle aria-hidden="true" />, "Ask the assistant", openAssistant)}
-          {item(<Repeat aria-hidden="true" />, "Switch company", onSwitchCompany)}
-          {item(<RefreshCw aria-hidden="true" />, "Refresh data", () => queryClient.invalidateQueries())}
-          {item(<LogOut aria-hidden="true" />, "Log out", onSignOut)}
+          <div className="lang-row">
+            <span className="sub"><Languages aria-hidden="true" />{t("topnav.language")}</span>
+            <div className="seg" role="group" aria-label={t("topnav.language")}>
+              {LANGS.map(l => (
+                <button key={l.id} type="button" lang={l.id === "pt" ? "pt-BR" : "en"} className={lang === l.id ? "active" : ""} aria-pressed={lang === l.id} onClick={() => setLang(l.id)}>
+                  {l.id.toUpperCase()}<span className="sr-only"> — {l.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+          {item(<MessageCircle aria-hidden="true" />, t("topnav.assistant"), openAssistant)}
+          {item(<Repeat aria-hidden="true" />, t("topnav.switchCompany"), onSwitchCompany)}
+          {item(<RefreshCw aria-hidden="true" />, t("topnav.refresh"), () => queryClient.invalidateQueries())}
+          {item(<LogOut aria-hidden="true" />, t("topnav.logout"), onSignOut)}
         </div>
       )}
     </div>

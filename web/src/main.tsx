@@ -5,6 +5,7 @@ import { registerSW } from "virtual:pwa-register";
 import { BrowserRouter } from "react-router-dom";
 import App from "./App";
 import SessionTimeoutGuard from "./components/SessionTimeoutGuard";
+import { I18nProvider } from "./i18n/I18nContext";
 import { AuthProvider } from "./state/AuthContext";
 import { CalendarProvider } from "./state/CalendarContext";
 import { CompanyProvider } from "./state/CompanyContext";
@@ -27,6 +28,7 @@ registerSW({ immediate: true });
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
+      <I18nProvider>
       <AuthProvider>
         <SessionTimeoutGuard />
         <CompanyProvider>
@@ -43,6 +45,7 @@ createRoot(document.getElementById("root")!).render(
           </SearchProvider>
         </CompanyProvider>
       </AuthProvider>
+      </I18nProvider>
     </QueryClientProvider>
   </StrictMode>
 );

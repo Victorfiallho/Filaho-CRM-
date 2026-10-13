@@ -31,6 +31,8 @@ import { rollupCompanyProjects, type ProjectRollup } from "../domain/projectRoll
 import { weeklyTrend } from "../domain/trend";
 import type { Customer, Job, Lead, PipelineStage } from "../domain/types";
 import { stageTone } from "../domain/visual";
+import { useT } from "../i18n/I18nContext";
+import type { MessageKey } from "../i18n/messages";
 import { useCompany } from "../state/CompanyContext";
 import { useModal } from "../state/ModalContext";
 
@@ -40,7 +42,9 @@ const ACTIVITY_FILTERS = { limit: 30 };
 const ACTIVITY_SHOWN = 8;
 const MY_DAY_SHOWN = 6;
 
-const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+// Job statuses are stored in English; show them in the UI language.
+const statusLabel = (t: (k: MessageKey) => string, status: string) =>
+  (["planned", "scheduled", "in progress", "complete"].includes(status) ? t(`status.${status}` as MessageKey) : status);
 
 // Ported from app.js (metrics, renderDashboard, stageBar), then extended:
 // "My day" (follow-ups + today's jobs), an owner-only money panel built on
@@ -64,6 +68,7 @@ export default function Dashboard() {
   const { data: transactions = [], isLoading: txnLoading } = useCompanyTransactions(ownerCompanyId);
   const { data: releases = [], isLoading: releasesLoading } = useCompanyProfitReleases(ownerCompanyId);
   const navigate = useNavigate();
+  const { t, tn, locale } = useT();
 
   // Everything the page shows waits together, so panels don't pop in one by
   // one; disabled (non-owner) finance queries report not-loading.
@@ -86,10 +91,10 @@ export default function Dashboard() {
   const calendarConnected = Boolean(settings?.google_calendar.enabled);
   const noNextStep = leadsWithoutNextStep(leads, stages);
   const alerts = [
-    noNextStep.length > 0 && { text: `${plural(noNextStep.length, "open lead has", "open leads have")} no next step`, action: "Review", to: "/pipeline" },
-    unscheduledJobs.length > 0 && { text: `${plural(unscheduledJobs.length, "job needs", "jobs need")} scheduling`, action: "Review", to: "/jobs" },
-    noContactLeads.length > 0 && { text: `${plural(noContactLeads.length, "lead has", "leads have")} no contact info`, action: "Review", to: "/pipeline" },
-    !calendarConnected && { text: "Google Calendar not connected", action: "Connect", to: "/integrations" }
+    noNextStep.length > 0 && { text: tn("dash.alert.noNextStep", noNextStep.length), action: t("common.review"), to: "/pipeline" },
+    unscheduledJobs.length > 0 && { text: tn("dash.alert.unscheduled", unscheduledJobs.length), action: t("common.review"), to: "/jobs" },
+    noContactLeads.length > 0 && { text: tn("dash.alert.noContact", noContactLeads.length), action: t("common.review"), to: "/pipeline" },
+    !calendarConnected && { text: t("dash.alert.calendar"), action: t("common.connect"), to: "/integrations" }
   ].filter(Boolean) as { text: string; action: string; to: string }[];
 
   const stageCounts = stages.map(stage => ({ stage, count: leads.filter(l => l.stage_id === stage.id).length }));
@@ -119,23 +124,23 @@ export default function Dashboard() {
   return (
     <div className="view-enter">
       <KpiStrip items={[
-        { label: "Clients", value: customers.length, hint: "active records", tone: "amber", series: weekly(customers, c => c.created_at), seriesLabel: "New clients per week, last 10 weeks" },
-        { label: "Open leads", value: openLeads.length, hint: `${won.length} won`, tone: "blue", series: weekly(leads, l => l.created_at), seriesLabel: "New leads per week, last 10 weeks" },
-        { label: "Active jobs", value: activeJobs.length, hint: `${scheduledJobs.length} scheduled`, tone: "coral", series: weekly(jobs, j => j.created_at), seriesLabel: "New jobs per week, last 10 weeks" },
-        { label: "Pipeline", value: money(pipelineValue), hint: "open lead value", tone: "green", series: weekly(leads, l => l.created_at, l => Number(l.value || 0)), seriesLabel: "Lead value added per week, last 10 weeks" }
+        { label: t("dash.kpi.clients"), value: customers.length, hint: t("dash.kpi.clientsHint"), tone: "amber", series: weekly(customers, c => c.created_at), seriesLabel: t("dash.kpi.clientsTrend") },
+        { label: t("dash.kpi.openLeads"), value: openLeads.length, hint: t("dash.kpi.openLeadsHint", { count: won.length }), tone: "blue", series: weekly(leads, l => l.created_at), seriesLabel: t("dash.kpi.openLeadsTrend") },
+        { label: t("dash.kpi.activeJobs"), value: activeJobs.length, hint: t("dash.kpi.activeJobsHint", { count: scheduledJobs.length }), tone: "coral", series: weekly(jobs, j => j.created_at), seriesLabel: t("dash.kpi.activeJobsTrend") },
+        { label: t("dash.kpi.pipeline"), value: money(pipelineValue), hint: t("dash.kpi.pipelineHint"), tone: "green", series: weekly(leads, l => l.created_at, l => Number(l.value || 0)), seriesLabel: t("dash.kpi.pipelineTrend") }
       ]} />
 
       <div className="grid two" style={{ marginTop: 20 }}>
         <MyDayCard leads={leads} jobs={jobs} customers={customers} stages={stages} today={today} myUserId={currentAppUser?.id ?? null} />
         <section className="card">
-          <div className="card-h"><h3>Needs attention</h3>{alerts.length > 0 && <span className="badge-tone tone-amber">{alerts.length}</span>}</div>
+          <div className="card-h"><h3>{t("dash.needsAttention")}</h3>{alerts.length > 0 && <span className="badge-tone tone-amber">{alerts.length}</span>}</div>
           <div className="card-b">
             {alerts.length ? alerts.map(a => (
               <div className="attention-row" key={a.text}>
                 <span>{a.text}</span>
                 <button className="link-btn" onClick={() => navigate(a.to)}>{a.action}</button>
               </div>
-            )) : <EmptyState icon={AlertCircle}>All caught up</EmptyState>}
+            )) : <EmptyState icon={AlertCircle}>{t("dash.allCaughtUp")}</EmptyState>}
           </div>
         </section>
       </div>
@@ -144,48 +149,48 @@ export default function Dashboard() {
 
       <section className="card" style={{ marginTop: 20 }}>
         <div className="card-h">
-          <h3>New leads</h3>
-          <span className="sub">Last 12 weeks</span>
+          <h3>{t("dash.newLeads")}</h3>
+          <span className="sub">{t("dash.last12Weeks")}</span>
         </div>
         <div className="card-b">
-          <TrendLineChart data={leadsPerWeek} unit={["new lead", "new leads"]} />
+          <TrendLineChart data={leadsPerWeek} unit={[t("chart.newLead"), t("chart.newLeads")]} />
         </div>
       </section>
 
       <div className="grid two" style={{ marginTop: 20 }}>
         <section className="card">
           <div className="card-h">
-            <h3>Upcoming jobs</h3>
-            <button className="link-btn" onClick={() => navigate("/calendar")}>View calendar</button>
+            <h3>{t("dash.upcomingJobs")}</h3>
+            <button className="link-btn" onClick={() => navigate("/calendar")}>{t("dash.viewCalendar")}</button>
           </div>
           <div className="card-b">
             {upcoming.length ? (
               <div className="table-wrap">
                 <table>
-                  <thead><tr><th>Date</th><th>Client</th><th>Project</th><th>Location</th><th>Status</th></tr></thead>
+                  <thead><tr><th>{t("dash.col.date")}</th><th>{t("dash.col.client")}</th><th>{t("dash.col.project")}</th><th>{t("dash.col.location")}</th><th>{t("dash.col.status")}</th></tr></thead>
                   <tbody>
                     {upcoming.map(job => {
                       const status = job.status || "planned";
                       return (
                         <tr key={job.id} className="row-clickable" onClick={() => navigate("/calendar")}>
-                          <td>{formatDay(job.scheduled_date)}</td>
+                          <td>{formatDay(job.scheduled_date, undefined, locale)}</td>
                           <td>{job.customer_name || "—"}</td>
                           <td>{job.title}</td>
                           <td>{job.city || "—"}</td>
-                          <td><span className={`pill status-${status.replace(/\s+/g, "-")}`}>{status}</span></td>
+                          <td><span className={`pill status-${status.replace(/\s+/g, "-")}`}>{statusLabel(t, status)}</span></td>
                         </tr>
                       );
                     })}
                   </tbody>
                 </table>
               </div>
-            ) : <EmptyState icon={Calendar}>No upcoming jobs scheduled</EmptyState>}
+            ) : <EmptyState icon={Calendar}>{t("dash.noUpcoming")}</EmptyState>}
           </div>
         </section>
         <section className="card">
           <div className="card-h">
-            <h3>Pipeline by stage</h3>
-            <button className="link-btn" onClick={() => navigate("/pipeline")}>View pipeline</button>
+            <h3>{t("dash.pipelineByStage")}</h3>
+            <button className="link-btn" onClick={() => navigate("/pipeline")}>{t("dash.viewPipeline")}</button>
           </div>
           <div className="card-b">
             {stageCounts.map(({ stage, count }, i) => {
@@ -193,7 +198,7 @@ export default function Dashboard() {
               return (
                 <div className={`stage-meter tone-${tone}`} key={stage.id}>
                   <span className="stage-meter-name">{stage.name}</span>
-                  <ProgressPill value={count} max={maxStageCount} tone={tone} label={`${stage.name}: ${count} leads`} />
+                  <ProgressPill value={count} max={maxStageCount} tone={tone} label={t("dash.stageLeads", { stage: stage.name, count })} />
                   <span className="stage-meter-count">{count}</span>
                 </div>
               );
@@ -205,7 +210,7 @@ export default function Dashboard() {
       <ActivityCard />
 
       <p className="dash-foot">
-        Integrations: {integrationsConnected} of 6 connected · <button className="link-btn" onClick={() => navigate("/integrations")}>Manage integrations</button>
+        {t("dash.integrations", { count: integrationsConnected })} · <button className="link-btn" onClick={() => navigate("/integrations")}>{t("dash.manageIntegrations")}</button>
       </p>
     </div>
   );
@@ -218,6 +223,7 @@ function MyDayCard({ leads, jobs, customers, stages, today, myUserId }: {
 }) {
   const { openRecordModal } = useModal();
   const navigate = useNavigate();
+  const { t, locale } = useT();
   const [scope, setScope] = useState<"mine" | "everyone">(myUserId ? "mine" : "everyone");
   const { followUps, jobsToday } = myDay(leads, jobs, stages, today, scope === "mine" ? myUserId : null);
   const clientName = new Map(customers.map(c => [c.id, c.name]));
@@ -225,51 +231,51 @@ function MyDayCard({ leads, jobs, customers, stages, today, myUserId }: {
   return (
     <section className="card">
       <div className="card-h">
-        <div><h3>My day</h3><span className="sub">{formatDay(today)}</span></div>
+        <div><h3>{t("dash.myDay")}</h3><span className="sub">{formatDay(today, undefined, locale)}</span></div>
         {myUserId && (
-          <div className="seg" role="group" aria-label="Whose items">
-            <button type="button" className={scope === "mine" ? "active" : ""} aria-pressed={scope === "mine"} onClick={() => setScope("mine")}>Mine</button>
-            <button type="button" className={scope === "everyone" ? "active" : ""} aria-pressed={scope === "everyone"} onClick={() => setScope("everyone")}>Everyone</button>
+          <div className="seg" role="group" aria-label={t("dash.whose")}>
+            <button type="button" className={scope === "mine" ? "active" : ""} aria-pressed={scope === "mine"} onClick={() => setScope("mine")}>{t("dash.mine")}</button>
+            <button type="button" className={scope === "everyone" ? "active" : ""} aria-pressed={scope === "everyone"} onClick={() => setScope("everyone")}>{t("dash.everyone")}</button>
           </div>
         )}
       </div>
       <div className="card-b">
         {followUps.length === 0 && jobsToday.length === 0 && (
-          <EmptyState icon={CalendarClock}>Nothing due {scope === "mine" ? "for you " : ""}today</EmptyState>
+          <EmptyState icon={CalendarClock}>{scope === "mine" ? t("dash.nothingDueMine") : t("dash.nothingDue")}</EmptyState>
         )}
         {followUps.length > 0 && (
           <>
-            <div className="day-section">Follow-ups · {followUps.length}</div>
+            <div className="day-section">{t("dash.followUps", { count: followUps.length })}</div>
             {followUps.slice(0, MY_DAY_SHOWN).map(({ lead, status, daysOverdue }) => (
               <button type="button" className="day-row" key={lead.id} onClick={() => openRecordModal("lead", lead)}>
                 <span className="day-row-main">
                   <b>{lead.name}</b>
-                  <span className="sub">{lead.next_action || "Follow up"}</span>
+                  <span className="sub">{lead.next_action || t("dash.followUp")}</span>
                 </span>
                 <span className={`pill ${status === "overdue" ? "pill-danger" : "pill-warn"}`}>
-                  {status === "overdue" ? `${daysOverdue}d overdue` : "Today"}
+                  {status === "overdue" ? t("dash.overdue", { days: daysOverdue }) : t("dash.today")}
                 </span>
               </button>
             ))}
             {followUps.length > MY_DAY_SHOWN && (
-              <button className="link-btn" onClick={() => navigate("/pipeline")}>+{followUps.length - MY_DAY_SHOWN} more in Pipeline</button>
+              <button className="link-btn" onClick={() => navigate("/pipeline")}>{t("dash.moreInPipeline", { count: followUps.length - MY_DAY_SHOWN })}</button>
             )}
           </>
         )}
         {jobsToday.length > 0 && (
           <>
-            <div className="day-section">Jobs today · {jobsToday.length}</div>
+            <div className="day-section">{t("dash.jobsToday", { count: jobsToday.length })}</div>
             {jobsToday.slice(0, MY_DAY_SHOWN).map(job => (
               <button type="button" className="day-row" key={job.id} onClick={() => openRecordModal("job", job)}>
                 <span className="day-row-main">
                   <b>{job.title}</b>
                   <span className="sub">{[clientName.get(job.customer_id || ""), job.city].filter(Boolean).join(" · ") || "—"}</span>
                 </span>
-                <span className={`pill status-${(job.status || "planned").replace(/\s+/g, "-")}`}>{job.status || "planned"}</span>
+                <span className={`pill status-${(job.status || "planned").replace(/\s+/g, "-")}`}>{statusLabel(t, job.status || "planned")}</span>
               </button>
             ))}
             {jobsToday.length > MY_DAY_SHOWN && (
-              <button className="link-btn" onClick={() => navigate("/calendar")}>+{jobsToday.length - MY_DAY_SHOWN} more in Calendar</button>
+              <button className="link-btn" onClick={() => navigate("/calendar")}>{t("dash.moreInCalendar", { count: jobsToday.length - MY_DAY_SHOWN })}</button>
             )}
           </>
         )}
@@ -281,6 +287,7 @@ function MyDayCard({ leads, jobs, customers, stages, today, myUserId }: {
 // Owner-only. Same per-project numbers as Company Financials: what customers
 // still owe, what's safe to withdraw, and which projects are under margin.
 function MoneyCard({ rollups }: { rollups: ProjectRollup[] }) {
+  const { t, tn } = useT();
   const receivable = rollups.reduce((t, r) => t + r.balanceDue, 0);
   const owingCount = rollups.filter(r => r.balanceDue > 0).length;
   const credits = rollups.reduce((t, r) => t + r.customerCredit, 0);
@@ -295,42 +302,42 @@ function MoneyCard({ rollups }: { rollups: ProjectRollup[] }) {
   return (
     <section className="card" style={{ marginTop: 20 }}>
       <div className="card-h">
-        <div><h3>Money</h3><span className="sub">{plural(rollups.length, "project", "projects")} with costing · owner only</span></div>
-        <Link className="link-btn" to="/company-financials">Company Financials</Link>
+        <div><h3>{t("dash.money")}</h3><span className="sub">{tn("dash.moneySub", rollups.length)}</span></div>
+        <Link className="link-btn" to="/company-financials">{t("nav.company-financials")}</Link>
       </div>
       <div className="card-b">
         {rollups.length === 0 ? (
-          <EmptyState icon={DollarSign}>No projects have costing set up yet — open a job's Costing to start.</EmptyState>
+          <EmptyState icon={DollarSign}>{t("dash.noCosting")}</EmptyState>
         ) : (
           <>
             <div className="money-stats">
               <div>
-                <span className="label">To collect</span>
+                <span className="label">{t("dash.toCollect")}</span>
                 <b>{money(receivable)}</b>
-                <span className="sub">{owingCount ? `from ${plural(owingCount, "project", "projects")}` : "Nothing outstanding"}</span>
+                <span className="sub">{owingCount ? tn("dash.fromProjects", owingCount) : t("dash.nothingOutstanding")}</span>
               </div>
               <div>
-                <span className="label">Safe to withdraw</span>
+                <span className="label">{t("dash.safeToWithdraw")}</span>
                 <b>{money(safe)}</b>
-                <span className="sub">{unpriced ? `${plural(unpriced, "project", "projects")} held — no cost estimates` : "After all reserves"}</span>
+                <span className="sub">{unpriced ? tn("dash.projectsHeld", unpriced) : t("dash.afterReserves")}</span>
               </div>
               <div>
-                <span className="label">Customer credits</span>
+                <span className="label">{t("dash.customerCredits")}</span>
                 <b>{money(credits)}</b>
-                <span className="sub">{credits > 0 ? "Paid above contract — refund or apply" : "None"}</span>
+                <span className="sub">{credits > 0 ? t("dash.paidAbove") : t("dash.none")}</span>
               </div>
             </div>
             {belowMargin.length > 0 ? (
               <>
-                <div className="day-section">Below minimum margin</div>
+                <div className="day-section">{t("dash.belowMargin")}</div>
                 {belowMargin.map(r => (
                   <Link className="day-row" key={r.job.id} to={`/jobs/${r.job.id}/financials`}>
-                    <span className="day-row-main"><b>{r.job.title}</b><span className="sub">Forecast profit {money(r.forecastProfitValue)}</span></span>
+                    <span className="day-row-main"><b>{r.job.title}</b><span className="sub">{t("dash.forecastProfit", { value: money(r.forecastProfitValue) })}</span></span>
                     <span className="pill pill-danger">{r.forecastMarginValue.toFixed(1)}% / {r.minimumMarginPct}%</span>
                   </Link>
                 ))}
               </>
-            ) : priced.length > 0 && <p className="sub" style={{ marginTop: 12 }}>Every priced project is at or above its minimum margin.</p>}
+            ) : priced.length > 0 && <p className="sub" style={{ marginTop: 12 }}>{t("dash.allAboveMargin")}</p>}
           </>
         )}
       </div>
@@ -341,11 +348,12 @@ function MoneyCard({ rollups }: { rollups: ProjectRollup[] }) {
 // Who did what, from audit_log (now also covering leads — migration 09).
 function ActivityCard() {
   const { items } = useActivityFeed(ACTIVITY_SHOWN);
+  const { t } = useT();
   return (
     <section className="card" style={{ marginTop: 20 }}>
       <div className="card-h">
-        <h3>Activity</h3>
-        <Link className="link-btn" to="/audit-log">Full audit log</Link>
+        <h3>{t("dash.activity")}</h3>
+        <Link className="link-btn" to="/audit-log">{t("dash.fullAuditLog")}</Link>
       </div>
       <div className="card-b">
         {items.length ? items.map(({ row, actor, text }) => (
@@ -353,7 +361,7 @@ function ActivityCard() {
             <span><b>{actor}</b> {text}</span>
             <span className="sub" style={{ whiteSpace: "nowrap" }}>{activityWhen(row.created_at)}</span>
           </div>
-        )) : <EmptyState icon={History}>No activity yet</EmptyState>}
+        )) : <EmptyState icon={History}>{t("dash.noActivity")}</EmptyState>}
       </div>
     </section>
   );

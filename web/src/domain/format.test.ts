@@ -91,6 +91,11 @@ describe("relativeDate", () => {
   it("returns empty string for no timestamp", () => {
     expect(relativeDate("", now)).toBe("");
   });
+  it("speaks Portuguese when asked", () => {
+    expect(relativeDate("2026-08-24T09:00:00", now, "pt-BR")).toBe("Hoje");
+    expect(relativeDate("2026-08-23T23:00:00", now, "pt-BR")).toBe("Ontem");
+    expect(relativeDate("2026-08-19T09:00:00", now, "pt-BR")).toMatch(/^19 de ago/);
+  });
 });
 
 describe("formatDay", () => {

@@ -3,6 +3,7 @@ import { ArrowDownRight, ArrowUpRight } from "lucide-react";
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import { monotonePath, niceCeiling, periodChange, tickIndexes } from "../domain/chartPath";
 import type { TrendPoint } from "../domain/trend";
+import { useT } from "../i18n/I18nContext";
 
 const HEIGHT = 220;
 const PAD_LEFT = 2;
@@ -52,8 +53,9 @@ export default function TrendLineChart({ data, valueFormat = String, unit }: {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const gradientId = useId().replace(/:/g, "");
   const reduceMotion = useReducedMotion();
+  const { t } = useT();
 
-  if (!data.length) return <div className="empty-state">No data yet</div>;
+  if (!data.length) return <div className="empty-state">{t("common.noData")}</div>;
 
   const plotW = Math.max(0, width - PAD_LEFT - PAD_RIGHT);
   const plotH = HEIGHT - PAD_TOP - PAD_BOTTOM;
@@ -109,11 +111,11 @@ export default function TrendLineChart({ data, valueFormat = String, unit }: {
       <div className="trend-chart">
         <div className="trend-chart-summary">
           <span className="trend-chart-total">{valueFormat(total)}</span>
-          {unit && <span className="trend-chart-noun">{noun} in {data.length} weeks</span>}
+          {unit && <span className="trend-chart-noun">{t("chart.inWeeks", { noun, weeks: data.length })}</span>}
           {change.pct !== null && (
-            <span className={`badge-tone ${change.pct >= 0 ? "tone-green" : "tone-rose"}`} title={`Last ${half} weeks: ${change.recent} · previous ${half}: ${change.previous}`}>
+            <span className={`badge-tone ${change.pct >= 0 ? "tone-green" : "tone-rose"}`} title={t("chart.compareTitle", { weeks: half, recent: change.recent, previous: change.previous })}>
               {change.pct >= 0 ? <ArrowUpRight aria-hidden="true" /> : <ArrowDownRight aria-hidden="true" />}
-              {change.pct >= 0 ? "+" : ""}{change.pct}% vs previous {half} weeks
+              {t("chart.vsPrevious", { pct: `${change.pct >= 0 ? "+" : ""}${change.pct}`, weeks: half })}
             </span>
           )}
         </div>
@@ -126,7 +128,7 @@ export default function TrendLineChart({ data, valueFormat = String, unit }: {
               width="100%"
               height={HEIGHT}
               role="img"
-              aria-label={`Trend chart, ${data.length} weeks, latest ${last.label} ${valueFormat(last.value)}. Use arrow keys to read each week.`}
+              aria-label={t("chart.aria", { count: data.length, label: last.label, value: valueFormat(last.value) })}
               tabIndex={0}
               onPointerMove={handlePointerMove}
               onPointerDown={handlePointerMove}
@@ -147,7 +149,8 @@ export default function TrendLineChart({ data, valueFormat = String, unit }: {
               {gridSteps.map((v, i) => (
                 <g key={i}>
                   <line x1={PAD_LEFT} x2={width - PAD_RIGHT} y1={yAt(v)} y2={yAt(v)} className="trend-chart-grid" />
-                  {i > 0 && <text x={PAD_LEFT} y={yAt(v) - 6} className="trend-chart-axis-label">{valueFormat(Math.round(v))}</text>}
+                  {/* Whole-number labels only: with a max of 1 the 0.5 line would round to a second "1". */}
+                  {i > 0 && Number.isInteger(v) && <text x={PAD_LEFT} y={yAt(v) - 6} className="trend-chart-axis-label">{valueFormat(v)}</text>}
                 </g>
               ))}
 
@@ -238,7 +241,7 @@ export default function TrendLineChart({ data, valueFormat = String, unit }: {
                     point is near the top, and hugs the side near either edge. */}
                 <div className={`trend-chart-tooltip${yAt(hovered.value) < PAD_TOP + 56 ? " below" : ""}${hoverIndex > lastIdx * 0.8 ? " align-end" : hoverIndex < lastIdx * 0.2 ? " align-start" : ""}`}>
                   <span className="trend-chart-tooltip-value">{valueFormat(hovered.value)}{unit ? ` ${hovered.value === 1 ? unit[0] : unit[1]}` : ""}</span>
-                  <span className="trend-chart-tooltip-label">Week ending {hovered.label}</span>
+                  <span className="trend-chart-tooltip-label">{t("chart.weekEnding", { date: hovered.label })}</span>
                 </div>
               </m.div>
             )}
@@ -246,12 +249,12 @@ export default function TrendLineChart({ data, valueFormat = String, unit }: {
         </div>
 
         <div className="trend-chart-foot">
-          <button className="link-btn" onClick={() => setShowTable(v => !v)} aria-expanded={showTable}>{showTable ? "Hide table" : "View as table"}</button>
+          <button className="link-btn" onClick={() => setShowTable(v => !v)} aria-expanded={showTable}>{showTable ? t("common.hideTable") : t("common.viewAsTable")}</button>
         </div>
         {showTable && (
           <div className="table-wrap" style={{ marginTop: 8 }}>
             <table>
-              <thead><tr><th>Week ending</th><th>Value</th></tr></thead>
+              <thead><tr><th>{t("chart.weekEndingCol")}</th><th>{t("common.value")}</th></tr></thead>
               <tbody>
                 {data.map((d, i) => <tr key={i}><td>{d.label}</td><td style={{ fontVariantNumeric: "tabular-nums" }}>{valueFormat(d.value)}</td></tr>)}
               </tbody>

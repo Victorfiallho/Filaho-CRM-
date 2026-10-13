@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import Shell from "./components/Shell";
 import AuditLog from "./pages/AuditLog";
+import BookingPage from "./pages/BookingPage";
 import Calendar from "./pages/Calendar";
 import CompanyFinancials from "./pages/CompanyFinancials";
 import CompanyPicker from "./pages/CompanyPicker";
@@ -27,6 +28,7 @@ export default function App() {
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/pipeline" element={<Pipeline />} />
         <Route path="/customers" element={<Customers />} />
+        <Route path="/booking-page" element={<BookingPage />} />
         <Route path="/jobs" element={<Jobs />} />
         <Route path="/jobs/:jobId/financials" element={<ProjectFinancials />} />
         <Route path="/calendar" element={<Calendar />} />

@@ -85,6 +85,16 @@ export function describeActivity(entry: AuditLogEntry, ctx: ActivityContext): st
   if (FINANCE_ENTITIES.has(entry.entity)) return describeFinance(entry, ctx);
 
   const diff = entry.diff || {};
+
+  // A booking from the public page (submit_booking() in migration 11) writes
+  // one booking_requests row for the feed; the client/lead inserts it makes
+  // along the way would just repeat it.
+  if (entry.entity === "booking_requests") {
+    const row = diff as Record<string, unknown>;
+    const services = Array.isArray(row.services) ? (row.services as unknown[]).map(text).filter(Boolean) : [];
+    return `from ${text(row.name) || "a new customer"}${services.length ? ` (${services.join(", ")})` : ""}${row.existing_client ? " · existing client" : ""}`;
+  }
+  if (entry.action === "insert" && text((diff as Record<string, unknown>).source) === "Booking page" && !entry.user_id) return null;
   const noun = ENTITY_NOUN[entry.entity];
 
   if (!noun) {

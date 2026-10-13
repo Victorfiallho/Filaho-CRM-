@@ -57,6 +57,14 @@ browser cache issue — `curl -sI <url>` and look for `Content-Disposition: inli
   ACCESS_TOKEN_TYPE_UNSUPPORTED — a known, unresolved bug on Google's side as of 2026-08-31, not
   this codebase). Same secrets are needed as GitHub Actions secrets for the `scripts/*.mjs` crons
   that use them.
+- Booking page / consent (migration `2026-10-13_11`): `UNSUBSCRIBE_SECRET` (HMAC key for `/u/<token>`
+  email unsubscribe links — any long random string; changing it invalidates links already sent) and
+  `SMS_INBOUND_SECRET` (shared secret for `POST /api/sms-inbound?key=...`, until an SMS provider's own
+  signature check replaces it). Both endpoints refuse every request while their secret is unset.
+  Optional `PUBLIC_BASE_URL` pins the origin used in canonical URLs and `consent_records.page_url`.
+  Every marketing send must go through `checkCanSendMarketing()` in `web/api/_lib/consentStore.js`.
+  Don't put non-route `.js` files (tests included) directly in `web/api/` — Vercel turns each one into a
+  function; shared code and tests live in `web/api/_lib/`.
 - Local-only: `npm run dev` (plain Vite) doesn't serve `web/api/*` — those are Vercel functions, so
   a local `fetch("/api/...")` 404s unless you also run `vercel dev --listen 3000` in a second
   terminal (`vite.config.ts`'s `server.proxy` forwards `/api` there). `vercel dev` itself has an

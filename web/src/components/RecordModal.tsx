@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { FolderOpen } from "lucide-react";
 import { useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import ConsentPanel from "./ConsentPanel";
 import Select from "./Select";
 import { summarizeJob, type JobAiSummary } from "../data/aiSummary";
 import { listCustomers, insertCustomer, updateCustomer, deleteCustomer } from "../data/customers";
@@ -730,6 +731,9 @@ function RecordModalContent() {
                 <textarea rows={3} value={form.notes} onChange={e => set("notes", e.target.value)} />
               </div>
             </>
+          )}
+          {isEdit && r.id && (type === "lead" || type === "customer") && (
+            <ConsentPanel companyId={activeCompanyId} kind={type} record={r} />
           )}
           {isEdit && r.id && (
             <div className="record-activity">

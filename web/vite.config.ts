@@ -36,7 +36,10 @@ export default defineConfig({
         // JS/CSS/HTML/icons in dist/ — no runtimeCaching rules added, so
         // every fetch("/api/...") and Supabase request bypasses the service
         // worker entirely and always hits the network.
-        navigateFallbackDenylist: [/^\/api\//]
+        // /book/* and /u/* are server-rendered by web/api/book.js and
+        // web/api/unsubscribe.js (vercel.json rewrites) — the SPA shell must
+        // never answer those for someone who has the CRM installed.
+        navigateFallbackDenylist: [/^\/api\//, /^\/book\//, /^\/u\//]
       }
     })
   ],

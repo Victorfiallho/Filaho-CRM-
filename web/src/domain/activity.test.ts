@@ -17,6 +17,15 @@ describe("describeActivity", () => {
     expect(describeActivity(entry({ diff: { stage_id: { old: "new", new: "won" } } }), ctx)).toBe("moved Jane Doe to Won");
   });
 
+  it("describes an online booking once, hiding the client/lead rows it created", () => {
+    expect(describeActivity(entry({ action: "insert", entity: "booking_requests", entity_id: "book_1", diff: { name: "Jane Doe", services: ["Carpet cleaning", "Rug cleaning"], existing_client: false } }), ctx))
+      .toBe("from Jane Doe (Carpet cleaning, Rug cleaning)");
+    expect(describeActivity(entry({ action: "insert", entity: "booking_requests", entity_id: "book_2", diff: { name: "Jane Doe", services: [], existing_client: true } }), ctx))
+      .toBe("from Jane Doe · existing client");
+    expect(describeActivity(entry({ action: "insert", entity: "leads", diff: { name: "Jane Doe", source: "Booking page" } }), ctx)).toBeNull();
+    expect(describeActivity(entry({ action: "insert", entity: "customers", entity_id: "c1", diff: { name: "Jane Doe", source: "Booking page" } }), ctx)).toBeNull();
+  });
+
   it("describes inserts and deletes with the row's own name", () => {
     expect(describeActivity(entry({ action: "insert", entity: "customers", entity_id: "c9", diff: { name: "Sam Lee" } }), ctx)).toBe("added client Sam Lee");
     expect(describeActivity(entry({ action: "delete", entity: "jobs", entity_id: "job_x", diff: { title: "Deck" } }), ctx)).toBe("deleted job Deck");

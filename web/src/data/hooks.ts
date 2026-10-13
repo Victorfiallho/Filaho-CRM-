@@ -26,6 +26,8 @@ import { listProfitReleases, listProfitReleasesByCompany } from "./profitRelease
 import { listRefundsByJob } from "./refunds";
 import { listTransactionsByCompany, listTransactionsByJob } from "./transactions";
 import { listVendors } from "./vendors";
+import { getBookingPage, listConsentTextVersions } from "./bookingPages";
+import { getConsentStatuses, listBookingRequests, listConsentRecords } from "./consent";
 
 export function useCustomers(companyId: string | null) {
   return useQuery({
@@ -119,6 +121,46 @@ export function useFiles(companyId: string | null, entityType: string, entityId:
     queryKey: ["files", companyId, entityType, entityId],
     queryFn: () => listFiles(companyId!, entityType, entityId!),
     enabled: Boolean(companyId && entityId)
+  });
+}
+
+export function useBookingPage(companyId: string | null) {
+  return useQuery({
+    queryKey: ["booking_page", companyId],
+    queryFn: () => getBookingPage(companyId!),
+    enabled: Boolean(companyId)
+  });
+}
+
+export function useConsentTextVersions(companyId: string | null) {
+  return useQuery({
+    queryKey: ["consent_text_versions", companyId],
+    queryFn: () => listConsentTextVersions(companyId!),
+    enabled: Boolean(companyId)
+  });
+}
+
+export function useConsentRecords(companyId: string | null, contactId: string | null) {
+  return useQuery({
+    queryKey: ["consent_records", companyId, contactId],
+    queryFn: () => listConsentRecords(companyId!, contactId!),
+    enabled: Boolean(companyId && contactId)
+  });
+}
+
+export function useBookingRequests(companyId: string | null, by: { leadId?: string; customerId?: string }) {
+  return useQuery({
+    queryKey: ["booking_requests", companyId, by.leadId || "", by.customerId || ""],
+    queryFn: () => listBookingRequests(companyId!, by),
+    enabled: Boolean(companyId && (by.leadId || by.customerId))
+  });
+}
+
+export function useConsentStatuses(companyId: string | null) {
+  return useQuery({
+    queryKey: ["consent_status", companyId],
+    queryFn: () => getConsentStatuses(companyId!),
+    enabled: Boolean(companyId)
   });
 }
 

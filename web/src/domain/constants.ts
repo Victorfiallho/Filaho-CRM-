@@ -7,6 +7,7 @@ import {
   BarChart3,
   Briefcase,
   Calendar,
+  CalendarCheck,
   Download,
   Filter,
   History,
@@ -42,6 +43,7 @@ export const MODULES: [string, string][] = [
   ["dashboard", "Dashboard"],
   ["pipeline", "Pipeline"],
   ["customers", "Clients"],
+  ["booking-page", "Booking page"],
   ["jobs", "Jobs"],
   ["calendar", "Calendar"],
   ["map", "Map & Routes"],
@@ -56,7 +58,7 @@ export const MODULES: [string, string][] = [
 // Sidebar sections — 12 flat items were hard to scan. Every MODULES id
 // belongs to exactly one group (constants.test.ts checks that).
 export const NAV_GROUPS: [string, string[]][] = [
-  ["Sales", ["dashboard", "pipeline", "customers"]],
+  ["Sales", ["dashboard", "pipeline", "customers", "booking-page"]],
   ["Operations", ["jobs", "calendar", "map"]],
   ["Finance", ["company-financials", "reports"]],
   ["Admin", ["import", "integrations", "audit-log", "users"]]
@@ -70,6 +72,7 @@ export const MODULE_ICONS: Record<string, LucideIcon> = {
   dashboard: LayoutDashboard,
   pipeline: Filter,
   customers: Users,
+  "booking-page": CalendarCheck,
   jobs: Briefcase,
   calendar: Calendar,
   map: MapPin,

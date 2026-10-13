@@ -6,7 +6,8 @@ import PageSkeleton from "../components/PageSkeleton";
 import Select from "../components/Select";
 import StagesEditor from "../components/StagesEditor";
 import { updateLead } from "../data/leads";
-import { useCurrentAppUser, useJobs, useLeads, useStagnantLeads, useUsers } from "../data/hooks";
+import { useConsentStatuses, useCurrentAppUser, useJobs, useLeads, useStagnantLeads, useUsers } from "../data/hooks";
+import { CONSENT_STATE_LABELS } from "../domain/consent";
 import { filterRowsBySearch } from "../domain/search";
 import { formatDay, initials, money, relativeDate, unique } from "../domain/format";
 import { followUpStatus, type FollowUpStatus } from "../domain/followUp";
@@ -15,7 +16,7 @@ import { findJobForLead, jobDraftFromLead } from "../domain/leadConversion";
 import { isLostStage, isOpenStage, isWonStage } from "../domain/pipelineStages";
 import { errorMessage } from "../lib/errorMessage";
 import { toast, toastError } from "../lib/toast";
-import type { Lead } from "../domain/types";
+import type { ConsentState, Lead } from "../domain/types";
 import { useCompany } from "../state/CompanyContext";
 import { useModal } from "../state/ModalContext";
 import { useSearch } from "../state/SearchContext";
@@ -52,10 +53,24 @@ export default function Pipeline() {
   const [editingStages, setEditingStages] = useState(false);
   const [sourceFilter, setSourceFilter] = useState("all");
   const [ownerFilter, setOwnerFilter] = useState("all");
+  const [stageFilter, setStageFilter] = useState("all");
+  const [smsFilter, setSmsFilter] = useState("all");
+  const [emailFilter, setEmailFilter] = useState("all");
+  // Consent lives on the client (consent_records.contact_id = customer id);
+  // a lead without a client counts as "not opted in".
+  const { data: consentStatuses = [] } = useConsentStatuses(smsFilter !== "all" || emailFilter !== "all" ? activeCompanyId : null);
+  const consentByCustomer = useMemo(() => new Map(consentStatuses.map(c => [c.contact_id, c])), [consentStatuses]);
+  const consentOf = (l: Lead, channel: "sms" | "email"): ConsentState => {
+    const c = l.customer_id ? consentByCustomer.get(l.customer_id) : undefined;
+    return (channel === "sms" ? c?.sms_state : c?.email_state) || "not_opted_in";
+  };
 
   const sources = useMemo(() => unique(leads.map(l => l.source).filter(Boolean) as string[]), [leads]);
   const filteredLeads = leads.filter(l => {
     if (sourceFilter !== "all" && l.source !== sourceFilter) return false;
+    if (stageFilter !== "all" && l.stage_id !== stageFilter) return false;
+    if (smsFilter !== "all" && consentOf(l, "sms") !== smsFilter) return false;
+    if (emailFilter !== "all" && consentOf(l, "email") !== emailFilter) return false;
     if (ownerFilter === "mine") return Boolean(currentAppUser) && l.owner_user_id === currentAppUser?.id;
     if (ownerFilter === "unassigned") return !l.owner_user_id;
     if (ownerFilter !== "all") return l.owner_user_id === ownerFilter;
@@ -148,6 +163,27 @@ export default function Pipeline() {
                 { value: "unassigned", label: "Unassigned" },
                 ...users.map(u => ({ value: u.id, label: u.name }))
               ]}
+            />
+          </div>
+          <div className="field" style={{ margin: 0, minWidth: 160 }}>
+            <Select
+              value={stageFilter}
+              onChange={setStageFilter}
+              options={[{ value: "all", label: "All statuses" }, ...stages.map(s => ({ value: s.id, label: s.name }))]}
+            />
+          </div>
+          <div className="field" style={{ margin: 0, minWidth: 170 }}>
+            <Select
+              value={smsFilter}
+              onChange={setSmsFilter}
+              options={[{ value: "all", label: "SMS: any" }, ...(Object.keys(CONSENT_STATE_LABELS) as ConsentState[]).map(k => ({ value: k, label: `SMS: ${CONSENT_STATE_LABELS[k]}` }))]}
+            />
+          </div>
+          <div className="field" style={{ margin: 0, minWidth: 170 }}>
+            <Select
+              value={emailFilter}
+              onChange={setEmailFilter}
+              options={[{ value: "all", label: "Email: any" }, ...(Object.keys(CONSENT_STATE_LABELS) as ConsentState[]).map(k => ({ value: k, label: `Email: ${CONSENT_STATE_LABELS[k]}` }))]}
             />
           </div>
           <span className="sub">{stages.length} stage{stages.length === 1 ? "" : "s"}</span>

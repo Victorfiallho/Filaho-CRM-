@@ -381,7 +381,7 @@ function ActivityCard({ rows, leads, jobs, customers, stages, users }: {
       <div className="card-b">
         {items.length ? items.map(({ row, text }) => (
           <div className="activity-row" key={row.id}>
-            <span><b>{userByAuthId.get(row.user_id || "") || "System"}</b> {text}</span>
+            <span><b>{row.entity === "booking_requests" ? "New online booking" : userByAuthId.get(row.user_id || "") || "System"}</b> {text}</span>
             <span className="sub" style={{ whiteSpace: "nowrap" }}>{activityWhen(row.created_at)}</span>
           </div>
         )) : <div className="empty"><History />No activity yet</div>}

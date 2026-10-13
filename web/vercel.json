@@ -1,5 +1,8 @@
 {
   "rewrites": [
+    { "source": "/book/:slug/:page(privacy|sms-terms)", "destination": "/api/book?slug=:slug&page=:page" },
+    { "source": "/book/:slug", "destination": "/api/book?slug=:slug" },
+    { "source": "/u/:token", "destination": "/api/unsubscribe?token=:token" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }

@@ -450,3 +450,110 @@ export interface MapRecord {
   lat: number | "" | null;
   lng: number | "" | null;
 }
+
+// ── Public booking page + marketing consent (migration 2026-10-13_11) ────
+export interface BookingService {
+  id: string;
+  name: string;
+  description: string;
+  from_price: number | null;
+  detail_label?: string;
+  position: number;
+  active: boolean;
+}
+
+export interface BookingFaq {
+  question: string;
+  answer: string;
+}
+
+export interface BookingReview {
+  author: string;
+  text: string;
+  source: string;
+}
+
+export interface BookingPage {
+  company_id: string;
+  slug: string;
+  active: boolean;
+  business_name: string;
+  hero_title: string;
+  hero_subtitle: string;
+  primary_color: string;
+  logo_url: string;
+  phone: string;
+  email: string;
+  address_line: string;
+  address_city: string;
+  address_state: string;
+  address_zip: string;
+  service_cities: string[];
+  zip_prefixes: string[];
+  services: BookingService[];
+  faq: BookingFaq[];
+  reviews: BookingReview[];
+  seo_title: string;
+  seo_description: string;
+  updated_at: string;
+}
+
+export type ConsentTextKind = "sms" | "email" | "transactional";
+
+export interface ConsentTextVersion {
+  company_id: string;
+  kind: ConsentTextKind;
+  version: number;
+  template: string;
+  created_by: string | null;
+  created_at: string;
+}
+
+export type ConsentChannel = "sms" | "email";
+
+export interface ConsentRecord {
+  id: string;
+  company_id: string;
+  contact_id: string | null;
+  channel: ConsentChannel;
+  purpose: "marketing";
+  value: string;
+  granted: boolean;
+  text_shown: string;
+  text_version: number | null;
+  source: "booking_page" | "import" | "manual" | "inbound_stop" | "unsubscribe";
+  page_url: string;
+  ip: string;
+  user_agent: string;
+  created_at: string;
+}
+
+export interface BookingRequest {
+  id: string;
+  company_id: string;
+  customer_id: string | null;
+  lead_id: string | null;
+  services: string[];
+  details: Record<string, number>;
+  preferred_date: string | null;
+  preferred_period: "morning" | "afternoon" | null;
+  notes: string;
+  heard_from: string;
+  utm_source: string;
+  utm_medium: string;
+  utm_campaign: string;
+  utm_term: string;
+  utm_content: string;
+  page_url: string;
+  created_at: string;
+}
+
+export type ConsentState = "opted_in" | "not_opted_in" | "suppressed";
+
+export interface ContactConsentStatus {
+  contact_id: string;
+  sms_state: ConsentState;
+  sms_at: string | null;
+  email_state: ConsentState;
+  email_at: string | null;
+}

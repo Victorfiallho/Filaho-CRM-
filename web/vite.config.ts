@@ -32,14 +32,19 @@ export default defineConfig({
         ]
       },
       workbox: {
-        // Default globPatterns already limit precaching to the built
-        // JS/CSS/HTML/icons in dist/ — no runtimeCaching rules added, so
-        // every fetch("/api/...") and Supabase request bypasses the service
-        // worker entirely and always hits the network.
-        // /book/* and /u/* are server-rendered by web/api/book.js and
-        // web/api/unsubscribe.js (vercel.json rewrites) — the SPA shell must
-        // never answer those for someone who has the CRM installed.
-        navigateFallbackDenylist: [/^\/api\//, /^\/book\//, /^\/u\//]
+        // The app shell (index.html) is NOT precached and navigations are
+        // NOT answered by the service worker — every page open fetches the
+        // HTML from the network, which always points at the newest hashed
+        // bundle. Serving index.html from the SW cache meant the first open
+        // after every deploy ran the previous build (and its bugs) until a
+        // manual refresh, even with autoUpdate. The CRM is online-only
+        // anyway (all data comes from Supabase), so nothing is lost.
+        // Hashed JS/CSS/icons are still precached, and no runtimeCaching
+        // rules exist, so /api/* and Supabase requests always hit the
+        // network. /book/* and /u/* (server-rendered by web/api/book.js and
+        // web/api/unsubscribe.js) are never answered by the SPA shell either.
+        globPatterns: ["**/*.{js,css,webmanifest}"], // icons come from includeAssets/manifest
+        navigateFallback: null
       }
     })
   ],

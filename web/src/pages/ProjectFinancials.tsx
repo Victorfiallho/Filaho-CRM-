@@ -744,7 +744,7 @@ function CostLineItemsCard({ jobId, companyId, items, vendors, users, onChanged 
               value={form.responsible_user_id}
               onChange={v => set("responsible_user_id", v)}
               aria-label={t("pf.f.responsible")}
-              options={[{ value: "", label: "—" }, ...users.map(u => ({ value: u.id, label: u.name }))]}
+              options={[{ value: "", label: t("rec.unassigned") }, ...users.map(u => ({ value: u.id, label: u.name }))]}
             />
           </div>
         </div>
@@ -1009,7 +1009,7 @@ function RefundsCard({ jobId, companyId, refunds, costLineItems, onChanged }: {
             value={costLineItemId}
             onChange={setCostLineItemId}
             aria-label={t("pf.f.linked")}
-            options={[{ value: "", label: "—" }, ...costLineItems.map(i => ({ value: i.id, label: i.description || labels.category(i.category) }))]}
+            options={[{ value: "", label: t("rec.none") }, ...costLineItems.map(i => ({ value: i.id, label: i.description || labels.category(i.category) }))]}
           />
         </div>
       </div>

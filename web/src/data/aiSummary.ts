@@ -12,7 +12,7 @@ export interface JobAiSummary {
 export async function summarizeJob(jobId: string): Promise<JobAiSummary> {
   const { data: sessionData } = await supabase.auth.getSession();
   const token = sessionData.session?.access_token;
-  if (!token) throw new Error("Your session expired — sign in again.");
+  if (!token) throw new Error("Your session expired. Sign in again.");
   const res = await fetch("/api/summarize-job", {
     method: "POST",
     headers: { "content-type": "application/json", Authorization: `Bearer ${token}` },

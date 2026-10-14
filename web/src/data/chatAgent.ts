@@ -13,7 +13,7 @@ export interface ChatTurn {
 export async function sendChatMessage(companyId: string, history: ChatTurn[], message: string, lang: string): Promise<string> {
   const { data: sessionData } = await supabase.auth.getSession();
   const token = sessionData.session?.access_token;
-  if (!token) throw new Error("Your session expired — sign in again.");
+  if (!token) throw new Error("Your session expired. Sign in again.");
   const res = await fetch("/api/chat-agent", {
     method: "POST",
     headers: { "content-type": "application/json", Authorization: `Bearer ${token}` },

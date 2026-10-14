@@ -292,7 +292,7 @@ function AccountMenu({ userName, companyName, onSwitchCompany, onSignOut }: {
             <div className="seg" role="group" aria-label={t("topnav.language")}>
               {LANGS.map(l => (
                 <button key={l.id} type="button" lang={l.id === "pt" ? "pt-BR" : "en"} className={lang === l.id ? "active" : ""} aria-pressed={lang === l.id} onClick={() => setLang(l.id)}>
-                  {l.id.toUpperCase()}<span className="sr-only"> — {l.label}</span>
+                  {l.id.toUpperCase()}<span className="sr-only">: {l.label}</span>
                 </button>
               ))}
             </div>

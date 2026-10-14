@@ -468,7 +468,7 @@ function bookingForm({ page, base, texts, values = {}, errors = {}, utm = {}, fo
   </fieldset>
 
   <fieldset class="step" data-step="1" aria-labelledby="step-1-h">
-    ${stepHead(1, "When works for you?", "Pick a day you'd like — we'll confirm the exact time with you.")}
+    ${stepHead(1, "When works for you?", "Pick a day you'd like. We'll confirm the exact time with you.")}
     <div class="cal" id="cal" aria-label="Choose a date">
       <div class="cal-head"><b id="cal-month"></b><div class="cal-nav"><button type="button" class="round" id="cal-prev" aria-label="Previous month">${icon("chevronLeft")}</button><button type="button" class="round" id="cal-next" aria-label="Next month">${icon("chevronRight")}</button></div></div>
       <div class="cal-grid" id="cal-grid"></div>
@@ -521,7 +521,7 @@ function bookingForm({ page, base, texts, values = {}, errors = {}, utm = {}, fo
     </div>
 
     <div class="consent" role="group" aria-labelledby="consent-h">
-      <p class="consent-h" id="consent-h">Offers and updates <span>(optional — not required to book)</span></p>
+      <p class="consent-h" id="consent-h">Offers and updates <span>(optional, not required to book)</span></p>
       <div class="opt"><input type="checkbox" id="sms_consent" name="sms_consent" value="yes"${values.sms_consent ? " checked" : ""}><label for="sms_consent">${linkifyConsent(texts.sms.text, base)}</label></div>
       <div class="opt"><input type="checkbox" id="email_consent" name="email_consent" value="yes"${values.email_consent ? " checked" : ""}><label for="email_consent">${esc(texts.email.text)}</label></div>
     </div>
@@ -745,7 +745,7 @@ function bookingClient() {
 
   function pickLabel() {
     var d = parse(dateInput.value), el = document.getElementById("date-pick");
-    el.innerHTML = d ? "<b>" + nice(d) + '</b> · <button type="button" class="link-btn" id="date-clear">Clear</button>' : "No date picked — that's fine, we'll find one together.";
+    el.innerHTML = d ? "<b>" + nice(d) + '</b> · <button type="button" class="link-btn" id="date-clear">Clear</button>' : "No date picked. That's fine, we'll find one together.";
   }
 
   grid.addEventListener("click", function (e) {
@@ -842,7 +842,7 @@ ${topBar(page, base)}
   ${booked ? "" : `<section class="hero" aria-labelledby="hero-h">
     <span class="eyebrow"><span class="dot">${icon("calendar")}</span>Online booking</span>
     <h1 id="hero-h">Book <em>${esc(name)}</em> in a minute.</h1>
-    <p class="lead">${serviceLine ? `${esc(serviceLine)}. ` : ""}Pick what you need and a day that works — we'll confirm by text and email.</p>
+    <p class="lead">${serviceLine ? `${esc(serviceLine)}. ` : ""}Pick what you need and a day that works. We'll confirm by text and email.</p>
     <ul class="chips">
       <li>${icon("clock")}About 1 minute</li>
       <li>${icon("card")}No payment to book</li>

@@ -7,7 +7,7 @@ import type { DriveFile } from "../domain/types";
 async function authedFetch<T>(path: string, body: Record<string, unknown>): Promise<T> {
   const { data: sessionData } = await supabase.auth.getSession();
   const token = sessionData.session?.access_token;
-  if (!token) throw new Error("Your session expired — sign in again.");
+  if (!token) throw new Error("Your session expired. Sign in again.");
   const res = await fetch(path, {
     method: "POST",
     headers: { "content-type": "application/json", Authorization: `Bearer ${token}` },

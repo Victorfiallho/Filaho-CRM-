@@ -152,7 +152,7 @@ export default function Shell() {
       <main className="main">
         {/* Exactly one h1 on every render, for screen-reader heading
             navigation; each page's visible title is the PageHeader h2. */}
-        <h1 className="sr-only">Fialho Home Improvement — {activeCompany.name}</h1>
+        <h1 className="sr-only">Fialho Home Improvement: {activeCompany.name}</h1>
         <PageHeader
           title={t(navKey(pageModuleId(location.pathname)))}
           subtitle={topbarSubtitle}

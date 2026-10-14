@@ -153,7 +153,7 @@ export default function CompanyFinancials() {
           <div className="card-b">
             {belowPolicy.map(r => (
               <div key={r.job.id} className="attention-row">
-                <span><b>{r.job.title}</b> — {t("fin.belowLine", { margin: r.forecastMarginValue.toFixed(1), min: r.minimumMarginPct })}</span>
+                <span><b>{r.job.title}</b>: {t("fin.belowLine", { margin: r.forecastMarginValue.toFixed(1), min: r.minimumMarginPct })}</span>
                 <Link className="action-pill" to={`/jobs/${r.job.id}/financials`}>{t("common.review")}</Link>
               </div>
             ))}

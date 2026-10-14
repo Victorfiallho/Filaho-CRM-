@@ -16,7 +16,7 @@ const data = {
     { id: "l4", customer_id: "c2", name: "Ana Souza", stage_id: "lost", value: 1000, service_type: "Refacing", created_at: "2026-08-01T12:00:00Z", updated_at: "2026-08-02T12:00:00Z" }
   ],
   jobs: [
-    { id: "j1", customer_id: "c1", lead_id: "l1", title: "Kitchen — Bob Lee", status: "scheduled", scheduled_date: TODAY, estimated_value: 9800, created_at: "2026-09-20T12:00:00Z" },
+    { id: "j1", customer_id: "c1", lead_id: "l1", title: "Kitchen · Bob Lee", status: "scheduled", scheduled_date: TODAY, estimated_value: 9800, created_at: "2026-09-20T12:00:00Z" },
     { id: "j2", customer_id: "c2", title: "Vanity", status: "planned", scheduled_date: "2026-10-18", estimated_value: 1500, created_at: "2026-10-01T12:00:00Z" },
     { id: "j3", customer_id: null, customer_name: "Walk-in", title: "Old job", status: "complete", scheduled_date: "2026-09-01", estimated_value: 700, created_at: "2026-08-01T12:00:00Z" }
   ],

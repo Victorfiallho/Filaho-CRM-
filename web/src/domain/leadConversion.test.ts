@@ -16,7 +16,7 @@ describe("jobDraftFromLead", () => {
   it("carries client, value, service and the lead link over", () => {
     const draft = jobDraftFromLead(lead());
     expect(draft).toEqual({
-      title: "Kitchen Cabinets — Jane Doe",
+      title: "Kitchen Cabinets · Jane Doe",
       customer_id: "cust_1",
       lead_id: "lead_1",
       service_type: "Kitchen Cabinets",
@@ -33,7 +33,7 @@ describe("jobDraftFromLead", () => {
     const draft = jobDraftFromLead(lead({ customer_id: null, value: 0, name: " " }));
     expect(draft.customer_id).toBe("");
     expect(draft.estimated_value).toBe(0);
-    expect(draft.title).toBe("Kitchen Cabinets — New client");
+    expect(draft.title).toBe("Kitchen Cabinets · New client");
   });
 });
 

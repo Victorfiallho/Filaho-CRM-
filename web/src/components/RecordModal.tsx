@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { BriefcaseBusiness, FolderOpen, Link2, MapPin, Plus, Send, Sparkles, Trash2, X } from "lucide-react";
 import { useId, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import ClientPicker from "./ClientPicker";
 import ConsentPanel from "./ConsentPanel";
 import Select, { type SelectOption } from "./Select";
 import { summarizeJob, type JobAiSummary } from "../data/aiSummary";
@@ -99,12 +100,11 @@ function RecordModalContent() {
   const [aiSummary, setAiSummary] = useState<JobAiSummary | null>(null);
   const [summarizing, setSummarizing] = useState(false);
 
-  // Lets a new lead be linked to an existing client by picking them from a
-  // list, instead of only relying on the fuzzy dedupe match (phone/email/
-  // address/name+ZIP) to find them after the fact. When set, this is passed
-  // through to upsertClientFromLead as the same `preferredClientId` an edit
-  // already uses, so it links by id directly rather than guessing.
-  const [pickedClientId, setPickedClientId] = useState<string>(() => (type === "lead" && !isEdit && r.customer_id) || "");
+  // A deal's person is its client. The deal form picks one (or starts a
+  // new one, `newClient`); the client's contact fields are copied onto the
+  // deal by the database (leads_copy_client_contact), never typed here.
+  const [pickedClientId, setPickedClientId] = useState<string>(() => (type === "lead" && r.customer_id) || "");
+  const [newClient, setNewClient] = useState(false);
 
   const [form, setForm] = useState(() => ({
     title: r.title || "",
@@ -176,21 +176,22 @@ function RecordModalContent() {
   const ownerOptions = [{ value: "", label: t("rec.unassigned") }, ...users.map(u => ({ value: u.id, label: u.name }))];
   const leadIsLost = type === "lead" && isLostStage(form.stage_id, stages);
 
-  const pickExistingClient = (clientId: string) => {
+  const pickClient = (clientId: string) => {
     setPickedClientId(clientId);
-    if (!clientId) return;
-    const client = customers.find(c => c.id === clientId);
-    if (!client) return;
+    setNewClient(false);
+  };
+  // "+ New client" with what was typed in the search: digits go to phone,
+  // an @ to email, anything else to the name.
+  const startNewClient = (typed: string) => {
+    const text = typed.trim();
+    setNewClient(true);
+    setPickedClientId("");
     setForm(f => ({
       ...f,
-      name: client.name || f.name,
-      phone: client.phone || f.phone,
-      email: client.email || f.email,
-      service_type: client.service_type || f.service_type,
-      address: client.address || f.address,
-      city: client.city || f.city,
-      state: client.state || f.state,
-      zip: client.zip || f.zip
+      name: /@/.test(text) || /^[\d\s()+-]{3,}$/.test(text) ? "" : text,
+      phone: /^[\d\s()+-]{3,}$/.test(text) ? text : "",
+      email: /@/.test(text) ? text : "",
+      address: "", city: "", state: "", zip: ""
     }));
   };
 
@@ -241,8 +242,8 @@ function RecordModalContent() {
 
   async function handleSave() {
     if (!activeCompanyId) return;
-    if (!form.name && !form.title) {
-      toast(t("rec.t.nameRequired"));
+    if (type === "lead" ? !pickedClientId && !(newClient && form.name.trim()) : !form.name && !form.title) {
+      toast(t(type === "lead" ? (newClient ? "rec.t.nameRequired" : "deal.t.pickClient") : "rec.t.nameRequired"));
       return;
     }
     setSaving(true);
@@ -295,6 +296,47 @@ function RecordModalContent() {
           );
         }
         queryClient.invalidateQueries({ queryKey: ["jobs", activeCompanyId] });
+      } else if (type === "lead") {
+        // The deal's client: the one picked, or a new one from the inline
+        // fields (deduped by phone/email/name, so typing someone who already
+        // exists links to them instead of duplicating).
+        let customerId = pickedClientId;
+        if (!customerId) {
+          const contact: Record<string, any> = {
+            company_id: activeCompanyId, name: form.name.trim(), phone: form.phone, email: form.email,
+            address: form.address, city: form.city, state: form.state, zip: form.zip, lat: "", lng: ""
+          };
+          await autoGeocode(contact);
+          const client = await upsertClientFromLead({ ...contact, source: "Manual" }, activeCompanyId, form.service_type || services[0] || "");
+          customerId = client.id;
+        }
+        const clientName = customers.find(c => c.id === customerId)?.name || form.name.trim();
+        const matchedCampaign = campaignOptions.find(([id]) => id === form.campaign_id);
+        const data: Record<string, any> = {
+          company_id: activeCompanyId,
+          customer_id: customerId,
+          name: clientName,
+          title: form.title.trim(),
+          service_type: form.service_type,
+          stage_id: form.stage_id,
+          value: Number(form.value || 0),
+          campaign_id: form.campaign_id || null,
+          campaign_name: matchedCampaign?.[1] || null,
+          owner_user_id: ownerForSave,
+          next_action: form.next_action,
+          next_action_date: form.next_action_date,
+          // A reason only means something while the deal sits in a lost stage.
+          lost_reason: leadIsLost ? form.lost_reason : ""
+        };
+        if (isEdit && r.id) {
+          await updateLead(r.id, activeCompanyId, data as any);
+        } else {
+          // Only a brand-new hand-typed deal is "Manual" — editing keeps the
+          // original source (Meta Ads, import, booking page...).
+          await insertLead({ ...data, id: uid("lead"), source: "Manual", created_at: now(), updated_at: now() } as any);
+        }
+        queryClient.invalidateQueries({ queryKey: ["leads", activeCompanyId] });
+        queryClient.invalidateQueries({ queryKey: ["customers", activeCompanyId] });
       } else {
         // `notes` and `drive_folder_url` only exist on the `customers` table —
         // app.js's original readForm() always included them for leads too
@@ -313,66 +355,26 @@ function RecordModalContent() {
           lat: Number(form.lat || 0) || "",
           lng: Number(form.lng || 0) || ""
         };
-        if (type === "lead") {
-          data.stage_id = form.stage_id;
-          data.title = form.title.trim();
-          data.value = Number(form.value || 0);
-          // Only a brand-new hand-typed lead is "Manual" — editing must keep
-          // the original source (Meta Ads, import, ...) or the source filter
-          // and campaign ROI lose it on the first save.
-          if (!isEdit) data.source = "Manual";
-          const matchedCampaign = campaignOptions.find(([id]) => id === form.campaign_id);
-          data.campaign_id = form.campaign_id || null;
-          data.campaign_name = matchedCampaign?.[1] || null;
-          data.owner_user_id = ownerForSave;
-          data.next_action = form.next_action;
-          data.next_action_date = form.next_action_date;
-          // A reason only means something while the lead sits in a lost stage.
-          data.lost_reason = leadIsLost ? form.lost_reason : "";
-        }
-        if (type === "customer") {
-          data.status = form.status;
-          data.source = form.source;
-          data.notes = form.notes;
-          data.drive_folder_url = form.drive_folder_url;
-        }
+        data.status = form.status;
+        data.source = form.source;
+        data.notes = form.notes;
+        data.drive_folder_url = form.drive_folder_url;
         await autoGeocode(data);
 
         if (isEdit && r.id) {
-          if (type === "lead") {
-            // The client-sync uses cleanCustomer(), which writes to the
-            // `customers` table (which does have notes/drive_folder_url) —
-            // so the lead form's Notes text still carries over to the linked
-            // client, same as app.js, even though it's stripped from `data`
-            // before that's sent to the (notes-less) `leads` table below.
-            // Pass the lead's existing source through: without it the client
-            // sync falls back to "Lead" and overwrites the linked client's
-            // real source (Meta Ads, import...) on every lead edit.
-            const client = await upsertClientFromLead({ ...data, source: r.source, notes: form.notes }, activeCompanyId, services[0] || "", r.customer_id);
-            data.customer_id = client?.id || r.customer_id || "";
-            await updateLead(r.id, activeCompanyId, data as any);
-            queryClient.invalidateQueries({ queryKey: ["leads", activeCompanyId] });
-          } else {
-            await updateCustomer(r.id, activeCompanyId, data as any);
-          }
-          queryClient.invalidateQueries({ queryKey: ["customers", activeCompanyId] });
+          await updateCustomer(r.id, activeCompanyId, data as any);
+          // The database copies the new contact details onto their deals.
+          queryClient.invalidateQueries({ queryKey: ["leads", activeCompanyId] });
         } else {
-          data.id = uid(type === "customer" ? "cust" : type);
+          data.id = uid("cust");
           data.created_at = now();
           data.updated_at = now();
-          if (type === "lead") {
-            const client = await upsertClientFromLead({ ...data, notes: form.notes }, activeCompanyId, services[0] || "", pickedClientId || undefined);
-            data.customer_id = client?.id || "";
-            await insertLead(data as any);
-            queryClient.invalidateQueries({ queryKey: ["leads", activeCompanyId] });
-          } else {
-            await insertCustomer(data as any);
-            provisionDriveFolder(activeCompanyId, "client", data.id).catch(error =>
-              toastError(errorMessage(error, t("rec.t.clientFolderError")))
-            );
-          }
-          queryClient.invalidateQueries({ queryKey: ["customers", activeCompanyId] });
+          await insertCustomer(data as any);
+          provisionDriveFolder(activeCompanyId, "client", data.id).catch(error =>
+            toastError(errorMessage(error, t("rec.t.clientFolderError")))
+          );
         }
+        queryClient.invalidateQueries({ queryKey: ["customers", activeCompanyId] });
       }
       closeModal();
       toast(t("rec.t.saved"));
@@ -640,28 +642,50 @@ function RecordModalContent() {
             </>
           ) : (
             <>
-              <FormSection title={t("rec.sec.contact")}>
-                {type === "lead" && !isEdit && (
-                  <SelectBox
-                    label={t("rec.existingClient")}
-                    value={pickedClientId}
-                    onChange={pickExistingClient}
-                    options={[{ value: "", label: t("rec.newClient") }, ...customers.map(c => ({ value: c.id, label: c.name }))]}
-                  />
-                )}
-                <div className="grid two">
-                  <Field label={t("rec.name")} value={form.name} onChange={v => set("name", v)} />
-                  <Field label={t("rec.phone")} value={form.phone} onChange={v => set("phone", v)} type="tel" />
-                  <Field label={t("rec.email")} value={form.email} onChange={v => set("email", v)} type="email" />
-                  <SelectBox label={t("rec.service")} value={form.service_type} onChange={v => set("service_type", v)} options={services.map(s => ({ value: s, label: s }))} />
-                </div>
-              </FormSection>
+              {type === "lead" ? (
+                <FormSection title={t("deal.sec.client")}>
+                  {newClient ? (
+                    <div className="new-client">
+                      <div className="grid two">
+                        <Field label={t("rec.name")} value={form.name} onChange={v => set("name", v)} />
+                        <Field label={t("rec.phone")} value={form.phone} onChange={v => set("phone", v)} type="tel" />
+                        <Field label={t("rec.email")} value={form.email} onChange={v => set("email", v)} type="email" />
+                        <Field label={t("rec.address")} value={form.address} onChange={v => set("address", v)} />
+                      </div>
+                      <div className="form-row three">
+                        <Field label={t("rec.city")} value={form.city} onChange={v => set("city", v)} />
+                        <Field label={t("rec.state")} value={form.state} onChange={v => set("state", v)} />
+                        <Field label={t("rec.zip")} value={form.zip} onChange={v => set("zip", v)} />
+                      </div>
+                      <button type="button" className="link-btn" onClick={() => setNewClient(false)}>{t("deal.searchInstead")}</button>
+                    </div>
+                  ) : (
+                    <ClientPicker
+                      customers={customers}
+                      value={pickedClientId}
+                      onPick={pickClient}
+                      onNew={startNewClient}
+                      onEdit={isEdit ? client => openRecordModal("customer", client) : undefined}
+                    />
+                  )}
+                </FormSection>
+              ) : (
+                <FormSection title={t("rec.sec.contact")}>
+                  <div className="grid two">
+                    <Field label={t("rec.name")} value={form.name} onChange={v => set("name", v)} />
+                    <Field label={t("rec.phone")} value={form.phone} onChange={v => set("phone", v)} type="tel" />
+                    <Field label={t("rec.email")} value={form.email} onChange={v => set("email", v)} type="email" />
+                    <SelectBox label={t("rec.service")} value={form.service_type} onChange={v => set("service_type", v)} options={services.map(s => ({ value: s, label: s }))} />
+                  </div>
+                </FormSection>
+              )}
 
               <FormSection title={t(type === "lead" ? "rec.sec.deal" : "rec.sec.details")}>
                 <div className="grid two">
                   {type === "lead" ? (
                     <>
-                      <Field label={t("rec.dealTitle")} value={form.title} onChange={v => set("title", v)} placeholder={form.service_type || t("rec.dealTitlePlaceholder")} wide />
+                      <SelectBox label={t("rec.service")} value={form.service_type} onChange={v => set("service_type", v)} options={services.map(s => ({ value: s, label: s }))} />
+                      <Field label={t("rec.dealTitle")} value={form.title} onChange={v => set("title", v)} placeholder={form.service_type || t("rec.dealTitlePlaceholder")} />
                       <SelectBox label={t("rec.stage")} value={form.stage_id} onChange={v => set("stage_id", v)} options={stages.map(s => ({ value: s.id, label: s.name }))} />
                       <Field label={t("rec.value")} value={String(form.value)} onChange={v => set("value", v)} type="number" />
                       <SelectBox label={t("rec.owner")} value={ownerForSave} onChange={v => set("owner_user_id", v)} options={ownerOptions} />
@@ -732,7 +756,7 @@ function RecordModalContent() {
                 </FormSection>
               )}
 
-              <FormSection title={t("rec.sec.address")}>
+              {type !== "lead" && <FormSection title={t("rec.sec.address")}>
                 <Field label={t("rec.address")} value={form.address} onChange={v => set("address", v)} />
                 <div className="form-row three">
                   <Field label={t("rec.city")} value={form.city} onChange={v => set("city", v)} />
@@ -749,11 +773,13 @@ function RecordModalContent() {
                   </div>
                 </details>
                 {type === "customer" && driveFolderField(t("rec.openClientFolder"))}
-              </FormSection>
+              </FormSection>}
 
-              <FormSection title={t("rec.sec.notes")}>
-                <TextArea label={t("rec.notes")} value={form.notes} onChange={v => set("notes", v)} rows={3} hideLabel />
-              </FormSection>
+              {type !== "lead" && (
+                <FormSection title={t("rec.sec.notes")}>
+                  <TextArea label={t("rec.notes")} value={form.notes} onChange={v => set("notes", v)} rows={3} hideLabel />
+                </FormSection>
+              )}
             </>
           )}
           {isEdit && r.id && (type === "lead" || type === "customer") && (

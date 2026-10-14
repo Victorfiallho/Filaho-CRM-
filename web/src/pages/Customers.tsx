@@ -6,8 +6,9 @@ import EmptyState from "../components/EmptyState";
 import PageSkeleton from "../components/PageSkeleton";
 import Select from "../components/Select";
 import { deleteCustomer } from "../data/customers";
-import { useCustomers, usePermissions } from "../data/hooks";
+import { useCustomers, useJobs, useLeads, usePermissions } from "../data/hooks";
 import { toCSV } from "../domain/csv";
+import { clientStanding } from "../domain/deals";
 import { initials, relativeDate, unique } from "../domain/format";
 import { filterRowsBySearch } from "../domain/search";
 import type { Customer } from "../domain/types";
@@ -37,8 +38,12 @@ const SORT_VALUE: Record<SortKey, (c: Customer) => string> = {
 export default function Customers() {
   const { t, tn, locale } = useT();
   const { confirm } = useConfirm();
-  const { activeCompanyId, activeCompany } = useCompany();
+  const { activeCompanyId, activeCompany, stages } = useCompany();
   const { data: allRows = [], isLoading } = useCustomers(activeCompanyId);
+  const { data: leads = [] } = useLeads(activeCompanyId);
+  const { data: jobs = [] } = useJobs(activeCompanyId);
+  // Lead (hasn't closed anything) or Client, and open deals — derived.
+  const standing = useMemo(() => clientStanding(leads, jobs, stages), [leads, jobs, stages]);
   const { searchText } = useSearch();
   const { openRecordModal } = useModal();
   const navigate = useNavigate();
@@ -150,6 +155,11 @@ export default function Customers() {
       : c.email ? <a className="cell-link" href={`mailto:${c.email}`} onClick={e => e.stopPropagation()}><Mail aria-hidden="true" />{c.email}</a>
         : missing;
   const statusBadge = (c: Customer) => <span className={`pill status-${c.status || "active"}`}>{statusLabel(c.status || "active")}</span>;
+  const kindBadge = (c: Customer) => {
+    const kind = standing.get(c.id)?.kind || "lead";
+    return <span className={`badge-tone tone-${kind === "client" ? "green" : "blue"} kind-badge`} title={t(`cust.badgeHint.${kind}`)}>{t(`cust.badge.${kind}`)}</span>;
+  };
+  const openDeals = (c: Customer) => standing.get(c.id)?.open || 0;
 
   return (
     <section className="card table-card">
@@ -232,8 +242,8 @@ export default function Customers() {
                   <div className="person-cell">
                     <span className="lead-avatar tone-amber" aria-hidden="true">{initials(c.name)}</span>
                     <div className="person-cell-text">
-                      <b>{c.name}</b>
-                      <span className="sub">{c.email || c.source || "—"}</span>
+                      <b>{c.name} {kindBadge(c)}</b>
+                      <span className="sub">{openDeals(c) ? tn("cust.openDeals", openDeals(c)) : c.email || c.source || "—"}</span>
                     </div>
                   </div>
                 </td>
@@ -257,10 +267,11 @@ export default function Customers() {
               </label>
               <span className="lead-avatar tone-amber" aria-hidden="true">{initials(c.name)}</span>
               <div className="card-list-main">
-                <div className="card-list-top"><b>{c.name}</b>{statusBadge(c)}</div>
+                <div className="card-list-top"><b>{c.name}</b>{kindBadge(c)}</div>
                 <div className="card-list-meta">
                   {contactLink(c)}
                   {location(c) && <span><MapPin aria-hidden="true" />{location(c)}</span>}
+                  {openDeals(c) > 0 && <span>{tn("cust.openDeals", openDeals(c))}</span>}
                   {c.service_type && <span>{c.service_type}</span>}
                 </div>
               </div>

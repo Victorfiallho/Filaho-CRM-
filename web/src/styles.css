@@ -1902,3 +1902,26 @@ tr:hover td{background:rgba(255,255,255,.55)}
   .chat-panel{position:fixed;inset:auto 8px 8px 8px;width:auto;max-width:none;height:calc(100dvh - 90px);max-height:none}
 }
 @media(prefers-reduced-motion:reduce){.chat-typing span{animation:none}}
+
+/* Deals: the client picker in the deal modal, and the card's other-deals chip */
+.chip-others{background:var(--tone-purple-bg);color:var(--tone-purple-fg)}
+.client-picker{display:grid;gap:8px}
+.client-search{position:relative;display:flex;align-items:center}
+.client-search svg{position:absolute;left:12px;width:16px;height:16px;color:var(--muted)}
+.client-search input{width:100%;padding-left:36px}
+.client-results{list-style:none;margin:0;padding:4px;display:grid;gap:2px;border:1px solid var(--line);border-radius:14px;background:#fff;max-height:240px;overflow:auto}
+.client-results button{display:grid;gap:1px;width:100%;text-align:left;border:0;background:transparent;padding:8px 10px;border-radius:10px;cursor:pointer;color:var(--ink-soft)}
+.client-results button:hover,.client-results button:focus-visible{background:var(--soft)}
+.client-results b{color:var(--ink);font-weight:600}
+.client-new{justify-self:start}
+.client-card{display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--line);border-radius:16px;background:#fff}
+.client-card-icon{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;background:var(--tone-green-bg);color:var(--tone-green-fg);flex:0 0 auto}
+.client-card-icon svg{width:18px;height:18px}
+.client-card-main{display:grid;gap:1px;flex:1;min-width:0}
+.client-card-main b{color:var(--ink);font-weight:600}
+.client-card-main .sub{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.client-card-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.new-client{display:grid;gap:10px}
+.new-client .link-btn{justify-self:start}
+@media(max-width:760px){.client-card{flex-wrap:wrap}.client-card-actions{width:100%;justify-content:flex-start}}
+.kind-badge{margin-left:6px;padding:2px 8px;font-size:11px;vertical-align:1px}

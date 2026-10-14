@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, CalendarClock, Clock, MapPin, Plus, Settings, SlidersHorizontal, X } from "lucide-react";
+import { AlertTriangle, CalendarClock, Clock, MapPin, Plus, Settings, SlidersHorizontal, Users, X } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import KpiStrip from "../components/KpiStrip";
 import PageSkeleton from "../components/PageSkeleton";
@@ -7,6 +7,7 @@ import Select from "../components/Select";
 import StagesEditor from "../components/StagesEditor";
 import { updateLead } from "../data/leads";
 import { useConsentStatuses, useCurrentAppUser, useJobs, useLeads, useStagnantLeads, useUsers } from "../data/hooks";
+import { dealTitle, otherDealCounts } from "../domain/deals";
 import { filterRowsBySearch } from "../domain/search";
 import { formatDay, initials, money, relativeDate, unique } from "../domain/format";
 import { weeklyTrend } from "../domain/trend";
@@ -47,6 +48,8 @@ export default function Pipeline() {
   const { data: currentAppUser } = useCurrentAppUser();
   const today = localToday();
   const stagnantById = useMemo(() => new Map(stagnantLeads.map(s => [s.lead_id, s])), [stagnantLeads]);
+  // Other deals of the same client, counted over all deals (not just the filtered view).
+  const otherDeals = useMemo(() => otherDealCounts(allLeads), [allLeads]);
   const { searchText } = useSearch();
   const { openRecordModal } = useModal();
   const queryClient = useQueryClient();
@@ -247,6 +250,7 @@ export default function Pipeline() {
                     lead={lead}
                     tone={tone}
                     stagnantDays={stagnantById.get(lead.id)?.days_in_stage}
+                    otherDeals={otherDeals.get(lead.id) || 0}
                     followUp={followUpStatus(lead, stages, today)}
                     dragging={draggingId === lead.id}
                     onClick={() => openRecordModal("lead", lead)}
@@ -279,14 +283,14 @@ export default function Pipeline() {
 const TOUCH_LONG_PRESS_MS = 260;
 const TOUCH_CANCEL_THRESHOLD_PX = 10;
 
-function LeadCard({ lead, tone, stagnantDays, followUp, dragging, onClick, onDragStart, onDragEnd, onTouchDragStart, onTouchDragOver, onTouchDrop }: {
-  lead: Lead; tone: Tone; stagnantDays?: number; followUp: FollowUpStatus | null; dragging: boolean; onClick: () => void;
+function LeadCard({ lead, tone, stagnantDays, otherDeals, followUp, dragging, onClick, onDragStart, onDragEnd, onTouchDragStart, onTouchDragOver, onTouchDrop }: {
+  lead: Lead; tone: Tone; stagnantDays?: number; otherDeals: number; followUp: FollowUpStatus | null; dragging: boolean; onClick: () => void;
   onDragStart: (e: React.DragEvent) => void; onDragEnd: () => void;
   onTouchDragStart: () => void;
   onTouchDragOver: (clientX: number, clientY: number) => void;
   onTouchDrop: (clientX: number, clientY: number) => void;
 }) {
-  const { t, locale } = useT();
+  const { t, tn, locale } = useT();
   const longPressTimer = useRef<number | null>(null);
   const pointerStart = useRef<{ x: number; y: number } | null>(null);
   const touchDragActive = useRef(false);
@@ -354,12 +358,13 @@ function LeadCard({ lead, tone, stagnantDays, followUp, dragging, onClick, onDra
     >
       <div className="lead-card-head">
         <span className={`lead-avatar tone-${tone}`} aria-hidden="true">{initials(lead.name)}</span>
-        <b className="lead-card-name">{lead.title?.trim() || lead.name}</b>
+        <b className="lead-card-name">{dealTitle(lead) || lead.name}</b>
       </div>
-      <div className="lead-card-service">{lead.title?.trim() ? [lead.name, lead.service_type].filter(Boolean).join(" · ") : lead.service_type || t("pipe.service")}</div>
+      <div className="lead-card-service">{dealTitle(lead) ? [lead.name, lead.title?.trim() ? lead.service_type : ""].filter(Boolean).join(" · ") : t("pipe.service")}</div>
       <div className="lead-card-chips">
         {Number(lead.value) > 0 && <span className="chip chip-value">{money(lead.value)}</span>}
         {(lead.city || lead.zip) && <span className="chip"><MapPin aria-hidden="true" />{lead.city || lead.zip}</span>}
+        {otherDeals > 0 && <span className="chip chip-others" title={t("deal.othersTitle")}><Users aria-hidden="true" />{tn("deal.others", otherDeals)}</span>}
       </div>
       {followUp && (
         <div className={`lead-card-meta follow-up-${followUp}`}>

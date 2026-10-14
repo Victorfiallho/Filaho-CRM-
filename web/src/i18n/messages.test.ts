@@ -32,7 +32,7 @@ describe("translate", () => {
   it("picks the plural form", () => {
     expect(translatePlural("en", "sub.clients", 1)).toBe("1 client");
     expect(translatePlural("en", "sub.clients", 23)).toBe("23 clients");
-    expect(translatePlural("pt", "dash.alert.noContact", 2)).toBe("2 leads sem contato");
+    expect(translatePlural("pt", "dash.alert.noContact", 2)).toBe("2 negócios sem contato");
   });
 
   it("uses the stored choice, else the device language", () => {

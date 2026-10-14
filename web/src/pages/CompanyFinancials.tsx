@@ -27,7 +27,7 @@ import { useCompany } from "../state/CompanyContext";
 
 const OWNER_DRAW_TYPES = ["owner_draw"];
 const PAYROLL_TYPES = ["labor_payment", "subcontractor_payment", "employee_payment", "owner_labor_payment"];
-// Categorical tones in fixed order (never by rank changes mid-list).
+// Tones in a fixed order, never by rank, so a row keeps its color.
 const SERIES_TONES = TONES.filter(t => t !== "slate");
 
 export default function CompanyFinancials() {
@@ -65,8 +65,8 @@ export default function CompanyFinancials() {
   const accountsReceivable = Math.max(0, contractedRevenue - receivedRevenue);
   const costsPaid = sumCashPaid(allItems);
   const costsCommitted = sumCommittedUnpaid(allItems);
-  // Unpriced projects (no cost items) would add their whole contract as
-  // "profit" — left out of the total and called out in the hint instead.
+  // Projects with no cost items would count their whole contract as profit:
+  // left out of the total and mentioned in the hint.
   const pricedRollups = rollups.filter(r => r.hasCostData);
   const unpricedCount = rollups.length - pricedRollups.length;
   const forecastProfitTotal = pricedRollups.reduce((sum, r) => sum + r.forecastProfitValue, 0);

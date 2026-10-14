@@ -6,11 +6,8 @@ import { useT } from "../i18n/I18nContext";
 import { useAuth } from "../state/AuthContext";
 import { useCompany } from "../state/CompanyContext";
 
-// Separate from CompanyContext's own "active company" localStorage key,
-// which selectCompany()/clearCompany() manage as session-scoped state and
-// which gets *removed* by clearCompany() — exactly when the user lands back
-// here via "Switch company". This one is never cleared, purely a UX memory
-// of what to highlight next time.
+// Which company to highlight next time. Separate from CompanyContext's
+// active-company key, which "Switch company" clears.
 const LAST_COMPANY_KEY = "fialho_last_company_id";
 
 export default function CompanyPicker() {
@@ -19,15 +16,12 @@ export default function CompanyPicker() {
   const navigate = useNavigate();
   const { t } = useT();
 
-  // See Shell.tsx's identical guard for why authLoading has to gate this —
-  // `session` reads null for a moment on every mount, not just when signed
-  // out for real, which used to bounce a hard reload of /companies itself
-  // straight to /login.
+  // Wait for auth (see Shell.tsx): `session` is briefly null on every load.
   if (authLoading) return null;
   if (!session) return <Navigate to="/login" replace />;
 
   let lastCompanyId: string | null = null;
-  try { lastCompanyId = localStorage.getItem(LAST_COMPANY_KEY); } catch { /* private mode etc — just skip the highlight */ }
+  try { lastCompanyId = localStorage.getItem(LAST_COMPANY_KEY); } catch { /* storage blocked: no highlight */ }
 
   const pick = (id: string) => {
     try { localStorage.setItem(LAST_COMPANY_KEY, id); } catch { /* private mode etc */ }

@@ -8,8 +8,7 @@ import LanguageSwitch from "../components/LanguageSwitch";
 import { useT } from "../i18n/I18nContext";
 import { useAuth } from "../state/AuthContext";
 
-// Google's official multi-color "G" mark — standard usage for a
-// "Continue with Google" button, not the app's own branding.
+// Google's "G" mark, as its guidelines ask for on a Google sign-in button.
 function GoogleIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 48 48">
@@ -31,14 +30,13 @@ export default function Login() {
   const [submitting, setSubmitting] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [googleSubmitting, setGoogleSubmitting] = useState(false);
-  // Our own messages instead of the browser's "Please fill out this field"
-  // bubble, which speaks the browser's language, not the app's.
+  // Our own messages instead of the browser's "Please fill out this field",
+  // which uses the browser's language.
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
 
   if (session) return <Navigate to="/companies" replace />;
 
-  // Supabase answers in English; the one message people actually hit gets a
-  // translated wording.
+  // Supabase answers in English; translate the message people actually see.
   const signInError = (error: unknown) => {
     const msg = errorMessage(error, t("login.error"));
     return /invalid login credentials/i.test(msg) ? t("login.invalid") : msg;

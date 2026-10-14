@@ -46,10 +46,8 @@ const MY_DAY_SHOWN = 6;
 const statusLabel = (t: (k: MessageKey) => string, status: string) =>
   (["planned", "scheduled", "in progress", "complete"].includes(status) ? t(`status.${status}` as MessageKey) : status);
 
-// Ported from app.js (metrics, renderDashboard, stageBar), then extended:
-// "My day" (follow-ups + today's jobs), an owner-only money panel built on
-// the same computeProjectFinancials rules as the finance screens, and an
-// activity feed read from audit_log instead of guessed from updated_at.
+// KPIs, "My day" (follow-ups and today's jobs), an owner-only money panel
+// (same rules as the finance screens) and the activity feed.
 export default function Dashboard() {
   const { activeCompanyId, stages } = useCompany();
   const { isOwner } = useIsOwner();
@@ -59,7 +57,7 @@ export default function Dashboard() {
   const { data: jobs = [], isLoading: jobsLoading } = useJobs(activeCompanyId);
   const { data: settings, isLoading: settingsLoading } = useIntegrationSettings();
   const { data: currentAppUser } = useCurrentAppUser();
-  // Same query (same filters) the Activity card reads through useActivityFeed.
+  // Same filters as the Activity card's useActivityFeed, so one query.
   const { isLoading: auditLoading } = useAuditLog(activeCompanyId, ACTIVITY_FILTERS);
   const { data: financeSettings, isLoading: fsLoading } = useFinanceSettings(ownerCompanyId);
   const { data: financials = [], isLoading: pfLoading } = useCompanyProjectFinancials(ownerCompanyId);
@@ -70,8 +68,8 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const { t, tn, locale } = useT();
 
-  // Everything the page shows waits together, so panels don't pop in one by
-  // one; disabled (non-owner) finance queries report not-loading.
+  // Everything waits together so panels don't pop in one by one; disabled
+  // (non-owner) finance queries report not-loading.
   const loading = customersLoading || leadsLoading || jobsLoading || settingsLoading || auditLoading ||
     fsLoading || pfLoading || itemsLoading || coLoading || txnLoading || releasesLoading;
   if (loading) return <PageSkeleton kpis={4} rows={[6, 4, 5, 6]} />;
@@ -84,8 +82,8 @@ export default function Dashboard() {
   const scheduledJobs = jobs.filter(j => j.scheduled_date);
   const upcoming = upcomingJobs(jobs, today);
 
-  // Follow-ups due now live in "My day" as a real list; this panel keeps the
-  // data-quality and setup issues.
+  // Due follow-ups are listed in "My day"; this panel keeps data quality and
+  // setup issues.
   const unscheduledJobs = jobs.filter(j => !j.scheduled_date && j.status !== "complete");
   const noContactLeads = leads.filter(l => !l.phone && !l.email);
   const calendarConnected = Boolean(settings?.google_calendar.enabled);
@@ -216,8 +214,7 @@ export default function Dashboard() {
   );
 }
 
-// Follow-ups that are due (overdue first) and today's jobs, as clickable
-// rows — the Dashboard used to show only "3 follow-ups are overdue".
+// Due follow-ups (overdue first) and today's jobs, as clickable rows.
 function MyDayCard({ leads, jobs, customers, stages, today, myUserId }: {
   leads: Lead[]; jobs: Job[]; customers: Customer[]; stages: PipelineStage[]; today: string; myUserId: string | null;
 }) {
@@ -284,8 +281,8 @@ function MyDayCard({ leads, jobs, customers, stages, today, myUserId }: {
   );
 }
 
-// Owner-only. Same per-project numbers as Company Financials: what customers
-// still owe, what's safe to withdraw, and which projects are under margin.
+// Owner-only, same numbers as Company Financials: what customers still owe,
+// what's safe to withdraw, and which projects are under margin.
 function MoneyCard({ rollups }: { rollups: ProjectRollup[] }) {
   const { t, tn } = useT();
   const receivable = rollups.reduce((t, r) => t + r.balanceDue, 0);
@@ -345,7 +342,7 @@ function MoneyCard({ rollups }: { rollups: ProjectRollup[] }) {
   );
 }
 
-// Who did what, from audit_log (now also covering leads — migration 09).
+// Who did what, from audit_log.
 function ActivityCard() {
   const { items } = useActivityFeed(ACTIVITY_SHOWN);
   const { t, locale } = useT();

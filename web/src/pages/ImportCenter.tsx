@@ -52,9 +52,9 @@ type JobPreviewRow = {
 };
 type PreviewRow = CustomerPreviewRow | JobPreviewRow;
 
-// Ported verbatim from app.js — the whole Import Center flow (CSV/Sheets/ICS/ZIP
-// upload -> field mapping -> dedupe preview -> commit), including the calendar
-// personal/work classification and per-row company reassignment for .ics imports.
+// Import: upload (CSV, Google Sheet, .ics, .zip), map fields, preview
+// duplicates, then commit. Calendar imports also sort personal from work
+// events and can move a row to another company.
 export default function ImportCenter() {
   const { activeCompanyId, activeCompany, companies, services } = useCompany();
   const { t, tn } = useT();
@@ -77,8 +77,7 @@ export default function ImportCenter() {
   const jobsMapCache = useRef<Record<string, Job[]>>({});
   const servicesMapCache = useRef<Record<string, string[]>>({});
 
-  // Also hidden from Shell's nav for the same reason — this is a
-  // belt-and-suspenders guard against a direct /import link.
+  // Shell hides the nav item too; this covers a direct /import link.
   if (permissionsLoading) return null;
   if (!hasPermission("import")) return <Navigate to="/dashboard" replace />;
 
@@ -180,10 +179,8 @@ export default function ImportCenter() {
     }
   }
 
-  // Reads a private (not published-to-web) Google Sheet directly via the
-  // Sheets API, using the same per-service OAuth token connectGoogleWorkspace
-  // already mints for Calendar/Drive — no "publish to web" step needed, but
-  // does need the Google OAuth client configured on Integrations first.
+  // Reads a private Google Sheet through the Sheets API with the Sheets token
+  // (needs the Google OAuth client set up in Integrations).
   async function loadPrivateGoogleSheet() {
     if (!sheetUrl.trim() || !activeCompanyId || !settings) { toast(t("imp.t.pasteUrl")); return; }
     const spreadsheetId = extractSpreadsheetId(sheetUrl.trim());

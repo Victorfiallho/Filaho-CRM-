@@ -42,7 +42,7 @@ export default function Customers() {
   const { data: allRows = [], isLoading } = useCustomers(activeCompanyId);
   const { data: leads = [] } = useLeads(activeCompanyId);
   const { data: jobs = [] } = useJobs(activeCompanyId);
-  // Lead (hasn't closed anything) or Client, and open deals — derived.
+  // Lead (hasn't closed anything) or Client, and open deals. Derived.
   const standing = useMemo(() => clientStanding(leads, jobs, stages), [leads, jobs, stages]);
   const { searchText } = useSearch();
   const { openRecordModal } = useModal();

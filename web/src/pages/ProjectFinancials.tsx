@@ -66,15 +66,15 @@ const HEALTH_ICON: Record<HealthStatus, typeof CheckCircle2> = {
 const CO_TONE: Record<ChangeOrderStatus, Tone> = { draft: "amber", approved: "green", rejected: "rose" };
 const TXN_TONE: Record<string, Tone> = { draft: "amber", confirmed: "green", reversed: "slate", void: "slate" };
 
-// Four tabs instead of seven stacked sections: what a person comes here to
-// do (check the state, edit terms, log costs, log money in) each gets one.
+// Four tabs, one per job to do here: check the state, edit terms, log
+// costs, log money in.
 const TABS = ["overview", "contract", "costs", "payments"] as const;
 type TabId = typeof TABS[number];
 
 type ContractField = "original_contract_value" | "discounts" | "customer_fees" | "minimum_margin_pct" | "deposit_pct" | "payments_received_manual";
 
-// Label lookups shared by the cards below. Data values without a known key
-// (a category or status added later) show as typed.
+// Labels shared by the cards below. A category or status with no key
+// (added later) shows as typed.
 function useLabels() {
   const { t, locale } = useT();
   const has = (key: string) => key in en;
@@ -116,7 +116,7 @@ export default function ProjectFinancials() {
 
   const [savingSetup, setSavingSetup] = useState(false);
   const [setupContract, setSetupContract] = useState<string>("");
-  // Header shortcuts switch tab, then scroll to + focus that tab's form.
+  // Header shortcuts switch tab, then scroll to and focus that tab's form.
   const [focusTarget, setFocusTarget] = useState<string | null>(null);
   const [paymentFormKey, setPaymentFormKey] = useState(0);
 
@@ -216,14 +216,14 @@ export default function ProjectFinancials() {
   const client = customers.find(c => c.id === job.customer_id);
   const jobStatus = job.status || "planned";
 
-  // The domain's English sentences, in the user's language. A category
-  // name inside a sentence reads lowercase in both languages.
+  // The domain's sentences in the user's language. A category inside a
+  // sentence is lowercase in both languages.
   const say = (m: CostingMessage) => {
     const vars = m.vars && "category" in m.vars ? { ...m.vars, category: labels.category(String(m.vars.category)).toLocaleLowerCase(locale) } : m.vars;
     return t(m.key as MessageKey, vars);
   };
   // "$1,000 − $10 discount + $2 fees": the arithmetic behind the contract
-  // value, same rules as the domain's contractNote().
+  // value (same rules as contractNote() in the domain).
   const noteParts = [money(Number(pf.original_contract_value || 0))];
   if (Number(pf.discounts)) noteParts.push(t("pf.note.discount", { amount: money(Number(pf.discounts)) }));
   if (Number(pf.customer_fees)) noteParts.push(t("pf.note.fees", { amount: money(Number(pf.customer_fees)) }));
@@ -473,8 +473,8 @@ function TableCard({ title, sub, empty, emptyIcon, isEmpty, table, children }: {
   );
 }
 
-// Plain-language summary of where the project stands, plus cost by category
-// against its budget once costs exist.
+// Where the project stands in plain words, plus cost by category against
+// its budget once there are costs.
 function OverviewCard({ summary, changeOrders, items }: { summary: ProjectFinancialsSummary; changeOrders: ChangeOrder[]; items: CostLineItem[] }) {
   const { t, tn } = useT();
   const labels = useLabels();
@@ -950,9 +950,9 @@ function RefundsCard({ jobId, companyId, refunds, costLineItems, onChanged }: {
     }
   }
 
-  // Marking a refund received also applies it to the linked purchase's
-  // returned_amount, so net_cost/margin actually reflect the money back —
-  // the original purchase row is never removed, only its returned_amount grows.
+  // Marking a refund received also adds it to the linked purchase's
+  // returned_amount, so net cost and margin reflect the money back. The
+  // purchase row itself is never removed.
   async function markReceived(refund: Refund) {
     try {
       await updateRefund(refund.id, companyId, { status: "received", received_date: new Date().toISOString().slice(0, 10) });

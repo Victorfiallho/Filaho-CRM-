@@ -25,18 +25,13 @@ import { useCompany } from "../state/CompanyContext";
 import { useModal } from "../state/ModalContext";
 import { useSearch } from "../state/SearchContext";
 
-// Drag-and-drop between stage columns — new functionality, not in app.js
-// (the original only let you change a lead's stage via the edit modal's
-// dropdown, which still works too). Native HTML5 DnD, no extra dependency.
+// Drag deals between stage columns (native HTML5 drag and drop; changing
+// the stage in the deal form still works).
 //
-// STAGE_RENDER_CAP is a stopgap against a stage column with hundreds/
-// thousands of leads rendering every single card at once (slow, and each
-// column scrolling forever). It's a render cap, not pagination — all leads
-// still load and count correctly everywhere else (Dashboard, search); a
-// column past the cap just points at the search bar to narrow down instead
-// of listing everything. If real usage ever needs to *drag* deep into a
-// capped column routinely, that's the signal to build real virtualization
-// (react-window) or server-side paging instead of raising this number.
+// STAGE_RENDER_CAP limits how many cards a column renders; every deal still
+// loads and counts. Past the cap, the column points to search. If people
+// need to drag deep into huge columns, that calls for virtualization or
+// paging, not a bigger cap.
 const STAGE_RENDER_CAP = 50;
 
 export default function Pipeline() {
@@ -48,7 +43,7 @@ export default function Pipeline() {
   const { data: currentAppUser } = useCurrentAppUser();
   const today = localToday();
   const stagnantById = useMemo(() => new Map(stagnantLeads.map(s => [s.lead_id, s])), [stagnantLeads]);
-  // Other deals of the same client, counted over all deals (not just the filtered view).
+  // Other deals of the same client, over all deals (not just the filtered view).
   const otherDeals = useMemo(() => otherDealCounts(allLeads), [allLeads]);
   const { searchText } = useSearch();
   const { openRecordModal } = useModal();
@@ -64,8 +59,8 @@ export default function Pipeline() {
   const [stageFilter, setStageFilter] = useState("all");
   const [smsFilter, setSmsFilter] = useState("all");
   const [emailFilter, setEmailFilter] = useState("all");
-  // Consent lives on the client (consent_records.contact_id = customer id);
-  // a lead without a client counts as "not opted in".
+  // Consent belongs to the client (consent_records.contact_id); a deal
+  // without a client counts as not opted in.
   const { data: consentStatuses = [] } = useConsentStatuses(smsFilter !== "all" || emailFilter !== "all" ? activeCompanyId : null);
   const consentByCustomer = useMemo(() => new Map(consentStatuses.map(c => [c.contact_id, c])), [consentStatuses]);
   const consentOf = (l: Lead, channel: "sms" | "email"): ConsentState => {
@@ -85,10 +80,7 @@ export default function Pipeline() {
     return true;
   });
 
-  // Matches whatever the board is actually showing (search + source filter)
-  // instead of always totaling every lead regardless of the filter above —
-  // a filtered-down board with KPIs still quoting the unfiltered company-wide
-  // totals read as a bug (the numbers didn't move when the filter did).
+  // KPIs follow the board's filters, so they move when the filter does.
   const openLeads = filteredLeads.filter(l => isOpenStage(l.stage_id, stages));
   const wonLeads = filteredLeads.filter(l => isWonStage(l.stage_id, stages));
   const pipelineValue = openLeads.reduce((t, l) => t + Number(l.value || 0), 0);
@@ -98,21 +90,20 @@ export default function Pipeline() {
     if (!activeCompanyId) return;
     const lead = allLeads.find(l => l.id === leadId);
     if (!lead || lead.stage_id === stageId) return;
-    // Optimistic update so the card jumps immediately instead of waiting on
-    // the round-trip; rolled back if the save fails.
+    // Optimistic: the card moves at once and moves back if the save fails.
     queryClient.setQueryData<Lead[]>(["leads", activeCompanyId], prev =>
       prev?.map(l => (l.id === leadId ? { ...l, stage_id: stageId } : l))
     );
     try {
       await updateLead(leadId, activeCompanyId, { stage_id: stageId });
-      // Closing a deal is the moment a job should exist — open its form
-      // pre-filled from the lead (still cancelable) unless one already does.
+      // Winning a deal is when the job should exist: open its prefilled form
+      // (still cancelable) unless it already has one.
       if (isWonStage(stageId, stages) && !findJobForLead(leadId, jobs)) {
         toast(t("pipe.wonToast"));
         openRecordModal("job", undefined, { ...jobDraftFromLead(lead) });
       } else if (isLostStage(stageId, stages) && !lead.lost_reason) {
-        // Ask why while it's fresh — the lead form shows the reason picker
-        // for leads in a lost stage.
+        // Ask why while it's fresh: the deal form shows the reason picker in a
+        // lost stage.
         toast(t("pipe.lostToast"));
         openRecordModal("lead", { ...lead, stage_id: stageId });
       }
@@ -123,13 +114,9 @@ export default function Pipeline() {
     }
   };
 
-  // Touch/pen counterpart to the native HTML5 DnD above — the native
-  // `draggable` API has no touch support in most mobile browsers, which
-  // left the whole "drag a lead to another stage" interaction dead on
-  // tablet/phone (moving a lead was still possible via the edit modal's
-  // stage dropdown, just not via the board). Pointer Events unify mouse/
-  // touch/pen, so this only engages for non-mouse pointers (see LeadCard's
-  // pointerType check below) — the existing mouse path is untouched.
+  // Touch and pen dragging. Native `draggable` doesn't work on most mobile
+  // browsers; these Pointer Events engage only for non-mouse pointers, so the
+  // mouse path is unchanged.
   const handleTouchDragStart = (leadId: string) => setDraggingId(leadId);
   const stageIdAtPoint = (clientX: number, clientY: number): string | null =>
     (document.elementFromPoint(clientX, clientY)?.closest<HTMLElement>("[data-stage-id]"))?.dataset.stageId || null;
@@ -230,11 +217,8 @@ export default function Pipeline() {
                 e.preventDefault();
                 setDragOverStage(null);
                 const leadId = e.dataTransfer.getData("text/plain") || draggingId;
-                // Cleared here, not just in onDragEnd: the optimistic update
-                // below re-renders the card into a different column right
-                // away, which can unmount the original dragged DOM node before
-                // the browser gets a chance to fire "dragend" on it — leaving
-                // draggingId stuck and the card permanently faded.
+                // Cleared here too: the optimistic move can unmount the dragged card before
+                // the browser fires dragend, which would leave it faded.
                 setDraggingId(null);
                 if (leadId) moveLead(leadId, stage.id);
               }}
@@ -299,13 +283,9 @@ function LeadCard({ lead, tone, stagnantDays, otherDeals, followUp, dragging, on
     if (longPressTimer.current !== null) { window.clearTimeout(longPressTimer.current); longPressTimer.current = null; }
   }
 
-  // Long-press-to-arm (not "any movement starts dragging", which is what the
-  // native onDragStart below does for mouse) — a touch that moves right away
-  // is almost always someone scrolling the column, not trying to pick up a
-  // card. Holding still for TOUCH_LONG_PRESS_MS is the same disambiguation
-  // technique most touch drag-and-drop libraries use, and it's what lets
-  // preventDefault() on the subsequent pointermove actually suppress the
-  // browser's own scroll instead of losing the race to it.
+  // Long-press to start a touch drag: a touch that moves right away is a
+  // scroll. Holding still for TOUCH_LONG_PRESS_MS lets preventDefault() on
+  // the next pointermove win against the browser's scroll.
   function handlePointerDown(e: React.PointerEvent) {
     if (e.pointerType === "mouse") return;
     pointerStart.current = { x: e.clientX, y: e.clientY };
@@ -337,7 +317,7 @@ function LeadCard({ lead, tone, stagnantDays, otherDeals, followUp, dragging, on
     clearLongPress();
     if (touchDragActive.current) {
       if (commit) onTouchDrop(e.clientX, e.clientY);
-      else onTouchDrop(-1, -1); // out of viewport — resolves to "no stage", a clean cancel
+      else onTouchDrop(-1, -1); // outside the screen: no stage, so the drag is cancelled
     }
     touchDragActive.current = false;
     pointerStart.current = null;

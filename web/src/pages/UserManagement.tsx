@@ -31,12 +31,9 @@ const PERMISSIONS = ["view", "create", "edit", "import", "export"] as const;
 
 type AccessLevel = "" | "member" | "owner";
 
-// Server-side gate is web/api/admin-users.js (only a company owner can even
-// GET the data); this page mirrors that with useIsOwner so a non-owner
-// following a stray /users link sees a normal redirect, not a raw API 403.
-// Every grant/revoke/invite/delete/permission-edit this page triggers gets
-// logged to audit_log server-side — see AuditLog.tsx (filterable there under
-// entity "company_access" / "user_account" / "user_permissions").
+// web/api/admin-users.js is the real gate (only owners get the data). This
+// page redirects non-owners instead of showing a 403. Every change is logged
+// to audit_log (company_access / user_account / user_permissions).
 export default function UserManagement() {
   const { isOwner, isLoading: ownerLoading } = useIsOwner();
   const { data, isLoading, error } = useAdminUsers();

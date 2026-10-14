@@ -19,9 +19,9 @@ interface Row extends ServiceDraft {
 let nextKey = 0;
 const toRows = (names: string[]): Row[] => names.map(name => ({ key: `s${nextKey++}`, original: name, name }));
 
-// The company's services: what the lead/job/client forms offer and the
-// cards on the public booking page, in this order. Edited as a draft and
-// saved together, like the pipeline stages.
+// The company's services: what the deal/job/client forms offer and the
+// cards on the booking page, in this order. Edited as a draft and saved
+// together, like the pipeline stages.
 export default function Services() {
   const { activeCompanyId, services, activeCompany } = useCompany();
   const { t, tn } = useT();

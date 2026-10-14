@@ -19,13 +19,12 @@ import type { MessageKey } from "../i18n/messages";
 import { useCompany } from "../state/CompanyContext";
 
 const ROI_PERIODS = ["30", "90", "365"] as const;
-// Categorical tones in a fixed order (never cycled by rank): service and
-// campaign rows keep their tone as long as their position doesn't change.
+// Tones in a fixed order (never by rank): a row keeps its color while its
+// position doesn't change.
 const SERIES_TONES = TONES.filter(t => t !== "slate");
 
-// Ported from app.js (metrics, renderReports), then extended with a Meta Ads
-// "Ad performance" section fed by scripts/sync-meta-ads.mjs's daily
-// Marketing API pull (see data/metaAds.ts) — spend/impressions/clicks only.
+// Reports, including "Ad performance" from the daily Meta Ads sync
+// (scripts/sync-meta-ads.mjs): spend, impressions and clicks.
 export default function Reports() {
   const { activeCompanyId, stages } = useCompany();
   const { t, tn, locale } = useT();
@@ -37,9 +36,8 @@ export default function Reports() {
   const { data: adInsights = [] } = useMetaAdsInsights(activeCompanyId);
   const { data: funnel = [] } = useFunnelSummary(activeCompanyId);
   const [roiPeriod, setRoiPeriod] = useState<string>("90");
-  // Memoized: useCampaignRoi() puts both dates in its query key, and a fresh
-  // `new Date()` per render meant a "new" query (and a fetch) every render —
-  // an infinite request loop on rpc/get_campaign_roi while this page was open.
+  // Memoized: both dates are in useCampaignRoi()'s query key, and a new Date
+  // per render meant a new query on every render.
   const [roiDateFrom, roiDateTo] = useMemo(() => {
     const to = new Date();
     const from = new Date(to.getTime() - Number(roiPeriod) * 86400000);
@@ -76,8 +74,8 @@ export default function Reports() {
     byCampaign[key] = entry;
   });
   const campaignEntries = Object.entries(byCampaign);
-  // Spend drives bar length; clicks/impressions ride along as text instead
-  // of a second bar on a different scale.
+  // Spend sets the bar length; clicks and impressions are text, not a second
+  // bar on another scale.
   const maxCampaignSpend = Math.max(1, ...campaignEntries.map(([, v]) => v.spend));
   const metaOn = Boolean(settings?.meta_ads.enabled);
 

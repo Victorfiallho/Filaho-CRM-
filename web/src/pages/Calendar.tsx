@@ -17,8 +17,8 @@ import { useModal } from "../state/ModalContext";
 
 const UPCOMING_SHOWN = 10;
 
-// Same service type → same pastel tone, so jobs of a kind group visually
-// (falls back to the job id when there's no service type).
+// Same service, same tone, so jobs of a kind group visually (by job id when
+// there's no service).
 function toneFor(job: Job): Tone {
   const key = job.service_type || job.id;
   let hash = 0;
@@ -32,9 +32,7 @@ function mapsSearchUrl(job: Job) {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
 }
 
-// Ported from app.js (renderCalendar, moveCalendar, openQuickJob,
-// downloadCompanyIcs), redesigned: month grid + upcoming list side by side,
-// month totals in the KPI strip, all labels in the app language.
+// Month grid and upcoming list side by side, month totals in the KPI strip.
 export default function Calendar() {
   const { activeCompanyId, activeCompany } = useCompany();
   const { t, tn, locale } = useT();
@@ -52,8 +50,8 @@ export default function Calendar() {
   const startPad = first.getDay();
   const monthPrefix = `${year}-${String(month + 1).padStart(2, "0")}-`;
   const monthJobs = jobs.filter(job => job.scheduled_date?.startsWith(monthPrefix));
-  // Local calendar date — toISOString() is UTC and flips a day early every
-  // evening in US time zones.
+  // Local date: toISOString() is UTC and flips to tomorrow every evening in
+  // US time zones.
   const today = localToday();
   // Capitalize only the first letter ("Outubro de 2026", not "Outubro De 2026").
   const monthLabel = calendarDate.toLocaleDateString(locale, { month: "long", year: "numeric" });
@@ -71,8 +69,7 @@ export default function Calendar() {
     downloadText(`${activeCompany?.slug}-jobs.ics`, buildCompanyIcsCalendar(activeCompany?.name || "", scheduled), "text/calendar");
   };
 
-  // Was every scheduled job sorted by date — including past and completed
-  // ones. Same rule as the Dashboard now: from today, not complete.
+  // Upcoming: from today on, not complete (same rule as the Dashboard).
   const upcoming = upcomingJobs(jobs, today, UPCOMING_SHOWN);
   const pendingCount = monthJobs.filter(j => (j.status || "planned") === "planned").length;
   const completedCount = monthJobs.filter(j => j.status === "complete").length;

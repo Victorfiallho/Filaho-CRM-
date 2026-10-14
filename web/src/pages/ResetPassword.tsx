@@ -6,12 +6,9 @@ import { toast, toastError } from "../lib/toast";
 import { useAuth } from "../state/AuthContext";
 import { useT } from "../i18n/I18nContext";
 
-// Landing page for the email link from requestPasswordReset() (Login.tsx's
-// "Forgot password?"). Supabase's client auto-detects the recovery token in
-// the URL hash and turns it into a real session before this ever renders
-// (detectSessionInUrl defaults to true — see lib/supabaseClient.ts), so by
-// the time useAuth().session is set, supabase.auth.updateUser() below is
-// already authorized to change that account's password.
+// Where the reset email lands. The Supabase client turns the token in the
+// URL into a session before this renders (detectSessionInUrl), so
+// updateUser() is already allowed to change the password.
 export default function ResetPassword() {
   const { session, loading } = useAuth();
   const navigate = useNavigate();

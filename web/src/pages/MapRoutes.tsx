@@ -22,13 +22,9 @@ import { useSearch } from "../state/SearchContext";
 type GeocodedRecord = MapRecord & LatLng;
 type StartMode = "geolocation" | "first" | "custom";
 
-// Ported from app.js (renderMapRoutes, mapRecords, matchesMapFilters, mapPin,
-// geocodeVisibleRecords, openMapRecord), then extended well past the original
-// MVP: Google Maps tiles/geocoding/directions (swapped back from a Leaflet +
-// OpenStreetMap/Nominatim/OSRM stint — see data/geocoding.ts, data/routing.ts,
-// lib/googleMaps.ts), marker clustering for dense areas, Directions-API route
-// optimization with a one-click "open in Google Maps" link, and proximity-based
-// (not just ZIP-prefix) region grouping.
+// Map & Routes: Google Maps with clustered pins, geocoding, route
+// optimization with a link to open the route in Google Maps, and stops
+// grouped by area.
 export default function MapRoutes() {
   const { activeCompanyId, stages, services } = useCompany();
   const { t, tn } = useT();
@@ -47,24 +43,19 @@ export default function MapRoutes() {
   const [startMode, setStartMode] = useState<StartMode>("geolocation");
   const [customStartLat, setCustomStartLat] = useState("");
   const [customStartLng, setCustomStartLng] = useState("");
-  // Which stops to actually visit today — not every geocoded record needs to
-  // be on the route every time. Empty selection = route everyone visible
-  // (the original one-click behavior); a non-empty selection narrows it down.
+  // Stops to visit: empty means everyone visible, otherwise just these.
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [stopSearch, setStopSearch] = useState("");
   const [kindFilter, setKindFilter] = useState<StopKindFilter>("all");
-  // Areas start collapsed — with every stop of every area expanded the list
-  // ran thousands of pixels and pushed "Optimize route" off the page.
+  // Areas start collapsed; fully expanded, the list pushed "Optimize route"
+  // far down the page.
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [showUngeocoded, setShowUngeocoded] = useState(false);
 
   const rows: MapRecord[] = useMemo(() => {
-    // A lead always has a linked client at the same address (that's the
-    // lead<->client sync rule) — showing both as separate map stops just
-    // duplicates the same location, so once a client has an open lead, the
-    // lead (which carries the more actionable pipeline stage/value) is what
-    // shows on the map, not the bare client entry.
+    // A deal sits at its client's address, so once a client has an open deal
+    // only the deal is shown (it has the stage and value).
     const customerIdsWithLead = new Set(leads.map(l => l.customer_id).filter(Boolean));
     return [
       ...customers.filter(c => !customerIdsWithLead.has(c.id)).map(r => ({ ...r, kind: "customer" as const })),
@@ -86,9 +77,8 @@ export default function MapRoutes() {
   );
   const withoutCoords = useMemo(() => filtered.filter(r => !(Number(r.lat) && Number(r.lng))), [filtered]);
 
-  // Proximity clusters (real ~5km geographic grouping) for anything already
-  // geocoded; records that still need geocoding fall back to the old
-  // ZIP-prefix grouping, since that's the only location info they have.
+  // Areas: ~5 km proximity clusters for geocoded stops; stops without
+  // coordinates are grouped by ZIP prefix.
   const proximityGroups = useMemo(() => {
     const groups = clusterByProximity(withCoords, 0.05);
     return Object.values(groups)
@@ -105,8 +95,7 @@ export default function MapRoutes() {
   const stopMatches = (item: MapRecord) =>
     (kindFilter === "all" || item.kind === kindFilter) &&
     matchesStopQuery(item, stopSearch, item.stage_id ? stageNameById.get(item.stage_id) : undefined);
-  // While searching or filtering by type, every area with a match opens so
-  // the matches are visible without clicking into each one.
+  // While searching or filtering, every area with a match opens.
   const narrowing = Boolean(stopSearch.trim()) || kindFilter !== "all";
   const visibleProximityGroups = proximityGroups
     .map(g => ({ ...g, key: `${g.label}|${g.items[0]?.id}`, items: g.items.filter(stopMatches) }))
@@ -152,22 +141,18 @@ export default function MapRoutes() {
     });
   };
 
-  // Adds what's currently shown (after search/type filter) to the selection,
-  // so "search Duluth → Select shown" builds a route for just that area.
+  // Adds what's shown (after search and filters) to the selection, so "search
+  // Duluth, Select shown" builds a route for that area.
   const selectShownStops = () => setSelectedIds(prev => new Set([...prev, ...visibleStops.map(r => r.id)]));
 
   const routeCandidates = selectedIds.size ? withCoords.filter(r => selectedIds.has(r.id)) : withCoords;
   const selectedCount = selectedIds.size || withCoords.length;
   const routeIndexById = routeStops ? new Map(routeStops.map((s, i) => [s.id, i + 1])) : null;
 
-  // Start point: current geolocation (falls back to the first stop if denied/
-  // unavailable — currentLocationOrFirstStop, unchanged), the first stop in
-  // the list outright, or a custom fixed lat/lng (e.g. the shop/office).
-  // Primary path: one Directions API call with waypoints=optimize:true orders
-  // every candidate in a single round trip (fetchOptimizedOrder). If that
-  // fails (no API key yet, network error, >25 stops) fall back to the
-  // client-side nearest-neighbor + 2-opt heuristic (domain/geo.ts) so the
-  // feature still works without billing set up.
+  // Start: current location (else the first stop), the first stop, or a
+  // custom point (e.g. the office). One Directions call orders every stop; if
+  // it fails (no key, network, over 25 stops), nearest neighbor + 2-opt
+  // (domain/geo.ts) orders them locally.
   const optimizeRoute = async () => {
     if (!routeCandidates.length) { toast(t("map.t.noGeocoded")); return; }
     let start: LatLng | null = null;
@@ -186,8 +171,8 @@ export default function MapRoutes() {
       if (!start) start = await currentLocationOrFirstStop(routeCandidates);
       const order = apiKey ? await fetchOptimizedOrder([start, ...routeCandidates], apiKey) : null;
       if (order) {
-        // order[0] is always the synthetic start point (index 0 in the array
-        // passed above) — drop it and shift the rest back to routeCandidates indices.
+        // order[0] is the start point: drop it and map the rest back to
+        // routeCandidates indexes.
         const stops = order.filter(i => i !== 0).map(i => routeCandidates[i - 1]);
         setRouteStops(stops);
       } else {
@@ -199,11 +184,8 @@ export default function MapRoutes() {
     }
   };
 
-  // Manual reorder (up/down) after a route's been computed — e.g. the person
-  // knows a customer wants to be seen first regardless of distance. Just
-  // updates routeStops; GoogleMapCanvas's effect (keyed on routeStops)
-  // redraws the numbered pins and re-fetches the real Directions polyline for
-  // the new fixed order automatically.
+  // Manual up/down after a route is computed (e.g. a customer wants to be
+  // first). The map redraws the pins and the road line for the new order.
   const moveRouteStop = (index: number, dir: -1 | 1) => {
     setRouteStops(prev => {
       if (!prev) return prev;
@@ -404,10 +386,8 @@ function mostCommonCity(items: { city?: string }[]): string {
   return best ? titleize(best[0].toLowerCase()) : "";
 }
 
-// Tries the browser's geolocation (so "Optimize route" starts from wherever
-// the person clicking it actually is) with a short timeout, falling back to
-// the first visible stop when permission is denied/unavailable — this runs
-// from a plain button click, not app startup, so it only prompts when asked.
+// Starts from the browser's location (short timeout), else the first
+// visible stop. Runs from a click, so it only prompts when asked.
 function currentLocationOrFirstStop(stops: GeocodedRecord[]): Promise<LatLng> {
   return new Promise(resolve => {
     if (!navigator.geolocation) { resolve(stops[0]); return; }
@@ -478,16 +458,12 @@ function GoogleMapCanvas({ records, routeStops, onPinClick, apiKey }: {
   onPinClickRef.current = onPinClick;
   const [ready, setReady] = useState(false);
   const [loadError, setLoadError] = useState(false);
-  // Only auto-fit/center the view the first time markers show up — otherwise
-  // every re-render (typing in search, a query refetch, anything) would
-  // re-run fitBounds and yank the map back, fighting any pan/zoom the user
-  // had just done by hand.
+  // Fit the view only the first time markers appear, so later re-renders
+  // don't undo the user's pan and zoom.
   const hasFitRef = useRef(false);
 
-  // `records` is already a stable reference from the parent's useMemo, so
-  // this only recomputes when the actual record set changes — not on every
-  // render (an inline, unmemoized .filter() here was the original bug: a
-  // fresh array every render kept re-triggering the marker effect below).
+  // `records` is memoized by the parent, so this recomputes only when the
+  // record set changes and doesn't retrigger the marker effect.
   const withCoords = useMemo(() => records.filter(r => Number(r.lat) && Number(r.lng)), [records]);
 
   useEffect(() => {
@@ -499,8 +475,7 @@ function GoogleMapCanvas({ records, routeStops, onPinClick, apiKey }: {
     return () => { cancelled = true; };
   }, [apiKey]);
 
-  // Create the map + a persistent cluster layer once the SDK has loaded
-  // (Atlanta default center — same fallback app.js used).
+  // Create the map and a cluster layer once the SDK loads, centered on Atlanta.
   useEffect(() => {
     if (!ready || !mapElRef.current || mapInstanceRef.current) return;
     const map = new google.maps.Map(mapElRef.current, { center: { lat: 33.749, lng: -84.388 }, zoom: 9 });
@@ -508,11 +483,9 @@ function GoogleMapCanvas({ records, routeStops, onPinClick, apiKey }: {
     mapInstanceRef.current = map;
   }, [ready]);
 
-  // Redraw pins whenever the visible/geocoded record set, or the active
-  // route, changes. With an active route: plain (non-clustered) numbered
-  // pins in visiting order + a line connecting them, since clustering would
-  // hide exactly the stop-by-stop detail a route view needs. Without one:
-  // clustered plain pins, better for browsing a dense list at a glance.
+  // Redraw pins when the records or the route change. With a route: numbered,
+  // unclustered pins in order plus a line (clustering would hide the stops).
+  // Without one: clustered pins.
   useEffect(() => {
     const map = mapInstanceRef.current;
     const clusterer = clustererRef.current;
@@ -537,14 +510,11 @@ function GoogleMapCanvas({ records, routeStops, onPinClick, apiKey }: {
         return marker;
       });
       const straightLine = routeStops.map(r => ({ lat: r.lat, lng: r.lng }));
-      // Straight line is the instant, always-available preview;
-      // fetchRoutePolyline() below swaps it for the real road-following path
-      // once (if) Directions responds for this exact stop order.
+      // A straight line right away; replaced by the road path when Directions
+      // answers for this exact order.
       const routeLine = new google.maps.Polyline({ path: straightLine, strokeColor: "#f97316", strokeWeight: 3, strokeOpacity: 0.85, map });
       routeLineRef.current = routeLine;
-      // A single-stop route gives fitBounds a zero-area box, which zooms in
-      // to the map's max zoom — a street-level close-up with no surrounding
-      // context. A fixed zoom for one stop keeps the view usable.
+      // One stop gives fitBounds a zero-size box (max zoom), so use a fixed zoom.
       if (routeStops.length === 1) {
         map.setCenter({ lat: routeStops[0].lat, lng: routeStops[0].lng });
         map.setZoom(14);

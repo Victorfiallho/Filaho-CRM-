@@ -21,12 +21,10 @@ type Change = { old: unknown; new: unknown };
 const isChange = (v: unknown): v is Change =>
   Boolean(v) && typeof v === "object" && !Array.isArray(v) && "old" in (v as object) && "new" in (v as object);
 
-// Read-only, human view over audit_log: one sentence per event (the same
-// wording as the Dashboard feed), grouped by day, with the raw field-level
-// changes and record id tucked behind "Details". Updates that only touched
-// bookkeeping (calendar-sync event ids, geocoded coordinates, timestamps)
-// are hidden unless asked for — they were most of the list.
-// Populated by the record_audit_log() trigger and web/api/admin-users.js.
+// Human view of audit_log: one sentence per event (same wording as the
+// Dashboard feed), grouped by day, with the field changes behind "Details".
+// Bookkeeping-only updates (calendar sync ids, coordinates, timestamps) are
+// hidden unless asked for.
 export default function AuditLog() {
   const { activeCompanyId } = useCompany();
   const { isOwner } = useIsOwner();
@@ -55,9 +53,8 @@ export default function AuditLog() {
   const autoCount = events.filter(e => e.auto).length;
   const visible = events.filter(e => showAuto || !e.auto);
 
-  // Group by *local* calendar day, newest first (rows already arrive newest
-  // first). Not created_at.slice(0, 10): that's the UTC date, which puts a
-  // 10pm Atlanta event under the next day.
+  // Group by local day, newest first. The UTC date (created_at.slice(0, 10))
+  // would put a 10pm Atlanta event under the next day.
   const groups: { day: string; label: string; items: typeof visible }[] = [];
   for (const e of visible) {
     const day = new Date(e.row.created_at).toDateString();
@@ -149,8 +146,8 @@ function autoSentence(row: AuditLogEntry, ctx: ActivityContext): string {
   return t("audit.autoChange", { fields: fields.join(", "), name });
 }
 
-// Field-by-field changes with readable labels and values: stage ids become
-// stage names, owner ids user names, dates the app's date format.
+// Field changes with readable labels and values: stage and owner ids become
+// names, dates use the app's format.
 function AuditDetails({ row, ctx }: { row: AuditLogEntry; ctx: ActivityContext }) {
   const t = ctx.t!;
   const show = (field: string, v: unknown): string => {

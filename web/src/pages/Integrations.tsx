@@ -16,9 +16,8 @@ import { Eye, EyeOff } from "lucide-react";
 import { useT } from "../i18n/I18nContext";
 import type { MessageKey } from "../i18n/messages";
 
-// Ported verbatim from app.js (renderIntegrations, oauthCard, integrationCard,
-// saveIntegrationSetting, toggleIntegration, saveCompanyIntegrationValue,
-// loadGoogleOAuthJson, saveOAuthField, connectGoogleWorkspace, clearGoogleSession).
+// Integrations: Google OAuth client, Calendar/Drive/Sheets, Maps, Meta Ads,
+// email and SMS.
 export default function Integrations() {
   const { activeCompanyId, activeCompany } = useCompany();
   const { session } = useAuth();
@@ -28,19 +27,10 @@ export default function Integrations() {
   const [connectingService, setConnectingService] = useState<string | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // Lands here after web/api/google-oauth-callback.js redirects back from
-  // Google with either ?connected=calendar or ?calendar_error=... — this is
-  // the completion of startCalendarOAuth()'s redirect chain, not something
-  // that can be handled inline like the popup-based connects below.
-  //
-  // startCalendarOAuth() now sends the user through this whole chain in a
-  // separate popup tab (see below) instead of navigating the CRM tab itself
-  // away to Google. That means *this* landing also happens inside that
-  // popup — so when window.opener is set, hand the result back to the CRM
-  // tab via postMessage and close instead of rendering a second full copy
-  // of the app. If the popup got blocked and startCalendarOAuth() fell back
-  // to a same-tab redirect, window.opener is null here and this tab handles
-  // it directly, same as before.
+  // Google sends the browser back here with ?connected=calendar or
+  // ?calendar_error=... The connect runs in a popup tab, so when there's a
+  // window.opener, hand the result to the CRM tab and close. If the popup was
+  // blocked, the same tab redirected and handles it here.
   useEffect(() => {
     const connected = searchParams.get("connected");
     const calendarError = searchParams.get("calendar_error");
@@ -56,7 +46,7 @@ export default function Integrations() {
             { source: "fialho-google-oauth", connected: connected === "calendar", error: calendarError || null },
             window.location.origin
           );
-        } catch { /* opener gone or cross-origin — nothing to notify */ }
+        } catch { /* opener gone: nothing to notify */ }
         window.close();
         return;
       }
@@ -69,10 +59,8 @@ export default function Integrations() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
-  // Companion to the popup landing above: when *this* (original) tab
-  // receives the postMessage from that popup, refresh the settings this tab
-  // already has cached and surface the same toast the old same-tab redirect
-  // used to show directly.
+  // The other half: the CRM tab gets the popup's message, refreshes the
+  // settings and shows the result.
   useEffect(() => {
     function onOAuthMessage(e: MessageEvent) {
       if (e.origin !== window.location.origin || e.data?.source !== "fialho-google-oauth") return;
@@ -94,16 +82,14 @@ export default function Integrations() {
   async function startCalendarOAuth() {
     if (!activeSettings.google_oauth.client_id) { toast(t("int.importFirst")); return; }
     if (!session?.access_token) { toast(t("int.sessionExpired")); return; }
-    // Opened synchronously, before the await below, so it's still tied to
-    // this click — most browsers block a window.open() that happens after
-    // an await, treating it as an unsolicited popup rather than a
-    // user-initiated one. Its location is filled in once the signed URL
-    // comes back, so the CRM tab itself never navigates away to Google.
+    // Opened before the await so it still counts as part of the click (browsers
+    // block window.open after an await). Its URL is set once the signed URL
+    // arrives, so the CRM tab never leaves.
     const popup = window.open("", "_blank");
     try {
       const url = await startGoogleCalendarAuth(session.access_token, companyId);
       if (popup) popup.location.href = url;
-      else location.href = url; // popup blocked — fall back to the old same-tab redirect
+      else location.href = url; // popup blocked: redirect this tab instead
     } catch (err) {
       popup?.close();
       toastError(errorMessage(err, t("int.calendarError")));
@@ -111,14 +97,9 @@ export default function Integrations() {
   }
 
   async function patch(updater: (s: IntegrationSettings) => IntegrationSettings) {
-    // Reads fresh from the query cache (falling back to a direct fetch)
-    // instead of closing over the render-scoped `activeSettings` — that
-    // const is declared after the early-return guard above, so a call to
-    // patch() from the OAuth-landing effect (which fires on the very first,
-    // cold-load render, before `settings` has resolved and before that
-    // render ever reaches `const activeSettings = settings`) threw
-    // "Cannot access 'activeSettings' before initialization" and silently
-    // broke the Calendar OAuth completion handshake end-to-end.
+    // Reads the settings from the query cache (or fetches them), not from the
+    // render's `activeSettings`, which doesn't exist yet when the OAuth landing
+    // effect runs on the first render.
     const current = queryClient.getQueryData<IntegrationSettings>(["integration_settings"]) ?? await getIntegrationSettings();
     const next = updater(current);
     await saveIntegrationSettings(next);
@@ -320,11 +301,8 @@ export default function Integrations() {
   );
 }
 
-// Every text field on this page used to be a plain <input value={live query
-// data} onChange={fires a full save+refetch per keystroke}/> — typing more
-// than one character raced the save against the refetch and ate keystrokes
-// (2026-09-04). Local draft while focused, one save on blur, and re-sync
-// from the live value only while NOT focused.
+// Text fields keep a local draft while focused and save once on blur;
+// saving on every keystroke raced the refetch and ate characters.
 function DebouncedField({ value, onCommit, ...props }: { value: string; onCommit: (v: string) => void } & Omit<React.InputHTMLAttributes<HTMLInputElement>, "value" | "onChange" | "onBlur" | "onFocus">) {
   const [draft, setDraft] = useState(value);
   const [focused, setFocused] = useState(false);
@@ -345,9 +323,8 @@ function DebouncedField({ value, onCommit, ...props }: { value: string; onCommit
   );
 }
 
-// API keys: masked by default (they used to sit in plain text on screen),
-// with a Show/Hide toggle and an "ends in …XXXX" hint so you can tell which
-// key is saved without revealing it.
+// API keys are masked, with Show/Hide and an "ends in …XXXX" hint to tell
+// which key is saved.
 function SecretField({ id, value, onCommit }: { id: string; value: string; onCommit: (v: string) => void }) {
   const { t } = useT();
   const [reveal, setReveal] = useState(false);

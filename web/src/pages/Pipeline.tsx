@@ -8,7 +8,7 @@ import Select from "../components/Select";
 import StagesEditor from "../components/StagesEditor";
 import { updateLead } from "../data/leads";
 import { useConsentStatuses, useCurrentAppUser, useJobs, useLeads, useStagnantLeads, useUsers } from "../data/hooks";
-import { dealTitle, otherDealCounts } from "../domain/deals";
+import { otherDealCounts } from "../domain/deals";
 import { filterRowsBySearch } from "../domain/search";
 import { formatDay, initials, money, relativeDate, unique } from "../domain/format";
 import { weeklyTrend } from "../domain/trend";
@@ -340,9 +340,9 @@ function LeadCard({ lead, tone, stagnantDays, otherDeals, followUp, dragging, on
     >
       <div className="lead-card-head">
         <span className={`lead-avatar tone-${tone}`} aria-hidden="true">{initials(lead.name)}</span>
-        <b className="lead-card-name">{dealTitle(lead) || lead.name}</b>
+        <b className="lead-card-name">{lead.name}</b>
       </div>
-      <div className="lead-card-service">{dealTitle(lead) ? [lead.name, lead.title?.trim() ? lead.service_type : ""].filter(Boolean).join(" · ") : t("pipe.service")}</div>
+      <div className="lead-card-service">{[lead.title?.trim(), lead.service_type].filter(Boolean).join(" · ") || t("pipe.service")}</div>
       <div className="lead-card-chips">
         {Number(lead.value) > 0 && <span className="chip chip-value">{money(lead.value)}</span>}
         {(lead.city || lead.zip) && <span className="chip"><MapPin aria-hidden="true" />{lead.city || lead.zip}</span>}

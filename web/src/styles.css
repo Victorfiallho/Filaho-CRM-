@@ -284,72 +284,7 @@ h1,h2,h3{margin:0;letter-spacing:-.02em;font-weight:700;color:var(--ink)}
   border-radius:var(--radius-canvas);
   box-shadow:var(--shadow-md);
 }
-.sidebar{
-  position:relative;
-  background:var(--surface);
-  border-right:1px solid var(--line-strong);
-  border-radius:var(--radius-canvas) 0 0 var(--radius-canvas);
-  color:var(--muted);
-  display:flex;flex-direction:column;
-}
-/* Mobile-only drawer scrim, rendered while the hamburger's menu is open —
-   without it there was no way to dismiss the slide-in sidebar except by
-   tapping a nav link (which also navigates away): no backdrop existed at
-   all, and the open sidebar's own z-index sat above the topbar, covering
-   the hamburger button itself so a second tap couldn't reach it either. */
-.sidebar-backdrop{display:none}
-.brand{padding:18px;display:flex;align-items:center;gap:13px;border-bottom:1px solid var(--line-strong)}
-.brand .logo{width:56px;height:56px;border-radius:16px;background:color-mix(in srgb,var(--company-color) 14%,white);color:var(--company-color);box-shadow:var(--shadow-xs);padding:6px}
-.brand .logo svg{display:block}
-.brand .logo img{display:block}
-.brand .logo .logo-initials{font-size:19px}
-.brand b{display:block;color:var(--ink);font-weight:700;font-size:16px;letter-spacing:-.015em}
-.brand span{display:block;margin-top:2px;font-size:12.5px;font-weight:500;color:var(--muted)}
-.sidebar.collapsed .brand{justify-content:center}
-/* Floating edge button (VSCode/Notion-style), half on/off the sidebar's
-   right border, instead of its own full-width row eating vertical space
-   between the brand header and the nav list. */
-.sidebar-toggle{
-  position:absolute;top:22px;right:-13px;z-index:2;
-  display:flex;align-items:center;justify-content:center;
-  width:26px;height:26px;border-radius:999px;
-  background:var(--surface);border:1px solid var(--line-strong);box-shadow:var(--shadow-xs);
-  color:var(--muted);
-}
-.sidebar-toggle:hover{color:var(--ink-soft);border-color:var(--muted-soft)}
-.sidebar-toggle svg{width:14px;height:14px}
-.nav{position:relative;padding:14px 10px;display:grid;gap:2px}
-.nav-indicator{
-  position:absolute;left:10px;right:10px;top:0;
-  background:color-mix(in srgb,var(--company-color) 12%,transparent);border-radius:var(--radius-sm);
-  transition:transform .32s cubic-bezier(.4,0,.2,1),height .32s cubic-bezier(.4,0,.2,1);
-  pointer-events:none;z-index:0;
-}
-.nav button{position:relative;z-index:1;display:flex;align-items:center;gap:10px;background:transparent;color:var(--muted);text-align:left;border-radius:var(--radius-sm);padding:10px 12px;font-weight:500}
-.nav button svg{width:18px;height:18px;flex:0 0 auto}
-.nav button:hover{background:color-mix(in srgb,var(--company-color) 8%,transparent);color:var(--ink)}
-.nav button.active{background:transparent;color:var(--company-color);font-weight:700}
-.sidebar.collapsed .nav button{justify-content:center}
-.side-foot{padding:4px 10px 14px;font-size:12px;color:var(--muted);display:flex;gap:8px;border-top:1px solid var(--line-strong);margin-top:auto;padding-top:12px}
-.side-foot .btn{flex:1 1 0;justify-content:center;padding:8px 10px;font-size:12.5px}
-.sidebar.collapsed .side-foot{flex-direction:column}
 .main{min-width:0}
-.topbar{
-  height:68px;background:var(--surface);
-  border-bottom:1px solid var(--line-strong);border-radius:0 var(--radius-canvas) 0 0;
-  display:flex;align-items:center;gap:16px;padding:0 24px;position:sticky;top:0;z-index:5;
-}
-.topbar h2{font-size:19px;font-weight:700;letter-spacing:-.015em;color:var(--ink)}
-.topbar .sub{margin-top:1px}
-.hamburger{display:none;background:#fff;border:1px solid var(--line-strong);border-radius:var(--radius-sm);padding:8px;font-weight:600}
-.search{margin-left:auto;min-width:280px}
-.search input{
-  width:100%;border:1px solid var(--line-strong);background:var(--soft);border-radius:var(--radius-sm);
-  padding:9px 12px 9px 36px;
-  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='11' cy='11' r='7'/><line x1='21' y1='21' x2='16.65' y2='16.65'/></svg>");
-  background-repeat:no-repeat;background-position:12px center;
-}
-.search input:focus{border-color:var(--brand);background-color:#fff;box-shadow:0 0 0 3px var(--brand-ring)}
 .content{padding:24px}
 .view-enter{animation:viewEnter .28s cubic-bezier(.16,1,.3,1) both}
 @keyframes viewEnter{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
@@ -379,6 +314,9 @@ h1,h2,h3{margin:0;letter-spacing:-.02em;font-weight:700;color:var(--ink)}
 .company-grid > *:nth-child(4){animation-delay:.15s}
 .company-grid > *:nth-child(n+5){animation-delay:.2s}
 .grid{display:grid;gap:16px}
+/* Grid items default to min-width:auto, so a wide table inside a card
+   stretched the card past the screen instead of scrolling in .table-wrap. */
+.grid > *{min-width:0}
 .kpis{grid-template-columns:repeat(4,minmax(0,1fr))}
 .card{
   background:var(--surface);
@@ -405,10 +343,6 @@ h1,h2,h3{margin:0;letter-spacing:-.02em;font-weight:700;color:var(--ink)}
 .table-filters{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding-bottom:14px}
 .table-filters .cs{min-width:160px}
 .table-filters .cs .cs-trigger,.table-filters .search-field input{min-height:38px}
-.search-field{position:relative;flex:1 1 240px;min-width:200px}
-.search-field svg{position:absolute;left:11px;top:50%;transform:translateY(-50%);width:15px;height:15px;color:var(--muted-soft);pointer-events:none}
-.search-field input{width:100%;border:1px solid var(--line-strong);background:var(--soft);border-radius:var(--radius-sm);padding:9px 12px 9px 34px}
-.search-field input:focus{border-color:var(--brand);background:#fff;box-shadow:0 0 0 3px var(--brand-ring)}
 /* Table column widths are set once here via <colgroup> in Customers.tsx so
    every row's cells line up under the matching header — a real <table>
    computes one column model shared by <thead> and <tbody> automatically,
@@ -713,7 +647,6 @@ input[type="checkbox"]:focus-visible{outline:none;box-shadow:0 0 0 3px var(--bra
 td a{display:inline-flex;align-items:center;gap:4px}
 td a svg{width:14px;height:14px}
 .table-avatar-row{display:flex;align-items:center;gap:10px}
-.mobile-company{display:none}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 
 /* Skeleton loading utilities — not wired to any live wait yet (the app is
@@ -760,12 +693,6 @@ td a svg{width:14px;height:14px}
 }
 .icon-btn:hover{background:var(--soft);color:var(--ink)}
 .icon-btn svg{width:15px;height:15px}
-.stat-tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
-.stat-tile{border:1px solid var(--line-strong);border-radius:var(--radius-sm);padding:14px;text-align:center}
-.stat-tile-icon{width:34px;height:34px;border-radius:999px;display:grid;place-items:center;margin:0 auto 8px}
-.stat-tile-icon svg{width:17px;height:17px}
-.stat-tile-value{font-size:20px;font-weight:800;color:var(--ink)}
-.stat-tile-label{font-size:11px;color:var(--muted);font-weight:600;margin-top:2px}
 
 @media(max-width:1050px){
   .company-grid{grid-template-columns:repeat(2,1fr)}
@@ -776,22 +703,7 @@ td a svg{width:14px;height:14px}
 }
 @media(max-width:760px){
   .app-shell{grid-template-columns:1fr;margin:8px;border-radius:18px;min-height:calc(100vh - 16px)}
-  .sidebar{position:fixed;inset:0 auto 0 0;width:264px;z-index:15;transform:translateX(-105%);transition:.2s;border-radius:0 18px 18px 0}
-  .sidebar.open{transform:none}
-  .sidebar-backdrop{display:block;position:fixed;inset:0;background:rgba(15,23,42,.4);z-index:14;animation:modalBgIn .18s ease both}
   .main{border-radius:18px}
-  .topbar{border-radius:18px 18px 0 0}
-  .hamburger{display:inline-flex;order:1}
-  .sidebar-toggle{display:none}
-  .topbar{height:auto;min-height:64px;flex-wrap:wrap;padding:12px;gap:10px}
-  /* Three tidy rows instead of buttons wrapping wherever they happen to fit:
-     [hamburger + title] / [search, full width] / [New lead | New client,
-     split evenly] — the "New client" pill going full-width alone on its own
-     row (app.js/desktop's DOM order with plain flex-wrap) was the main
-     eyesore on a narrow phone. */
-  .topbar > div:first-of-type{order:2;flex:1 1 auto;min-width:0}
-  .search{order:3;margin-left:0;min-width:100%;width:100%}
-  .topbar [data-action="new-lead"],.topbar [data-action="new-customer"],.topbar [data-action="new-job"]{order:4;flex:1 1 0;min-width:0}
   .content{padding:14px}
   .company-panel{padding:22px;border-radius:18px}
   .company-panel > .between{flex-direction:column;align-items:flex-start;gap:14px}
@@ -805,19 +717,13 @@ td a svg{width:14px;height:14px}
   .map-layout{grid-template-columns:1fr}
   .map-canvas{height:420px}
   .inline-actions{flex-direction:column;align-items:stretch}
-  .mobile-company{display:block}
   .stage{max-height:60vh}
   .pipeline{grid-auto-columns:78vw}
-  .brand .logo{width:48px;height:48px}
-  .brand .logo .logo-initials{font-size:17px}
-  .side-foot{flex-direction:column}
-  .stat-tiles{grid-template-columns:1fr}
   /* Comfortable touch targets (~44px) for standalone icon controls that get
      tapped with a finger on mobile, without bloating the dense desktop UI
      where these are clicked with a mouse. */
   .icon-btn,.row-menu-trigger{width:44px;height:44px}
   .pager button{min-height:44px}
-  .hamburger{padding:12px}
   .input-icon-btn{padding:10px}
   /* A short page's own empty-state text (e.g. "No clients yet") naturally
      lands right where .chat-widget's fixed FAB sits — its screen position
@@ -829,11 +735,6 @@ td a svg{width:14px;height:14px}
 }
 
 /* ── Phase 1 + UX quick wins (2026-10-11) ───────────────────────────── */
-/* Sidebar section labels (U7). Plain siblings of the nav buttons. */
-.nav-group{padding:12px 12px 4px;font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-soft)}
-.nav-group:first-of-type{padding-top:2px}
-.nav-group-rule{height:1px;margin:8px 10px;background:var(--line)}
-
 /* Single "New" menu in the topbar (U10). */
 .new-menu{position:relative}
 .new-menu .btn svg:last-child{width:14px;height:14px;margin-left:2px}
@@ -864,17 +765,11 @@ td a svg{width:14px;height:14px}
 .pf-header h2{margin:0;font-size:22px;letter-spacing:-.01em;overflow-wrap:anywhere}
 .pf-meta{display:flex;align-items:center;gap:6px 14px;flex-wrap:wrap;margin-top:6px;color:var(--muted);font-size:13px}
 .tag-credit{display:inline-block;background:var(--success-soft);color:#047857;font-weight:700;border-radius:999px;padding:2px 9px}
-.kpi-details{margin-top:10px}
-.kpi-details summary{cursor:pointer;color:var(--brand);font-weight:700;font-size:13px;padding:6px 0;width:max-content}
-.kpi-details[open] summary{margin-bottom:10px}
 .pf-tabs{display:flex;gap:4px;margin-top:20px;border-bottom:1px solid var(--line-strong);overflow-x:auto}
 .pf-tabs button{background:transparent;border:0;border-bottom:2px solid transparent;margin-bottom:-1px;padding:10px 14px;font-weight:600;color:var(--muted);white-space:nowrap}
 .pf-tabs button:hover{color:var(--ink)}
 .pf-tabs button.active{color:var(--ink);border-bottom-color:var(--brand)}
 .pf-summary{margin:0;padding-left:18px;display:grid;gap:6px;color:var(--ink-soft)}
-.pf-cost-summary{display:flex;flex-wrap:wrap;gap:12px 28px;padding:16px 20px}
-.pf-cost-summary .label{display:block;font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.05em}
-.pf-cost-summary b{font-size:17px}
 .input-affix{display:flex;align-items:stretch}
 .input-affix input{flex:1;min-width:0}
 .input-affix .affix{display:flex;align-items:center;padding:0 10px;background:var(--soft);border:1px solid var(--line-strong);color:var(--muted);font-weight:700}
@@ -899,13 +794,6 @@ td a svg{width:14px;height:14px}
 .stop-group-toggle b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .route-block .route-stop:first-of-type{margin-top:8px}
 @media(max-width:760px){.stop-list{max-height:70vh}}
-
-/* ── Stable first paint (2026-10-11) ────────────────────────────────── */
-/* Topbar subtitle keeps its line while counts load, so the title doesn't shift. */
-.topbar .sub{min-height:1.35em}
-.skeleton-nav{display:block;height:36px;border-radius:var(--radius-sm)}
-.sidebar .skeleton-circle{width:40px;height:40px}
-
 /* ── Dashboard: My day, Money, Activity (2026-10-11) ────────────────── */
 .seg{display:inline-flex;border:1px solid var(--line-strong);border-radius:999px;padding:2px;background:var(--soft)}
 .seg button{background:transparent;border:0;border-radius:999px;padding:4px 12px;font-size:12.5px;font-weight:600;color:var(--muted)}

@@ -27,10 +27,16 @@ export function activeServices(page) {
     .sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
 }
 
-// "30062" against ["300", "3006"] etc.
-export function zipAccepted(zip, prefixes) {
-  const z = String(zip || "").trim();
-  return (prefixes || []).some(p => p && z.startsWith(String(p).trim()));
+// "Move-in/Move-out" -> "move-in-move-out": the form value for a service.
+export const serviceId = name => String(name || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "service";
+
+// The company's CRM services (company_services rows) as the page's list.
+export function servicesFromCrm(rows) {
+  const seen = new Set();
+  return (rows || [])
+    .filter(r => r && String(r.service || "").trim())
+    .map((r, i) => ({ id: serviceId(r.service), name: String(r.service).trim(), position: r.position ?? i, active: true }))
+    .filter(s => (seen.has(s.id) ? false : seen.add(s.id)));
 }
 
 function addDays(ymd, days) {
@@ -81,11 +87,11 @@ export function parseBookingForm(form, page, now = new Date()) {
 
   if (!values.zip) errors.zip = "Please enter your ZIP code.";
   else if (!/^\d{5}(-\d{4})?$/.test(values.zip)) errors.zip = "Please enter a 5-digit ZIP code.";
-  else if (!zipAccepted(values.zip, page.zip_prefixes)) errors.zip = "We don't serve this area yet";
 
   const services = activeServices(page);
   const serviceById = new Map(services.map(s => [String(s.id), s]));
   values.services = values.services.filter(id => serviceById.has(id));
+  if (services.length && !values.services.length) errors.services = "Please choose at least one service.";
 
   for (const s of services) {
     if (!s.detail_label) continue;

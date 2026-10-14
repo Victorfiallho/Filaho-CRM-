@@ -1883,3 +1883,6 @@ tr:hover td{background:rgba(255,255,255,.55)}
   .pf-header .inline-actions .btn{flex:1;justify-content:center}
   .pf-add .form-row{grid-template-columns:1fr}
 }
+
+/* "Booking page" opens the public page in a new tab */
+.nav-ext{width:13px!important;height:13px!important;margin-left:auto;opacity:.55}

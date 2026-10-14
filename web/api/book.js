@@ -4,8 +4,10 @@
 //   GET  /book/<slug>/privacy     privacy policy   (&page=privacy)
 //   GET  /book/<slug>/sms-terms   SMS terms        (&page=sms-terms)
 //   POST /book/<slug>             form submit → 303 back to ?booked=<first name>
-//   GET  /api/book?company=<id>&preview=1&page=...   admin preview (Bearer token,
-//        must be a member of that company; works for inactive pages too)
+//
+// Every company has a page (migration 12 creates one per company) and it's
+// always on. Nothing is configured per page: the name, color and logo come
+// from the company, the services from its CRM services (company_services).
 //
 // Server-rendered HTML (api/_lib/bookingHtml.js), so it's indexable, fast on
 // a phone, works with JavaScript off, and never ships the CRM bundle or any
@@ -24,8 +26,8 @@
 // booking_requests itself so it needs no extra store.
 import { createHash } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
-import { HONEYPOT_FIELD, UTM_FIELDS, parseBookingForm } from "./_lib/bookingForm.js";
-import { formScriptBody, renderBookingPage, renderMessagePage, renderPrivacyPage, renderSmsTermsPage } from "./_lib/bookingHtml.js";
+import { HONEYPOT_FIELD, UTM_FIELDS, parseBookingForm, servicesFromCrm } from "./_lib/bookingForm.js";
+import { headScriptBody, formScriptBody, renderBookingPage, renderMessagePage, renderPrivacyPage, renderSmsTermsPage } from "./_lib/bookingHtml.js";
 import { loadConsentTextVersion, loadLatestConsentTexts, renderTexts } from "./_lib/consentStore.js";
 import { clientIp, origin, query, readForm, sendHtml, userAgent } from "./_lib/http.js";
 import { todayIn } from "./_lib/usTime.js";
@@ -36,13 +38,15 @@ const RATE_WINDOW_MS = 10 * 60 * 1000;
 const uid = prefix => `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 const formatUsPhone = e164 => e164.replace(/^\+1(\d{3})(\d{3})(\d{4})$/, "($1) $2-$3");
 
-function csp(page, withScript) {
-  const scriptHash = withScript ? `'sha256-${createHash("sha256").update(formScriptBody(page)).digest("base64")}'` : "'none'";
+const sha = body => `'sha256-${createHash("sha256").update(body).digest("base64")}'`;
+
+function csp(withScript) {
   return [
     "default-src 'none'",
     "img-src 'self' https: data:",
-    "style-src 'unsafe-inline'",
-    `script-src ${scriptHash}`,
+    "style-src 'unsafe-inline' https://fonts.googleapis.com",
+    "font-src https://fonts.gstatic.com",
+    `script-src ${withScript ? `${sha(headScriptBody())} ${sha(formScriptBody())}` : "'none'"}`,
     "form-action 'self'",
     "base-uri 'none'",
     "frame-ancestors 'self'"
@@ -50,35 +54,32 @@ function csp(page, withScript) {
 }
 
 function notFound(res) {
-  sendHtml(res, 404, renderMessagePage({ title: "Page not found", message: "This booking page doesn't exist or isn't available right now." }), { "cache-control": "no-store" });
+  sendHtml(res, 404, renderMessagePage({ title: "Page not found", message: "This booking page doesn't exist." }), { "cache-control": "no-store" });
 }
 
-async function loadPage(supabase, { slug, companyId }) {
-  let q = supabase.from("booking_pages").select("*");
-  q = companyId ? q.eq("company_id", companyId) : q.eq("slug", slug);
-  const { data, error } = await q.maybeSingle();
+// The page row plus what the system already knows about the company. The
+// row's own business_name/primary_color are only fallbacks.
+async function loadPage(supabase, slug) {
+  const { data: row, error } = await supabase.from("booking_pages").select("*").eq("slug", slug).maybeSingle();
   if (error) throw error;
-  return data;
+  if (!row) return null;
+  const [company, services] = await Promise.all([
+    supabase.from("companies").select("id, name, color").eq("id", row.company_id).maybeSingle(),
+    supabase.from("company_services").select("service, position").eq("company_id", row.company_id).order("position")
+  ]);
+  if (company.error) throw company.error;
+  if (services.error) throw services.error;
+  return {
+    ...row,
+    business_name: company.data?.name || row.business_name,
+    primary_color: /^#[0-9a-f]{6}$/i.test(company.data?.color || "") ? company.data.color : row.primary_color,
+    services: servicesFromCrm(services.data)
+  };
 }
 
-async function isMember(supabase, req, companyId) {
-  const token = String(req.headers.authorization || "").replace(/^Bearer\s+/i, "");
-  if (!token) return false;
-  const { data: userData, error } = await supabase.auth.getUser(token);
-  if (error || !userData?.user) return false;
-  const { data } = await supabase
-    .from("company_members")
-    .select("company_id")
-    .eq("user_id", userData.user.id)
-    .eq("company_id", companyId)
-    .maybeSingle();
-  return Boolean(data);
-}
-
-function render(res, status, { page, base, texts, extra = {}, cache = "no-store", preview = false }) {
-  const html = renderBookingPage({ page, base, texts, today: todayIn(), preview, ...extra });
-  const withScript = !extra.booked && !preview;
-  sendHtml(res, status, html, { "cache-control": cache, "content-security-policy": csp(page, withScript) });
+function render(res, status, { page, base, texts, extra = {}, cache = "no-store" }) {
+  const html = renderBookingPage({ page, base, texts, today: todayIn(), ...extra });
+  sendHtml(res, status, html, { "cache-control": cache, "content-security-policy": csp(!extra.booked) });
 }
 
 export default async function handler(req, res) {
@@ -90,34 +91,23 @@ export default async function handler(req, res) {
   const params = query(req);
   const slug = String(params.get("slug") || "").toLowerCase();
   const subpage = params.get("page") || "";
-  const previewCompany = params.get("preview") === "1" ? String(params.get("company") || "") : "";
-  if (!slug && !previewCompany) return notFound(res);
+  if (!slug) return notFound(res);
 
   const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
 
   try {
-    const page = await loadPage(supabase, previewCompany ? { companyId: previewCompany } : { slug });
+    const page = await loadPage(supabase, slug);
     if (!page) return notFound(res);
 
-    const preview = Boolean(previewCompany);
-    if (preview) {
-      if (req.method !== "GET" || !(await isMember(supabase, req, page.company_id))) {
-        res.status(401).json({ error: "Sign in to preview this page." });
-        return;
-      }
-    } else if (!page.active) {
-      return notFound(res);
-    }
-
     const base = `${origin(req)}/book/${page.slug}`;
-    const cache = preview ? "no-store" : "public, max-age=0, s-maxage=60, stale-while-revalidate=300";
+    const cache = "public, max-age=0, s-maxage=60, stale-while-revalidate=300";
 
     if (req.method === "GET" && subpage) {
-      const html = subpage === "privacy" ? renderPrivacyPage({ page, base, preview })
-        : subpage === "sms-terms" ? renderSmsTermsPage({ page, base, preview })
+      const html = subpage === "privacy" ? renderPrivacyPage({ page, base })
+        : subpage === "sms-terms" ? renderSmsTermsPage({ page, base })
         : null;
       if (!html) return notFound(res);
-      sendHtml(res, 200, html, { "cache-control": cache, "content-security-policy": csp(page, false) });
+      sendHtml(res, 200, html, { "cache-control": cache, "content-security-policy": csp(false) });
       return;
     }
 
@@ -128,7 +118,7 @@ export default async function handler(req, res) {
       if (booked) return render(res, 200, { page, base, texts, extra: { booked: booked.slice(0, 60) } });
       const utm = Object.fromEntries(UTM_FIELDS.map(f => [f, String(params.get(f) || "").slice(0, 200)]));
       const hasUtm = UTM_FIELDS.some(f => utm[f]);
-      return render(res, 200, { page, base, texts, extra: { utm }, cache: hasUtm || preview ? "no-store" : cache, preview });
+      return render(res, 200, { page, base, texts, extra: { utm }, cache: hasUtm ? "no-store" : cache });
     }
 
     // ── POST: a booking ───────────────────────────────────────────────────

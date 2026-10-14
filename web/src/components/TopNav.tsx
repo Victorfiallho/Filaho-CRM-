@@ -1,8 +1,9 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { Bell, ChevronDown, Languages, LayoutDashboard, LogOut, Menu, MessageCircle, RefreshCw, Repeat, Search, X } from "lucide-react";
+import { Bell, ChevronDown, ExternalLink, Languages, LayoutDashboard, LogOut, Menu, MessageCircle, RefreshCw, Repeat, Search, X } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { activityWhen, useActivityFeed } from "../data/activityFeed";
+import { bookingPath } from "../domain/booking";
 import { MODULE_ICONS, NAV_GROUPS } from "../domain/constants";
 import { avatarInitials } from "../domain/visual";
 import type { Company } from "../domain/types";
@@ -22,6 +23,20 @@ const LAST_SEEN_KEY = "fialho_activity_seen_at";
 // "navGroup.<name>").
 const groupKey = (name: string) => `navGroup.${name}` as MessageKey;
 const firstSegment = (path: string) => path.replace(/^\//, "").split("/")[0];
+
+// "Booking page" isn't a CRM screen: it's the company's public page, always
+// on, so the menu item opens it in a new tab.
+const EXTERNAL_ITEM = "booking-page";
+function NavLabel({ id }: { id: string }) {
+  const { t } = useT();
+  const Icon = MODULE_ICONS[id];
+  return (
+    <>
+      {Icon && <Icon aria-hidden="true" />}{t(navKey(id))}
+      {id === EXTERNAL_ITEM && <><ExternalLink className="nav-ext" aria-hidden="true" /><span className="sr-only"> ({t("nav.opensNewTab")})</span></>}
+    </>
+  );
+}
 
 // Closes on outside pointer-down and on Escape (returning focus to the
 // trigger), and on any route change.
@@ -86,6 +101,11 @@ export default function TopNav({ company, canSee, userName, searchText, onSearch
     };
   }, [sheetOpen]);
 
+  const open = (id: string) => {
+    if (id === EXTERNAL_ITEM) window.open(bookingPath(company.id), "_blank", "noopener");
+    else navigate(`/${id}`);
+  };
+
   const groups = NAV_GROUPS
     .map(([name, ids]) => [name, ids.filter(id => id !== "dashboard" && canSee(id))] as const)
     .filter(([, ids]) => ids.length > 0);
@@ -103,7 +123,7 @@ export default function TopNav({ company, canSee, userName, searchText, onSearch
             <LayoutDashboard aria-hidden="true" />{t("nav.dashboard")}
           </button>
           {groups.map(([name, ids]) => (
-            <NavGroup key={name} name={name} ids={ids} current={current} onPick={id => navigate(`/${id}`)} />
+            <NavGroup key={name} name={name} ids={ids} current={current} onPick={open} />
           ))}
         </div>
 
@@ -131,14 +151,11 @@ export default function TopNav({ company, canSee, userName, searchText, onSearch
             {groups.map(([name, ids]) => (
               <div key={name} className="nav-sheet-group">
                 <span className="nav-sheet-label">{t(groupKey(name))}</span>
-                {ids.map(id => {
-                  const Icon = MODULE_ICONS[id];
-                  return (
-                    <button key={id} className={`nav-sheet-item${current === id ? " active" : ""}`} aria-current={current === id ? "page" : undefined} onClick={() => navigate(`/${id}`)}>
-                      {Icon && <Icon aria-hidden="true" />}{t(navKey(id))}
-                    </button>
-                  );
-                })}
+                {ids.map(id => (
+                  <button key={id} className={`nav-sheet-item${current === id ? " active" : ""}`} aria-current={current === id ? "page" : undefined} onClick={() => { setSheetOpen(false); open(id); }}>
+                    <NavLabel id={id} />
+                  </button>
+                ))}
               </div>
             ))}
           </div>
@@ -167,14 +184,11 @@ function NavGroup({ name, ids, current, onPick }: { name: string; ids: string[];
       {open && (
         <div className="popover nav-popover">
           <span className="popover-label">{t(groupKey(name))}</span>
-          {ids.map(id => {
-            const Icon = MODULE_ICONS[id];
-            return (
-              <button key={id} className={`popover-item${current === id ? " active" : ""}`} aria-current={current === id ? "page" : undefined} onClick={() => onPick(id)}>
-                {Icon && <Icon aria-hidden="true" />}{t(navKey(id))}
-              </button>
-            );
-          })}
+          {ids.map(id => (
+            <button key={id} className={`popover-item${current === id ? " active" : ""}`} aria-current={current === id ? "page" : undefined} onClick={() => { setOpen(false); onPick(id); }}>
+              <NavLabel id={id} />
+            </button>
+          ))}
         </div>
       )}
     </div>

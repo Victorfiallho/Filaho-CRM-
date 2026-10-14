@@ -452,62 +452,7 @@ export interface MapRecord {
 }
 
 // ── Public booking page + marketing consent (migration 2026-10-13_11) ────
-export interface BookingService {
-  id: string;
-  name: string;
-  description: string;
-  from_price: number | null;
-  detail_label?: string;
-  position: number;
-  active: boolean;
-}
-
-export interface BookingFaq {
-  question: string;
-  answer: string;
-}
-
-export interface BookingReview {
-  author: string;
-  text: string;
-  source: string;
-}
-
-export interface BookingPage {
-  company_id: string;
-  slug: string;
-  active: boolean;
-  business_name: string;
-  hero_title: string;
-  hero_subtitle: string;
-  primary_color: string;
-  logo_url: string;
-  phone: string;
-  email: string;
-  address_line: string;
-  address_city: string;
-  address_state: string;
-  address_zip: string;
-  service_cities: string[];
-  zip_prefixes: string[];
-  services: BookingService[];
-  faq: BookingFaq[];
-  reviews: BookingReview[];
-  seo_title: string;
-  seo_description: string;
-  updated_at: string;
-}
-
 export type ConsentTextKind = "sms" | "email" | "transactional";
-
-export interface ConsentTextVersion {
-  company_id: string;
-  kind: ConsentTextKind;
-  version: number;
-  template: string;
-  created_by: string | null;
-  created_at: string;
-}
 
 export type ConsentChannel = "sms" | "email";
 

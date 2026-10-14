@@ -20,7 +20,7 @@ import { verifyUnsubscribeToken } from "./_lib/unsubscribeToken.js";
 const HEADERS = {
   "cache-control": "no-store",
   "x-robots-tag": "noindex",
-  "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
+  "content-security-policy": "default-src 'none'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
 };
 
 export default async function handler(req, res) {

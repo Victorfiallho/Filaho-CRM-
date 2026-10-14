@@ -27,7 +27,6 @@ import { listProfitReleases, listProfitReleasesByCompany } from "./profitRelease
 import { listRefundsByJob } from "./refunds";
 import { listTransactionsByCompany, listTransactionsByJob } from "./transactions";
 import { listVendors } from "./vendors";
-import { getBookingPage, listConsentTextVersions } from "./bookingPages";
 import { getConsentStatuses, listBookingRequests, listConsentRecords } from "./consent";
 
 export function useCustomers(companyId: string | null) {
@@ -122,22 +121,6 @@ export function useFiles(companyId: string | null, entityType: string, entityId:
     queryKey: ["files", companyId, entityType, entityId],
     queryFn: () => listFiles(companyId!, entityType, entityId!),
     enabled: Boolean(companyId && entityId)
-  });
-}
-
-export function useBookingPage(companyId: string | null) {
-  return useQuery({
-    queryKey: ["booking_page", companyId],
-    queryFn: () => getBookingPage(companyId!),
-    enabled: Boolean(companyId)
-  });
-}
-
-export function useConsentTextVersions(companyId: string | null) {
-  return useQuery({
-    queryKey: ["consent_text_versions", companyId],
-    queryFn: () => listConsentTextVersions(companyId!),
-    enabled: Boolean(companyId)
   });
 }
 

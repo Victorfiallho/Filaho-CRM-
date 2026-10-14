@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { parseBookingForm, zipAccepted } from "./bookingForm.js";
-import { esc, linkifyConsent, renderBookingPage, renderPrivacyPage, renderSmsTermsPage, textOn } from "./bookingHtml.js";
+import { parseBookingForm, serviceId, servicesFromCrm } from "./bookingForm.js";
+import { esc, formScriptBody, headScriptBody, linkifyConsent, renderBookingPage, renderPrivacyPage, renderSmsTermsPage, serviceIcon, textOn } from "./bookingHtml.js";
 import { createUnsubscribeToken, verifyUnsubscribeToken } from "./unsubscribeToken.js";
 
 const NOW = new Date("2026-10-13T16:00:00Z"); // noon in Atlanta
@@ -48,7 +48,7 @@ function form(fields) {
 
 const valid = {
   first_name: "Jane", last_name: "Doe", phone: "(404) 555-0123", email: "Jane@Example.com",
-  address: "10 Oak St", city: "Marietta", zip: "30062"
+  address: "10 Oak St", city: "Marietta", zip: "30062", services: ["rug"]
 };
 
 describe("parseBookingForm", () => {
@@ -57,7 +57,7 @@ describe("parseBookingForm", () => {
     expect(r.ok).toBe(true);
     expect(r.booking).toMatchObject({
       name: "Jane Doe", phone_e164: "+14045550123", email: "jane@example.com", state: "GA", zip: "30062",
-      sms_consent: false, email_consent: false, services: []
+      sms_consent: false, email_consent: false, services: ["Rug cleaning"]
     });
   });
 
@@ -69,13 +69,19 @@ describe("parseBookingForm", () => {
   it("reports every missing required field", () => {
     const r = parseBookingForm(form({}), page, NOW);
     expect(r.ok).toBe(false);
-    expect(Object.keys(r.errors).sort()).toEqual(["address", "city", "email", "first_name", "last_name", "phone", "zip"]);
+    expect(Object.keys(r.errors).sort()).toEqual(["address", "city", "email", "first_name", "last_name", "phone", "services", "zip"]);
   });
 
-  it("refuses ZIPs outside the accepted prefixes with the exact message", () => {
-    const r = parseBookingForm(form({ ...valid, zip: "90210" }), page, NOW);
-    expect(r.errors.zip).toBe("We don't serve this area yet");
+  it("accepts any valid US ZIP (no service-area filter) and rejects malformed ones", () => {
+    expect(parseBookingForm(form({ ...valid, zip: "90210" }), page, NOW).ok).toBe(true);
+    const r = parseBookingForm(form({ ...valid, zip: "9021" }), page, NOW);
+    expect(r.errors.zip).toBe("Please enter a 5-digit ZIP code.");
     expect(r.values.first_name).toBe("Jane"); // typed values survive
+  });
+
+  it("requires a service when the company has any", () => {
+    expect(parseBookingForm(form({ ...valid, services: [] }), page, NOW).errors.services).toMatch(/at least one/);
+    expect(parseBookingForm(form({ ...valid, services: [] }), { ...page, services: [] }, NOW).ok).toBe(true);
   });
 
   it("rejects past dates and accepts today", () => {
@@ -99,10 +105,23 @@ describe("parseBookingForm", () => {
     expect(r.booking.heard_from).toBe("");
   });
 
-  it("matches ZIP prefixes", () => {
-    expect(zipAccepted("30062", ["300"])).toBe(true);
-    expect(zipAccepted("31062", ["300", "3007"])).toBe(false);
-    expect(zipAccepted("30062", [])).toBe(false);
+});
+
+describe("CRM services", () => {
+  it("become the page's services, with stable ids and no duplicates", () => {
+    expect(servicesFromCrm([{ service: "Move-in/Move-out", position: 2 }, { service: " Deep Cleaning ", position: 0 }, { service: "" }, { service: "deep cleaning", position: 3 }]))
+      .toEqual([
+        { id: "move-in-move-out", name: "Move-in/Move-out", position: 2, active: true },
+        { id: "deep-cleaning", name: "Deep Cleaning", position: 0, active: true }
+      ]);
+    expect(serviceId("Kitchen Cabinets")).toBe("kitchen-cabinets");
+  });
+
+  it("get an icon from their name, with a default", () => {
+    expect(serviceIcon("Kitchen Cabinets")).toBe("cabinet");
+    expect(serviceIcon("Bathroom Vanities")).toBe("drop");
+    expect(serviceIcon("Recurring Cleaning")).toBe("repeat");
+    expect(serviceIcon("Something new")).toBe("sparkles");
   });
 });
 
@@ -132,35 +151,52 @@ describe("renderBookingPage", () => {
     expect(html).toContain("1 Main St, Marietta, GA 30060");
   });
 
-  it("hides the reviews section when no real reviews are configured", () => {
-    expect(html).not.toContain("What customers say");
-    const withReview = renderBookingPage({ page: { ...page, reviews: [{ author: "Ana", text: "Great job" }] }, base: "https://x/book/p", texts, today: "2026-10-13" });
-    expect(withReview).toContain("What customers say");
+  it("is one form with the four steps, so it still works without JavaScript", () => {
+    expect(html.match(/<form /g)).toHaveLength(1);
+    expect(html).toContain('action="https://crm.test/book/peach-fresh"');
+    expect(html.match(/<fieldset class="step"/g)).toHaveLength(4);
+    expect(html).toContain('<html lang="en" class="no-js">');
+    expect(html).toMatch(/name="preferred_date" type="date"/);
   });
 
-  it("never prints a price that isn't configured", () => {
-    expect(html).not.toMatch(/Starting at/);
-    const priced = renderBookingPage({ page: { ...page, services: [{ id: "a", name: "A", from_price: 99, active: true }] }, base: "https://x/book/p", texts, today: "2026-10-13" });
-    expect(priced).toContain("Starting at $99");
+  it("shows a tile per active service and builds the headline from the company", () => {
+    expect(html.match(/<label class="tile"/g)).toHaveLength(2);
+    expect(html).not.toContain("Retired service");
+    expect(html).toContain("Book <em>Peach Fresh</em> in a minute.");
+    expect(html).toContain("Carpet cleaning and Rug cleaning.");
+  });
+
+  it("inlines exactly the two scripts the CSP hashes", () => {
+    expect(html).toContain(`<script>${headScriptBody()}</script>`);
+    expect(html).toContain(`<script>${formScriptBody()}</script>`);
+    expect(formScriptBody()).not.toMatch(/supabase|service_role/i);
+  });
+
+  it("leaves out contact details the company hasn't given yet", () => {
+    const bare = renderBookingPage({ page: { ...page, phone: "", email: "", address_line: "", address_city: "", address_state: "", address_zip: "" }, base: "https://x/book/p", texts, today: "2026-10-13" });
+    expect(bare).not.toContain("tel:");
+    expect(bare).not.toContain("<address");
+    expect(bare).toContain("Book now");
   });
 
   it("escapes admin-entered content", () => {
-    const evil = renderBookingPage({ page: { ...page, hero_title: '<img src=x onerror="alert(1)">', business_name: "A</script><script>x()</script>" }, base: "https://x/book/p", texts, today: "2026-10-13" });
+    const evil = renderBookingPage({ page: { ...page, services: [{ id: "x", name: '<img src=x onerror="alert(1)">', active: true }], business_name: "A</script><script>x()</script>" }, base: "https://x/book/p", texts, today: "2026-10-13" });
     expect(evil).not.toContain("<img src=x");
     expect(evil).not.toContain("</script><script>x()");
   });
 
   it("re-renders errors with the typed values and the phone as an alternative", () => {
-    const again = renderBookingPage({ page, base: "https://x/book/p", texts, today: "2026-10-13", values: { first_name: "Jane", sms_consent: true }, errors: { zip: "We don't serve this area yet" } });
+    const again = renderBookingPage({ page, base: "https://x/book/p", texts, today: "2026-10-13", values: { first_name: "Jane", sms_consent: true }, errors: { zip: "Please enter a 5-digit ZIP code." } });
     expect(again).toContain('value="Jane"');
-    expect(again).toContain("We don&#39;t serve this area yet");
+    expect(again).toContain("Please enter a 5-digit ZIP code.");
+    expect(again).toMatch(/id="f_zip"[^>]*aria-invalid="true"/);
     expect(again).toMatch(/id="sms_consent"[^>]*checked/);
     expect(again).toContain('href="tel:4045550100"');
   });
 
   it("shows the confirmation with the first name instead of the form", () => {
     const done = renderBookingPage({ page, base: "https://x/book/p", texts, today: "2026-10-13", booked: "Jane" });
-    expect(done).toContain("Thanks, Jane!");
+    expect(done).toContain("You're all set, Jane!");
     expect(done).not.toContain("<form");
   });
 });

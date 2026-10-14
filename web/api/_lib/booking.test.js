@@ -170,6 +170,8 @@ describe("renderBookingPage", () => {
     expect(html).toContain(`<script>${headScriptBody()}</script>`);
     expect(html).toContain(`<script>${formScriptBody()}</script>`);
     expect(formScriptBody()).not.toMatch(/supabase|service_role/i);
+    // the HTML parser drops CRs before hashing, so a CR here breaks the CSP hash
+    expect(formScriptBody()).not.toContain("\r");
   });
 
   it("leaves out contact details the company hasn't given yet", () => {

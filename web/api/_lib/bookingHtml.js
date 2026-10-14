@@ -798,8 +798,11 @@ function bookingClient() {
   if (location.hash === "#book") scrollToForm();
 }
 
+// Browsers hash an inline script after the HTML parser turns CRLF into LF,
+// so the source (CRLF when checked out on Windows) is normalized first or
+// the CSP hash in book.js never matches.
 export function formScriptBody() {
-  return `(${bookingClient.toString()})();`;
+  return `(${bookingClient.toString().replace(/\r\n?/g, "\n")})();`;
 }
 
 /**

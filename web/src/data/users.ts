@@ -1,23 +1,16 @@
 import type { AppUser } from "../domain/types";
 import { supabase } from "../lib/supabaseClient";
 
-// The `users` app-profile table (separate from Supabase Auth — see
-// schema.sql) also carries a unique email and a permissions array, so it's
-// not the "non-sensitive" lookup an earlier version of this comment claimed
-// (a 2026-08-26 security audit found the table had no RLS at all, in part
-// because of that mischaracterization — see schema.sql's users_select
-// policy). This function only selects id/name for "who wrote this note",
-// but that's a UI-code choice, not something enforced by the database.
+// `users` holds emails and permissions too; RLS limits it, and this only
+// selects id and name (for note authors).
 export async function listUsers(): Promise<AppUser[]> {
   const { data, error } = await supabase.from("users").select("id, name, auth_user_id");
   if (error) throw error;
   return (data || []) as AppUser[];
 }
 
-// Resolves the signed-in Supabase Auth user to their `users` app-profile
-// row, so a new note can be stamped with a real user_id. Returns null
-// (rather than throwing) if the auth user has no linked profile row yet —
-// the note still gets created, just without an attributed author.
+// The signed-in user's `users` row, to stamp notes with an author. Null when
+// the auth user has no profile yet; the note is then saved without one.
 export async function getCurrentAppUser(): Promise<AppUser | null> {
   const { data: authData, error: authError } = await supabase.auth.getUser();
   if (authError || !authData.user) return null;

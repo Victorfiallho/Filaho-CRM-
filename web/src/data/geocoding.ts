@@ -1,12 +1,8 @@
-// Same 25-record cap per click, same "table = kind" dispatch to whichever
-// entity the map pin represents. Swapped from Nominatim (OpenStreetMap) to
-// Google's Geocoding REST API at the user's request — needs an API key
-// (integration_settings.google_maps.api_key) but no more 1 req/sec throttle,
-// so callers pass the key straight through instead of the app rate-limiting
-// itself. findCachedCoordinate() still reuses a coordinate already saved on
-// another record at the same address, and RecordModal still auto-geocodes
-// one address at a time on save, both worth keeping since they cut billed
-// API calls regardless of provider.
+// Address to coordinates with Google's Geocoding API (needs
+// integration_settings.google_maps.api_key). Bulk geocoding is capped at 25
+// records per click. Two caches cut billed calls: findCachedCoordinate()
+// reuses coordinates already saved on another record at the same address,
+// and a browser cache remembers every lookup.
 import { normAddress, normZip } from "../domain/format";
 import type { MapKind } from "../domain/types";
 import { supabase } from "../lib/supabaseClient";
@@ -20,26 +16,16 @@ export async function updateRecordLatLng(kind: MapKind, id: string, companyId: s
   return updateCustomer(id, companyId, { lat, lng });
 }
 
-// Frontend-side cache, keyed by the normalized full-address string, on top of
-// findCachedCoordinate()'s DB lookup below. Catches two things the DB check
-// can't: repeat lookups for an address that hasn't been saved to a record
-// yet (e.g. the same not-quite-matching address turning up twice in one
-// bulk import), and — since it's checked first — skips even the DB
-// round-trip on a hit. Persisted to localStorage so it survives a reload,
-// with an in-memory Map on top so repeated lookups in the same tick don't
-// re-parse JSON every time. A `null` entry (looked up, no match found) is
-// cached too, so a bad address doesn't get retried against Google forever
-// within the session (and doesn't burn another billed call).
+// Browser cache keyed by the normalized address, checked before the DB.
+// Catches repeats of addresses not saved on any record yet, and remembers
+// "no match" (null) so a bad address isn't retried. Kept in localStorage
+// with an in-memory Map on top.
 const GEOCODE_CACHE_KEY = "fialho_geocode_cache";
 type CachedCoord = { lat: number; lng: number } | null;
 let geocodeCache: Map<string, CachedCoord> | null = null;
 
-// `companyId` is folded into the key (2026-08-26 security fix) so this
-// browser-wide localStorage cache can't serve one company's resolved
-// coordinates for a same-address lookup under a different company on a
-// shared browser, and so a fully unauthenticated viewer (e.g. at the login
-// screen) reading the raw cache can't learn anything at all without also
-// already knowing an internal company_id.
+// Keyed by company too, so a shared browser never serves one company's
+// coordinates to another.
 function normalizeAddressKey(companyId: string, ...parts: (string | undefined)[]): string {
   return [companyId, ...parts.filter(Boolean)].join(",").toLowerCase().replace(/\s+/g, " ").trim();
 }
@@ -61,8 +47,7 @@ function rememberGeocodeResult(key: string, value: CachedCoord) {
   try {
     localStorage.setItem(GEOCODE_CACHE_KEY, JSON.stringify(Object.fromEntries(cache)));
   } catch {
-    // localStorage full/unavailable (private browsing, quota) — the
-    // in-memory Map still serves cache hits for the rest of this session.
+    // localStorage full or unavailable: the in-memory Map still serves this session.
   }
 }
 
@@ -85,11 +70,9 @@ async function googleGeocode(query: string, apiKey: string): Promise<{ lat: stri
   return { lat: String(loc.lat), lon: String(loc.lng) };
 }
 
-// Looks for an already-geocoded row (any of the 3 tables) at the same
-// address in this company, so a second job/lead at a repeat client's address
-// doesn't cost another Google Geocoding call. Narrowed server-side by
-// company_id + exact ZIP match first (cheap), then confirmed client-side by
-// normalized address, since raw address text can differ in casing/punctuation.
+// An already-geocoded record (any of the 3 tables) at the same address in
+// this company, so a repeat client's address costs no Google call. Narrowed
+// by company and ZIP in the query, then matched by normalized address.
 export async function findCachedCoordinate(
   companyId: string,
   address: string,
@@ -117,11 +100,8 @@ export async function findCachedCoordinate(
   return null;
 }
 
-// Single-address geocode used for auto-geocoding a record right when it's
-// saved (RecordModal), as opposed to geocodeRecords()'s bulk "catch up on
-// everything visible" pass from the Map & Routes page. `apiKey` comes from
-// integration_settings.google_maps.api_key — callers should skip calling this
-// at all when it's blank rather than let it fail.
+// Geocodes one address when a record is saved. Callers skip it when there's
+// no API key.
 export async function geocodeAddress(
   companyId: string,
   address: string,
@@ -173,9 +153,7 @@ export async function geocodeRecords(
       const localHit = loadGeocodeCache().get(cacheKey);
       let loc: { lat: number; lng: number } | null;
       if (localHit !== undefined) {
-        // Local cache already has an answer (coordinates, or a remembered
-        // "no match") for this exact address — skip the DB check and any
-        // network call entirely.
+        // The browser cache already knows this address (or that it has no match).
         loc = localHit;
       } else {
         loc = await findCachedCoordinate(companyId, record.address || "", record.zip || "");

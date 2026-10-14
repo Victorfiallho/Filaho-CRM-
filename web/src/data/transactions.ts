@@ -15,9 +15,8 @@ export async function listTransactionsByCompany(companyId: string): Promise<Tran
   return (data || []) as Transaction[];
 }
 
-// created_by/approved_by are intentionally not accepted here — created_by
-// defaults to auth.uid() at the DB level, approved_by is only ever set by
-// confirmTransaction() below.
+// created_by defaults to auth.uid(); approved_by is set only by
+// confirmTransaction().
 export async function insertTransaction(row: Omit<Transaction, "id" | "status" | "created_by" | "approved_by" | "created_at" | "updated_at" | "reversal_of"> & { id?: string }): Promise<Transaction> {
   const record = {
     id: row.id || uid("txn"),
@@ -51,9 +50,8 @@ export async function confirmTransaction(id: string, companyId: string, approved
   return data as Transaction;
 }
 
-// A confirmed transaction is never edited or deleted (DB trigger blocks it)
-// — correcting one means posting a new, opposite-purpose entry that
-// references it, keeping the original in the audit trail per spec section 6.
+// Confirmed transactions are never edited or deleted (a DB trigger blocks
+// it). A correction is a new opposite entry pointing at the original.
 export async function reverseTransaction(original: Transaction, reason: string): Promise<Transaction> {
   const record = {
     id: uid("txn"),

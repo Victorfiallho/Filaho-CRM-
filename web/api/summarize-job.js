@@ -1,23 +1,8 @@
-// Vercel serverless function (web/api/* is Vercel's zero-config function
-// folder for this project's Root Directory) — backs RecordModal's "AI
-// Summary" button on a job's detail view. Reads that job's notes and asks
-// an LLM for an English "current state + recommended next step" summary,
-// matching the rest of the app's language.
+// "AI summary" on a job: reads its notes and asks Groq (gpt-oss-20b) for
+// the current state and a next step.
 //
-// Runs on Groq (free tier, OpenAI-compatible chat completions API) —
-// switched from Gemini after Google AI Studio started issuing "AQ."-prefixed
-// keys that 401 with ACCESS_TOKEN_TYPE_UNSUPPORTED on generativelanguage.
-// googleapis.com (a known, unresolved Google-side bug as of 2026-08-31, not
-// something fixable in this codebase). Model: openai/gpt-oss-20b — Groq's
-// fastest model with the highest free-tier rate limits.
-//
-// Same auth shape as web/api/send-notification.js: requires a valid Supabase
-// session, then — instead of that endpoint's "known contact" check — verifies
-// the job itself belongs to a company the caller is a member of before
-// touching any of its notes. Without this check, any authenticated user of
-// ANY company could pass an arbitrary job_id and read another tenant's
-// customer notes through this endpoint, bypassing RLS (which the
-// service_role client below doesn't enforce on its own).
+// The job must belong to one of the caller's companies before any note is
+// read. The service_role client bypasses RLS, so this check is the guard.
 import { createClient } from "@supabase/supabase-js";
 
 const GROQ_MODEL = "openai/gpt-oss-20b";
@@ -36,7 +21,7 @@ async function callGroq(prompt) {
           role: "system",
           content:
             'You are a CRM assistant for a home improvement company. Respond STRICTLY in valid JSON, ' +
-            'in the format {"summary": "...", "next_step": "..."} — nothing but the JSON, no markdown.'
+            'in the format {"summary": "...", "next_step": "..."}. Nothing but the JSON, no markdown.'
         },
         { role: "user", content: prompt }
       ]

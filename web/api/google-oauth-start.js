@@ -1,30 +1,15 @@
-// Vercel serverless function — issues the Google Calendar OAuth authorize URL
-// with a signed, short-lived `state` (added 2026-08-26 security fix). Before
-// this existed, Integrations.tsx built the authorize URL itself client-side
-// with `state` set to the plain, unsigned company_id — which meant
-// web/api/google-oauth-callback.js had no way to tell a legitimate request
-// apart from an attacker who crafted their own `state=<victim_company_id>`
-// and completed consent with their own Google account. This endpoint moves
-// URL construction server-side, where it can actually verify the caller is
-// signed in and a real member of the target company before minting a state
-// value the callback can trust.
+// Builds the Google OAuth URL with a signed, short-lived `state`, after
+// checking that the caller is signed in and a member of the company. The
+// callback accepts nothing else.
 //
-// Needs SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY (same as google-oauth-
-// callback.js) plus OAUTH_STATE_SECRET (new — any long random string, used
-// only to HMAC-sign `state`; never shipped to the client).
+// Env (server only): SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY,
+// OAUTH_STATE_SECRET (any long random string).
 import { createClient } from "@supabase/supabase-js";
 import { createHmac, randomBytes } from "crypto";
 
-// drive.file added 2026-09-17 (Project Costing Phase 3) — lets the same
-// background token create/manage the Fialho CRM folder tree (drive-
-// provision.js) and upload generated documents (drive-upload.js). Scoped to
-// files/folders this app itself creates, per Victor's choice — NOT the
-// broader "drive" scope, so it can never see a company's other Drive
-// content, and cannot detect a file a human drops directly into a folder
-// without going through the app (no bidirectional sync from that path).
-// Companies that connected Google before this change only granted the old
-// calendar-only scope and must click "Reconnect" once in Integrations to
-// pick up Drive access — Google only grants what's requested at connect time.
+// drive.file reaches only files this app creates (the CRM folder tree and
+// its uploads), never the rest of the company's Drive. Companies connected
+// before it was added must reconnect once to grant it.
 const STATE_SCOPE = "https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/drive.file";
 
 function signState(payload, secret) {

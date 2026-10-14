@@ -1,29 +1,22 @@
-// Vercel serverless function — the public booking page, no login.
+// The public booking page, no login. vercel.json rewrites:
 //
-//   GET  /book/<slug>             page (vercel.json rewrites to ?slug=<slug>)
-//   GET  /book/<slug>/privacy     privacy policy   (&page=privacy)
-//   GET  /book/<slug>/sms-terms   SMS terms        (&page=sms-terms)
-//   POST /book/<slug>             form submit → 303 back to ?booked=<first name>
+//   GET  /book/<slug>            the page
+//   GET  /book/<slug>/privacy    privacy policy
+//   GET  /book/<slug>/sms-terms  SMS terms
+//   POST /book/<slug>            submit, then 303 to ?booked=<first name>
 //
-// Every company has a page (migration 12 creates one per company) and it's
-// always on. Nothing is configured per page: the name, color and logo come
-// from the company, the services from its CRM services (company_services).
+// Every company has a page (migration 12), built from the company and its
+// CRM services. Rendered server-side (_lib/bookingHtml.js): fast, indexable,
+// works without JavaScript, and never ships a key. Uses the service_role key
+// because anon can't read the booking and consent tables.
 //
-// Server-rendered HTML (api/_lib/bookingHtml.js), so it's indexable, fast on
-// a phone, works with JavaScript off, and never ships the CRM bundle or any
-// key to the visitor. Uses the service_role key server-side only: anon has
-// no RLS policy on any booking/consent table.
+// submit_booking() writes everything in one transaction: the client (new, or
+// matched by phone/email), one deal per service, the booking request, both
+// consent records (granted or not) and the activity feed entry. IP, user
+// agent and timestamps come from the server, never from the form.
 //
-// What a submit writes, all inside submit_booking() (one transaction):
-// client (new, or the existing one with the same phone/email), a new lead in
-// the "new" stage, the booking_request, two consent_records (sms + email,
-// granted true OR false — always both), and an audit_log row for the
-// Dashboard feed. IP, user agent and timestamps are taken here/in Postgres,
-// never from the form.
-//
-// Abuse: a honeypot field (bots that fill it get a fake success) and a
-// per-IP limit of RATE_LIMIT bookings per RATE_WINDOW_MS, counted from
-// booking_requests itself so it needs no extra store.
+// Abuse: a honeypot field (bots get a fake success) and RATE_LIMIT bookings
+// per IP per RATE_WINDOW_MS, counted from booking_requests.
 import { createHash } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import { HONEYPOT_FIELD, UTM_FIELDS, parseBookingForm, servicesFromCrm } from "./_lib/bookingForm.js";
@@ -151,9 +144,8 @@ export default async function handler(req, res) {
       return render(res, 422, { page, base, texts, extra: { values: parsed.values, errors: parsed.errors, utm } });
     }
 
-    // Record the exact wording the visitor saw: the versions the form was
-    // rendered with (hidden fields), falling back to the latest if those
-    // don't exist (stale/tampered form) — never a mix.
+    // Record the exact wording the visitor saw: the versions in the form's
+    // hidden fields, or the latest if those don't exist. Never a mix.
     const shownVersion = async kind => {
       const v = await loadConsentTextVersion(supabase, page.company_id, kind, Number(form.get(`${kind}_text_version`)));
       return v ? { version: v.version, text: renderTexts({ [kind]: v }, page.business_name)[kind].text } : texts[kind];

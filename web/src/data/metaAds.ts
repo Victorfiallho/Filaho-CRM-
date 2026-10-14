@@ -14,9 +14,8 @@ export interface MetaAdInsight {
   synced_at: string;
 }
 
-// Read-only — rows are written exclusively by scripts/sync-meta-ads.mjs
-// (service_role, GitHub Actions cron), never by the app. Last 30 days is
-// enough for the Reports "Ad performance" summary this backs.
+// Read-only: scripts/sync-meta-ads.mjs writes these rows. The last 30 days
+// is what the Reports ad summary needs.
 export async function listMetaAdsInsights(companyId: string): Promise<MetaAdInsight[]> {
   const since = new Date();
   since.setDate(since.getDate() - 30);

@@ -1,6 +1,5 @@
-// Ported verbatim from app.js (upsertClientFromLead). "Creating or editing a lead
-// should create/update the matching Client automatically" (schema.md Sprint 1
-// rule) — same preferredClientId -> dedupe -> create fallback order as before.
+// Finds or creates the client for a deal: the client picked by id first,
+// then a duplicate match (phone, email, address, name + ZIP), else a new one.
 import { findDuplicate, mergeClientData } from "../domain/dedupe";
 import { cleanCustomer } from "../domain/records";
 import { now, uid } from "../domain/format";

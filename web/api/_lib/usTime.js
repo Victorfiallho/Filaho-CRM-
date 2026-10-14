@@ -1,11 +1,9 @@
-// US ZIP → state → time zone, for the SMS quiet-hours check in consent.js.
-// Files under api/_lib are imported by the functions next to them; Vercel
-// doesn't turn underscore-prefixed paths into routes.
+// US ZIP > state > time zone, for the SMS quiet-hours check in consent.js.
+// (Vercel doesn't turn underscore-prefixed folders like api/_lib into routes.)
 //
-// ZIP3 ranges are the USPS prefix allocations (first three digits). For a
-// state that spans two zones (FL panhandle, west TN, west TX, ...) the state
-// maps to every zone it touches, and the SMS window must hold in all of them
-// — sending at 8:30am Eastern is 7:30am in Pensacola.
+// ZIP3 ranges are the USPS prefix allocations. A state that spans two zones
+// (FL panhandle, west TN, west TX...) maps to every zone it touches, and the
+// SMS window must hold in all of them: 8:30am Eastern is 7:30am in Pensacola.
 
 const ZIP3_RANGES = [
   [5, 5, "NY"], [6, 9, "PR"], [10, 27, "MA"], [28, 29, "RI"], [30, 38, "NH"], [39, 49, "ME"],
@@ -68,7 +66,7 @@ export function localHour(date, timeZone) {
   return hour + minute / 60;
 }
 
-// [start, end) in local hours — 8 to 21 means 8:00am up to, not including, 9:00pm.
+// [start, end) in local hours: 8 to 21 means 8:00am up to, not including, 9:00pm.
 export const SMS_WINDOW = { start: 8, end: 21 };
 
 export function isWithinSmsWindow(contact, now = new Date(), window = SMS_WINDOW) {
@@ -78,7 +76,7 @@ export function isWithinSmsWindow(contact, now = new Date(), window = SMS_WINDOW
   });
 }
 
-// YYYY-MM-DD "today" in a zone — the booking form's min date.
+// YYYY-MM-DD "today" in a zone (the booking form's min date).
 export function todayIn(timeZone = DEFAULT_TIME_ZONE, now = new Date()) {
   return new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
 }

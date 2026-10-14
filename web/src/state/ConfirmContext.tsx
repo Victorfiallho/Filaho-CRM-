@@ -3,13 +3,12 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState, ty
 import { createPortal } from "react-dom";
 import { useT } from "../i18n/I18nContext";
 
-// In-app replacement for window.confirm/window.prompt. The browser's own
-// dialogs label their buttons in the *browser's* language ("OK / Cancelar"
-// on a pt-BR Chrome even with English selected in the CRM), block the page,
-// and can't be styled. These are promise-based so call sites read the same:
+// In-app confirm/prompt instead of window.confirm/prompt, whose buttons
+// follow the browser's language, block the page and can't be styled.
+// Promise-based, so call sites read the same:
 //
-//   if (!(await confirm({ message: "Delete this lead?", danger: true }))) return;
-//   const reason = await promptText({ title: "Reverse?", label: "Reason" });   // null = cancelled
+//   if (!(await confirm({ message: "Delete this deal?", danger: true }))) return;
+//   const reason = await promptText({ title: "Reverse?", label: "Reason" }); // null = cancelled
 
 interface ConfirmOptions {
   title?: string;

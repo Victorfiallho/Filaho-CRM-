@@ -1,4 +1,3 @@
-// Ported verbatim from app.js (downloadText).
 export function downloadText(filename: string, text: string, type = "text/plain") {
   const blob = new Blob([text], { type });
   const url = URL.createObjectURL(blob);

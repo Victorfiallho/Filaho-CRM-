@@ -1,27 +1,12 @@
-// Vercel serverless function (web/api/* is Vercel's zero-config function
-// folder for this project's Root Directory). Google redirects the browser
-// here after the user grants Calendar access from Integrations.tsx's
-// startCalendarOAuth() (via web/api/google-oauth-start.js, which mints the
-// signed `state` this handler verifies below). Exchanges the auth code for a
-// refresh token — the piece the old sessionStorage-only popup flow
-// (lib/googleOAuth.ts) never got — and stores it so scripts/sync-google-
-// calendar.mjs can mint fresh access on its own later, without anyone having
-// the CRM tab open.
+// Google redirects here after a company grants Calendar/Drive access (the
+// flow starts in google-oauth-start.js). Exchanges the code for a refresh
+// token and stores it, so the background scripts work without the CRM open.
 //
-// SECURITY (2026-08-26 fix): `state` used to be the plain, unsigned
-// company_id, and this handler had no way to tell a legitimate request from
-// an attacker who crafted their own `state=<victim_company_id>` and
-// completed Google consent with their own account — which would silently
-// overwrite the victim company's stored refresh token via the service_role
-// upsert below (a real cross-tenant Calendar-hijack channel, confirmed in a
-// security audit). `state` is now an HMAC-signed, short-lived payload minted
-// only by google-oauth-start.js after verifying the caller's session and
-// company membership; verifyState() below rejects anything else, and
-// membership is re-checked here too as defense in depth against membership
-// changing between issuance and completion.
+// `state` must be the HMAC-signed, short-lived value google-oauth-start.js
+// issued; anything else is rejected, or anyone could attach their own Google
+// account to another company.
 //
-// Needs four env vars set in the Vercel project (not VITE_-prefixed, so they
-// never ship to the client bundle): GOOGLE_CLIENT_SECRET, SUPABASE_URL,
+// Env (server only): GOOGLE_CLIENT_SECRET, SUPABASE_URL,
 // SUPABASE_SERVICE_ROLE_KEY, OAUTH_STATE_SECRET.
 import { createHmac, timingSafeEqual } from "crypto";
 
@@ -81,14 +66,13 @@ export default async function handler(req, res) {
     });
 
   try {
-    // Defense in depth: re-verify the signed state's membership claim is
-    // still true right now, not just at issuance a few minutes ago.
+    // Membership may have changed since the state was issued: check again.
     const stillMember = await supabase(`company_members?user_id=eq.${payload.userId}&company_id=eq.${companyId}&select=user_id`).then(r => r.json());
     if (!stillMember.length) throw new Error("Company membership changed since this connection request was started.");
 
     const settingsRow = await supabase("integration_settings?id=eq.default&select=settings").then(r => r.json());
     const clientId = settingsRow?.[0]?.settings?.google_oauth?.client_id;
-    if (!clientId) throw new Error("No Google OAuth client_id configured yet — import the OAuth JSON in Integrations first.");
+    if (!clientId) throw new Error("No Google OAuth client_id configured yet. Import the OAuth JSON in Integrations first.");
 
     const redirectUri = `${req.headers["x-forwarded-proto"] || "https"}://${req.headers.host}/api/google-oauth-callback`;
 
@@ -119,10 +103,9 @@ export default async function handler(req, res) {
       });
       if (!upsertRes.ok) throw new Error(`Failed to store refresh token: ${upsertRes.status} ${await upsertRes.text()}`);
     } else {
-      // Google only issues a refresh_token on first consent (or a forced
-      // re-consent). startCalendarOAuth() always sends prompt=consent, so
-      // this should be rare — but if it happens and there's nothing stored
-      // yet, surface it instead of silently leaving the company disconnected.
+      // Google returns a refresh token only on first consent. We always send
+      // prompt=consent, but if none comes back and none is stored, say so instead
+      // of leaving the company silently disconnected.
       const existing = await supabase(`google_oauth_tokens?company_id=eq.${companyId}&select=company_id`).then(r => r.json());
       if (!existing.length) {
         throw new Error("Google did not return a refresh token. Revoke access at https://myaccount.google.com/permissions for this app and try connecting again.");

@@ -1,21 +1,21 @@
 // Server-rendered HTML for the public booking page, its two legal pages and
-// the small message pages (unsubscribe, not found). Plain template strings —
-// the page has to be fast on a phone, indexable, and work with JavaScript
-// off, and it must not pull in the CRM bundle (or anything that knows about
-// Supabase keys). Every interpolated value goes through esc().
+// the small message pages (unsubscribe, not found). Plain template strings:
+// the page must be fast on a phone, indexable, work with JavaScript off, and
+// never pull in the CRM bundle or anything that knows a Supabase key. Every
+// interpolated value goes through esc().
 //
-// The booking form is one <form> split into four steps. Without JavaScript
-// all four show stacked and it submits like any form; with it (bookingClient
-// below) it becomes a one-step-at-a-time flow with a calendar, a live
-// summary and per-step checks. The server validates everything either way.
+// The form is one <form> in four steps. Without JavaScript all four show
+// stacked and it submits like any form; with it (bookingClient below) it
+// becomes a step-by-step flow with a calendar, a live summary and per-step
+// checks. The server validates everything either way.
 import { HEARD_FROM_OPTIONS, HONEYPOT_FIELD, PERIODS, UTM_FIELDS, activeServices } from "./bookingForm.js";
 
 export function esc(value) {
   return String(value ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 }
 
-// White or near-black text, whichever contrasts more with the brand color —
-// the color comes from the company record, so it can't be assumed dark.
+// White or near-black text, whichever contrasts more with the brand color.
+// The color comes from the company record, so it may be light.
 export function textOn(hex) {
   const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || ""));
   if (!m) return "#fff";
@@ -31,8 +31,8 @@ const fullAddress = p => [p.address_line, p.address_city, [p.address_state, p.ad
 const jsonLd = obj => JSON.stringify(obj).replace(/</g, "\\u003c");
 const initials = name => String(name || "").split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join("").toUpperCase();
 
-// The SMS consent text mentions "SMS Terms" and "Privacy Policy" — linked on
-// the page, while consent_records.text_shown keeps the plain sentence.
+// The SMS consent text mentions "SMS Terms" and "Privacy Policy". They're
+// linked on the page; consent_records.text_shown keeps the plain sentence.
 export function linkifyConsent(text, base) {
   return esc(text)
     .replace("SMS Terms", `<a href="${esc(base)}/sms-terms" target="_blank" rel="noopener">SMS Terms</a>`)
@@ -73,8 +73,8 @@ function icon(name, cls = "") {
   return `<svg class="ic${cls ? ` ${cls}` : ""}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${d.split(" M").map((seg, i) => `<path d="${i ? "M" : ""}${seg}"/>`).join("")}</svg>`;
 }
 
-// A service's icon, guessed from its name — the services are whatever the
-// company typed in the CRM, so this matches on words, with a default.
+// A service's icon, guessed from its name (services are whatever the
+// company typed in the CRM), with a default.
 const SERVICE_ICON_RULES = [
   [/recurr|weekly|monthly|regular/i, "repeat"],
   [/move|moving/i, "box"],
@@ -798,9 +798,9 @@ function bookingClient() {
   if (location.hash === "#book") scrollToForm();
 }
 
-// Browsers hash an inline script after the HTML parser turns CRLF into LF,
-// so the source (CRLF when checked out on Windows) is normalized first or
-// the CSP hash in book.js never matches.
+// Browsers hash an inline script after the HTML parser turns CRLF into LF.
+// The source is CRLF on a Windows checkout, so normalize it or the CSP hash
+// in book.js never matches.
 export function formScriptBody() {
   return `(${bookingClient.toString().replace(/\r\n?/g, "\n")})();`;
 }

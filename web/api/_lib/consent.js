@@ -1,8 +1,7 @@
-// Marketing-consent rules. Pure functions only (no DB, no clock unless
-// passed in) so consent.test.js can pin every case; consentStore.js does the
-// loading. Every future marketing SMS/email send MUST go through
-// canSendMarketing() — there is deliberately no other "is this ok to send"
-// check anywhere.
+// Marketing-consent rules. Pure functions (no DB; the clock only when passed
+// in) so consent.test.js can pin every case; consentStore.js does the
+// loading. Every marketing SMS/email send must go through canSendMarketing():
+// there is deliberately no other "is this ok to send" check.
 import { isWithinSmsWindow } from "./usTime.js";
 
 // ── normalization (the keys consent_records.value / suppression_list.value use)
@@ -87,7 +86,7 @@ export function canSendMarketing(contact, channel, { consents = [], suppressed =
     return result("ok");
   }
 
-  // Email: CAN-SPAM is opt-out, not opt-in — only the suppression list
+  // Email: CAN-SPAM is opt-out, not opt-in. Only the suppression list
   // (unsubscribes, bounces, complaints) blocks it.
   return result("ok");
 }
@@ -99,7 +98,7 @@ export function canSendMarketing(contact, channel, { consents = [], suppressed =
 // any reasonable means", and lists those words as per-se revocations.
 const STOP_WORDS = ["STOP", "STOPALL", "UNSUBSCRIBE", "CANCEL", "END", "QUIT", "REVOKE", "OPTOUT"];
 // Words that mean opt-out even inside a short sentence ("Stop texting me",
-// "please unsubscribe me"). END/QUIT/CANCEL only count on their own —
+// "please unsubscribe me"). END/QUIT/CANCEL count only on their own:
 // "cancel my appointment" or "see you at the end" aren't revocations.
 const UNAMBIGUOUS_STOP_WORDS = ["STOP", "STOPALL", "UNSUBSCRIBE", "REVOKE", "OPTOUT"];
 const SHORT_REPLY_WORDS = 6;

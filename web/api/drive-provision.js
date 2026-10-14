@@ -1,20 +1,8 @@
-// Vercel serverless function — creates/locates the Google Drive folder tree
-// for a client or a job: "Fialho CRM" (root) -> Company -> Client -> Job ->
-// the 8 project subfolders (spec section 10). Runs server-side against the
-// company's stored Calendar/Drive refresh token (google_oauth_tokens,
-// service_role-only, never exposed to the client — same token
-// sync-google-calendar.mjs already uses) rather than a client-side popup
-// token, so folder creation works reliably from a background trigger
-// (RecordModal calling this right after creating a client/job) without
-// depending on a live Google popup in that tab.
-//
-// "Find or create" by name under the known parent, matched against
-// drive_folders first (fast path, no Drive API call once cached) so this
-// never creates a duplicate folder on a second call for the same entity.
-//
-// Same Bearer-token + company-membership pattern as every other web/api/*.js
-// file. Needs SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, GOOGLE_CLIENT_SECRET
-// (all already set for the Calendar sync feature).
+// Finds or creates the Google Drive folders for a client or a job:
+// "Fialho CRM" > company > client > job > the 8 project subfolders.
+// Uses the company's stored refresh token (google_oauth_tokens, server only),
+// so it works right after a record is created, with no Google popup. Folders
+// already in drive_folders are reused, so repeated calls never duplicate.
 import { createClient } from "@supabase/supabase-js";
 import { randomUUID } from "crypto";
 
@@ -36,7 +24,7 @@ async function getAccessToken(supabase, companyId) {
   }
   const { data: settingsRow } = await supabase.from("integration_settings").select("settings").eq("id", "default").maybeSingle();
   const clientId = settingsRow?.settings?.google_oauth?.client_id;
-  if (!clientId) throw new Error("No Google OAuth client_id configured yet — import the OAuth JSON in Integrations first.");
+  if (!clientId) throw new Error("No Google OAuth client_id configured yet. Import the OAuth JSON in Integrations first.");
 
   const res = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
@@ -75,10 +63,8 @@ async function driveCreateFolder(accessToken, name, parentId) {
   return body;
 }
 
-// Cache-first: a folder already recorded in drive_folders is trusted without
-// re-checking Drive (this app is the only writer of its own folders, given
-// the drive.file scope — nothing else can rename/move them out from under us
-// through this same token). Only misses reach the Drive API.
+// drive_folders is trusted without asking Drive: with the drive.file scope
+// only this app can rename or move its folders.
 async function ensureFolder(supabase, accessToken, companyId, entityType, entityId, subfolderKey, name, parentDriveFolderId) {
   const { data: existing } = await supabase
     .from("drive_folders")

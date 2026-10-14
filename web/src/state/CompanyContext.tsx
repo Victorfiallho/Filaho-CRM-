@@ -44,15 +44,9 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
     enabled: Boolean(activeCompanyId)
   });
 
-  // AuthContext's `session` starts null on every mount (getSession() is
-  // still async, even for a persisted session) and only tells you the user
-  // is really signed out once `authLoading` is false. Keying off `!session`
-  // alone — as this used to — fired on that very first, still-loading
-  // render of *every* page load, wiping the persisted company selection
-  // before the real session ever had a chance to resolve. That's what was
-  // bouncing a hard reload (and, critically, every cold start of the
-  // installed PWA/APK) straight to the company picker regardless of which
-  // page it was trying to open.
+  // `session` is null on the first render of every load, even when signed in;
+  // only `authLoading` false means really signed out. Checking `!session`
+  // alone wiped the saved company on every reload (and every PWA cold start).
   useEffect(() => {
     if (!authLoading && !session) {
       setActiveCompanyId(null);

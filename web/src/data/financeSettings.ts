@@ -2,9 +2,7 @@ import { supabase } from "../lib/supabaseClient";
 import { DEFAULT_CONTINGENCY_PCT, DEFAULT_DEPOSIT_PCT, DEFAULT_MINIMUM_MARGIN_PCT } from "../domain/costing";
 import type { CompanyFinanceSettings } from "../domain/types";
 
-// Row is created lazily on first read (upsert-on-miss) rather than requiring
-// a migration-time seed per company — new companies added later get sane
-// defaults automatically the first time anyone opens the costing module.
+// Created on first read with defaults, so new companies need no seed row.
 export async function getFinanceSettings(companyId: string): Promise<CompanyFinanceSettings> {
   const { data, error } = await supabase.from("company_finance_settings").select("*").eq("company_id", companyId).maybeSingle();
   if (error) throw error;

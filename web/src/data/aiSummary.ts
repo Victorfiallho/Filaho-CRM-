@@ -5,10 +5,8 @@ export interface JobAiSummary {
   next_step: string;
 }
 
-// Calls web/api/summarize-job.js, which reads the job's notes server-side
-// (after checking the caller belongs to the job's company) and asks Groq
-// (free tier) for a PT-BR "current state + recommended next step" — same
-// Bearer-token auth pattern as web/api/send-notification.js.
+// Calls web/api/summarize-job.js, which checks the caller's company, reads
+// the job's notes and asks Groq for the current state and a next step.
 export async function summarizeJob(jobId: string): Promise<JobAiSummary> {
   const { data: sessionData } = await supabase.auth.getSession();
   const token = sessionData.session?.access_token;

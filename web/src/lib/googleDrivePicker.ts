@@ -1,12 +1,7 @@
-// Google Picker — lets a user browse/attach a real Drive file, instead of
-// RecordModal's original "paste a link" free-text field. Needs two different
-// kinds of credential, both already have a home in integration_settings:
-// the Drive OAuth access token (connectGoogleWorkspace(clientId, "drive"),
-// scope drive.file, lib/googleOAuth.ts) to see the user's own files, and a
-// separate Picker API "developer key" (google_drive.picker_api_key) that
-// Google's Picker API requires independent of OAuth — a plain API key with
-// the Google Picker API enabled, not a secret (same trust level as the
-// Supabase anon key already shipped in .env).
+// Google Picker: browse and attach a real Drive file. Needs the Drive OAuth
+// token (connectGoogleWorkspace(clientId, "drive"), scope drive.file) and a
+// Picker API key (google_drive.picker_api_key), which is a public browser
+// key, not a secret.
 declare global {
   interface Window { gapi?: any; google?: any }
 }

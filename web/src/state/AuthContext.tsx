@@ -28,30 +28,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signIn = async (email: string, password: string, remember: boolean) => {
-    // Must be set before signInRequest() so the Supabase client's storage
-    // adapter (dynamicAuthStorage) already knows where to persist the new
-    // session's tokens when signInWithPassword() writes them.
+    // Before signing in, so the storage adapter knows where to keep the new
+    // session.
     setRememberMe(remember);
     const next = await signInRequest(email, password);
     setSession(next);
   };
 
   const signInWithGoogle = async () => {
-    // No "remember me" checkbox in a one-click OAuth redirect — default to
-    // a persistent session (localStorage), same as ticking the box would.
+    // A one-click OAuth sign-in has no "keep me connected" box: keep the
+    // session, as if it were ticked.
     setRememberMe(true);
     await signInWithGoogleRequest();
   };
 
   const signOut = async () => {
     await signOutRequest();
-    // Also revoke locally-held Google Workspace access tokens (Calendar/
-    // Drive/Sheets) — previously only cleared by a manual "Disconnect"
-    // button on Integrations, so they'd outlive a CRM logout on a shared
-    // browser (2026-08-26 security fix).
+    // Also drop the Google Workspace tokens, so they don't outlive the CRM
+    // session on a shared browser.
     clearGoogleSession();
-    // Nothing cached for the previous account survives into the next login
-    // on this browser (another user's clients/leads, or their permissions).
+    // Nothing cached for this account survives into the next login.
     queryClient.clear();
     setSession(null);
   };

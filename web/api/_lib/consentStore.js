@@ -1,10 +1,10 @@
-// DB side of consent.js — loads what canSendMarketing() needs, and the
-// current consent texts for a page. Takes a service_role supabase client.
+// DB side of consent.js: loads what canSendMarketing() needs and a page's
+// current consent texts. Takes a service_role supabase client.
 import { canSendMarketing, contactValue, renderConsentText } from "./consent.js";
 
 export const CONSENT_KINDS = ["sms", "email", "transactional"];
 
-// { sms: {version, template}, email: ..., transactional: ... } — latest of each.
+// Latest version of each kind: { sms: {version, template}, email, transactional }.
 export async function loadLatestConsentTexts(supabase, companyId) {
   const { data, error } = await supabase
     .from("consent_text_versions")
@@ -37,7 +37,7 @@ export function renderTexts(versions, businessName) {
   );
 }
 
-// The one call every future marketing send goes through:
+// The call every marketing send goes through:
 //   const verdict = await checkCanSendMarketing(supabase, customerId, "sms");
 //   if (!verdict.allowed) skip(verdict.reason);
 export async function checkCanSendMarketing(supabase, customerId, channel, now = new Date()) {

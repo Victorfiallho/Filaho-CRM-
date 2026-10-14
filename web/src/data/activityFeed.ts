@@ -1,5 +1,5 @@
-// The "who did what" feed (audit_log → one sentence per row), shared by the
-// Dashboard's Activity card, the TopNav bell and the Audit Log, so all three
+// The "who did what" feed (audit_log, one sentence per row), shared by the
+// Dashboard's Activity card, the TopNav bell and the Audit Log so all three
 // name records, stages and people the same way.
 import { describeActivity, isFinanceActivity, type ActivityContext } from "../domain/activity";
 import { relativeDate } from "../domain/format";
@@ -18,8 +18,8 @@ export interface ActivityItem {
 // Extra rows because noise-only updates are dropped before trimming.
 const FILTERS = { limit: 30 };
 
-// Everything describeActivity() needs to name things (record, stage and
-// user names) plus who did it — shared by the feed below and the Audit Log.
+// What describeActivity() needs to name records, stages and users, plus who
+// did it. Shared by the feed below and the Audit Log.
 export function useActivityContext(): { ctx: ActivityContext; actorFor: (row: AuditLogEntry) => string } {
   const { activeCompanyId, stages } = useCompany();
   const { t, locale } = useT();

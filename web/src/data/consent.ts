@@ -1,6 +1,5 @@
-// Read-only from the app, by design: consent_records has no insert/update/
-// delete policy for app users (and refuses UPDATE/DELETE even server-side),
-// so there is nothing here that writes.
+// Read-only by design: consent_records has no write policy for app users
+// and refuses UPDATE/DELETE even server-side.
 import { supabase } from "../lib/supabaseClient";
 import type { BookingRequest, ConsentRecord, ContactConsentStatus } from "../domain/types";
 

@@ -14,9 +14,7 @@ interface ModalState {
 
 interface ModalContextValue {
   modal: ModalState | null;
-  // Pass the already-loaded row to edit (no extra fetch — mirrors the
-  // original app reading straight out of the in-memory `db` object), or
-  // omit it to open a blank "new" form.
+  // Pass the loaded row to edit it, or nothing for a new record.
   openRecordModal: (type: RecordType, record?: AnyRecord, initial?: Record<string, unknown>) => void;
   closeModal: () => void;
 }

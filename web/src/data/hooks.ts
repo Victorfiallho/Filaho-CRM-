@@ -1,6 +1,4 @@
-// Thin react-query wrappers around the data/* modules, scoped to the active
-// company — the React equivalent of app.js calling `FialhoDB.byCompany(table)`
-// on every render.
+// react-query wrappers around the data/* modules, scoped to the active company.
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../state/AuthContext";
 import { listAdminUsers } from "./adminUsers";
@@ -147,20 +145,15 @@ export function useConsentStatuses(companyId: string | null) {
   });
 }
 
-// The three lookups below are about *who is signed in*, cached for 5
-// minutes — so they're keyed by the auth user and only run once a session
-// exists. Shell calls them on its very first render, before it knows
-// whether anyone is logged in (hooks can't wait for the redirect). Unkeyed,
-// a visit while signed out cached "no memberships / no profile" for 5
-// minutes, and the next login reused it: owners lost Money, Company
-// Financials, Import, Users and the New button until a manual reload.
+// Who is signed in: cached for 5 minutes, so keyed by the auth user and run
+// only once a session exists. Unkeyed, a signed-out visit cached "no
+// memberships" and the next login lost the owner-only features until reload.
 function useSignedInUserId() {
   const { session, loading } = useAuth();
   return { userId: session?.user.id ?? null, authLoading: loading };
 }
 
-// Small, rarely-changing lookup — long staleTime avoids refetching it every
-// time a RecordModal opens.
+// Rarely changes; a long staleTime avoids refetching on every modal open.
 export function useUsers() {
   const { userId } = useSignedInUserId();
   return useQuery({ queryKey: ["users", userId], queryFn: listUsers, staleTime: 5 * 60 * 1000, enabled: Boolean(userId) });
@@ -172,9 +165,8 @@ export function useCurrentAppUser() {
   return { ...query, isLoading: query.isLoading || authLoading };
 }
 
-// Whether the signed-in user owns at least one company — gates the "Users"
-// nav link/route the same way web/api/admin-users.js gates the endpoint
-// itself, so the link doesn't dead-end non-owners in a 403 page.
+// Whether the user owns at least one company: gates the Users nav item and
+// route, matching web/api/admin-users.js.
 export function useIsOwner() {
   const { userId, authLoading } = useSignedInUserId();
   const { data: memberships = [], isLoading } = useQuery({
@@ -190,11 +182,8 @@ export function useAdminUsers() {
   return useQuery({ queryKey: ["admin-users"], queryFn: listAdminUsers });
 }
 
-// Gates create/edit/import/export actions client-side against the signed-in
-// user's `users.permissions` array (set via the Users & Access manage modal).
-// A company owner always passes every check — role='owner' already grants
-// full company_members-level access, so a missing/empty permissions row
-// should never lock an owner out of their own data.
+// Client-side gate for create/edit/import/export from `users.permissions`.
+// Owners always pass, so an empty permissions row never locks them out.
 export function usePermissions() {
   const { isOwner, isLoading: ownerLoading } = useIsOwner();
   const { data: currentAppUser, isLoading: profileLoading } = useCurrentAppUser();

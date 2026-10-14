@@ -1,8 +1,7 @@
 import { supabase } from "../lib/supabaseClient";
 
-// Same authedFetch shape as data/adminUsers.ts — Authorization is the
-// caller's own Supabase session token, checked server-side against
-// company_members before anything Drive-related happens.
+// Calls the Drive endpoints with the caller's session token; they check
+// company membership before touching Drive.
 async function authedFetch<T>(path: string, body: Record<string, unknown>): Promise<T> {
   const { data: sessionData } = await supabase.auth.getSession();
   const token = sessionData.session?.access_token;
@@ -22,8 +21,8 @@ export interface ProvisionResult {
   subfolders?: Record<string, string>;
 }
 
-// Creates (or locates, if already provisioned) the Drive folder for a client
-// or a job — see web/api/drive-provision.js for the full tree it builds.
+// Creates or finds the Drive folder for a client or job (tree in
+// web/api/drive-provision.js).
 export function provisionDriveFolder(companyId: string, entityType: "client" | "job", entityId: string): Promise<ProvisionResult> {
   return authedFetch<ProvisionResult>("/api/drive-provision", { company_id: companyId, entity_type: entityType, entity_id: entityId });
 }
@@ -57,14 +56,13 @@ export function uploadFileToDrive(params: {
   });
 }
 
-// FileReader-based (not a Buffer/Node API — this runs in the browser).
+// FileReader, since this runs in the browser.
 export function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => {
       const result = String(reader.result || "");
-      // "data:<mime>;base64,<payload>" — only the payload after the comma is
-      // valid as a bare base64 string for the upload endpoint.
+      // Drop the "data:<mime>;base64," prefix: the endpoint wants bare base64.
       const commaIndex = result.indexOf(",");
       resolve(commaIndex >= 0 ? result.slice(commaIndex + 1) : result);
     };

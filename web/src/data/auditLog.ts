@@ -10,9 +10,8 @@ export interface AuditLogFilters {
   limit?: number;
 }
 
-// Written exclusively by the record_audit_log() trigger
-// (supabase/migrations/2026-08-31_04_audit_log.sql) — this module only reads.
-// Capped at 200 rows (most recent first); narrow with filters to see further back.
+// Written only by the record_audit_log() trigger; this module only reads.
+// Most recent first, capped at 200 rows.
 export async function listAuditLog(companyId: string, filters: AuditLogFilters = {}): Promise<AuditLogEntry[]> {
   let query = supabase
     .from("audit_log")

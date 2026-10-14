@@ -1,8 +1,8 @@
-// The small slice of Markdown the assistant is told to use (paragraphs,
-// bullet/numbered lists, **bold**, `code`, links), parsed into plain data
-// that ChatWidget renders as React elements — never as HTML, so text from
-// the model or from records can't inject markup. Links to "lead:<id>",
-// "client:<id>" or "job:<id>" become buttons that open the record.
+// The bit of Markdown the assistant is told to use (paragraphs, bullet and
+// numbered lists, **bold**, `code`, links), parsed into data that
+// ChatWidget renders as React elements. Never HTML, so text from the model
+// or from records can't inject markup. Links to "lead:<id>", "client:<id>"
+// or "job:<id>" become buttons that open the record.
 
 export type Inline =
   | { kind: "text"; text: string }

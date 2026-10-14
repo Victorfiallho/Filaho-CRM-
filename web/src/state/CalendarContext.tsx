@@ -1,7 +1,6 @@
 import { createContext, useContext, useState, type ReactNode } from "react";
 
-// Lifted above the routed page (like app.js's module-level `calendarDate`
-// global) so navigating away from Calendar and back doesn't reset the month.
+// Above the routed page, so leaving Calendar and coming back keeps the month.
 interface CalendarContextValue {
   calendarDate: Date;
   setCalendarDate: (date: Date) => void;

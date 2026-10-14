@@ -15,8 +15,7 @@ export async function listCostLineItemsByCompany(companyId: string): Promise<Cos
   return (data || []) as CostLineItem[];
 }
 
-// created_by is intentionally not required here — the column defaults to
-// auth.uid() at the database level (see the Phase 1 migration's comment).
+// created_by isn't sent: the column defaults to auth.uid().
 export async function insertCostLineItem(row: Omit<CostLineItem, "id" | "net_cost" | "created_at" | "updated_at" | "created_by"> & { id?: string }): Promise<CostLineItem> {
   const record = {
     id: row.id || uid("cli"),

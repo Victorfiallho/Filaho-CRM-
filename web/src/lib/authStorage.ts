@@ -1,9 +1,6 @@
-// Backs both the Supabase session itself and SessionTimeoutGuard's own
-// "when did this session start" bookkeeping. "Keep me connected" (Login)
-// picks which browser store to use: localStorage survives closing the tab/
-// browser, sessionStorage is wiped the moment it closes — that's what makes
-// an unchecked "Keep me connected" end the session on close with no extra
-// beforeunload/signOut plumbing needed.
+// Where the Supabase session (and SessionTimeoutGuard's start time) is kept.
+// "Keep me connected" picks localStorage, which survives closing the
+// browser; otherwise sessionStorage, which ends the session on close.
 const REMEMBER_KEY = "fialho_remember_me";
 
 export function getRememberMe(): boolean {

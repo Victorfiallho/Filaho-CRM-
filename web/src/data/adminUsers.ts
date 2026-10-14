@@ -1,6 +1,6 @@
 import { supabase } from "../lib/supabaseClient";
 
-// Mirrors web/api/admin-users.js's response shape exactly.
+// Same shape as web/api/admin-users.js's response.
 export interface AdminAuthUser {
   id: string;
   email: string;

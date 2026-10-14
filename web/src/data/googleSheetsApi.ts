@@ -1,9 +1,6 @@
-// Real Sheets API v4 read, used for the "private sheet" import path in
-// ImportCenter.tsx — as opposed to the pre-existing published-CSV path
-// (domain/googleSheets.ts's toGoogleSheetCsvUrl), which only works for
-// sheets explicitly published to the web. `accessToken` comes from
-// connectGoogleWorkspace(clientId, "sheets") (lib/googleOAuth.ts), which
-// already requests the right `spreadsheets.readonly` scope.
+// Reads a private Google Sheet with the Sheets API v4 (Import Center). Public
+// sheets use the published-CSV path in domain/googleSheets.ts instead.
+// `accessToken` comes from connectGoogleWorkspace(clientId, "sheets").
 export async function fetchPrivateSheetValues(
   accessToken: string,
   spreadsheetId: string,

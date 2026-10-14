@@ -1,8 +1,7 @@
 import { createContext, useContext, useState, type ReactNode } from "react";
 import { DEFAULT_MAP_FILTERS, type MapFilters } from "../domain/mapUtils";
 
-// Lifted above the routed page (like app.js's module-level `mapFilters`
-// global) so navigating away from Map & Routes and back keeps the filters.
+// Above the routed page, so leaving Map & Routes and coming back keeps the filters.
 interface MapContextValue {
   mapFilters: MapFilters;
   setMapFilters: (filters: MapFilters) => void;

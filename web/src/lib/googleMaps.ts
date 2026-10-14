@@ -1,9 +1,6 @@
-// Script-injector for the Google Maps JavaScript API, same cached-promise
-// pattern as loadGoogleIdentity() in lib/googleOAuth.ts. Only the interactive
-// <Map> component needs this (there's no way to render a pannable/zoomable
-// map without the JS SDK) — geocoding and directions stay plain REST fetch
-// calls (see data/geocoding.ts, data/routing.ts) so they work from any page,
-// not just while the map is mounted.
+// Loads the Google Maps JavaScript API once (cached promise). Only the
+// interactive map needs it; geocoding and directions are plain REST calls
+// (data/geocoding.ts, data/routing.ts) that work from any page.
 declare global {
   interface Window { google?: any; __googleMapsCallback?: () => void }
 }

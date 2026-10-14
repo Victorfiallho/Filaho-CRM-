@@ -1,17 +1,14 @@
-// Vercel serverless function — one-click email unsubscribe, /u/<token>
-// (vercel.json rewrites to ?token=). Tokens come from
-// createUnsubscribeToken() in api/_lib/unsubscribeToken.js; the future
-// email sender puts the link in the footer and in the List-Unsubscribe /
-// List-Unsubscribe-Post headers (RFC 8058).
+// One-click email unsubscribe at /u/<token> (from createUnsubscribeToken in
+// _lib/unsubscribeToken.js). The sender puts the link in the footer and in
+// the List-Unsubscribe / List-Unsubscribe-Post headers (RFC 8058).
 //
-//   GET  → a page with a single "Unsubscribe" button. The GET itself never
-//          unsubscribes: mail providers' link scanners open every URL in a
-//          message, and would otherwise unsubscribe people who never clicked.
-//   POST → unsubscribes (the button, or a mail client's RFC 8058 one-click
-//          POST with body "List-Unsubscribe=One-Click"). Idempotent.
+//   GET   a page with one button. Never unsubscribes by itself, because mail
+//         scanners open every link in a message.
+//   POST  unsubscribes: the button, or a mail client's RFC 8058 one-click
+//         POST. Idempotent.
 //
-// Unsubscribing = revoke_marketing_consent(): global suppression + a
-// granted=false consent_record for every client with that email.
+// Unsubscribing calls revoke_marketing_consent(): global suppression plus a
+// granted=false consent record for every client with that email.
 import { createClient } from "@supabase/supabase-js";
 import { renderMessagePage } from "./_lib/bookingHtml.js";
 import { query, sendHtml } from "./_lib/http.js";

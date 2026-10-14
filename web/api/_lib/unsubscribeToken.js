@@ -1,9 +1,8 @@
-// Signed one-click email unsubscribe tokens: /u/<token>. The token carries
-// the email and the company that sent the message, HMAC-SHA256 signed with
-// UNSUBSCRIBE_SECRET, so the link works without a login and can't be forged
-// to unsubscribe someone else. No expiry on purpose — CAN-SPAM requires the
-// opt-out to keep working for at least 30 days after the send, and an old
-// link that still works is harmless.
+// Signed one-click unsubscribe tokens for /u/<token>. The token carries the
+// email and the sending company, HMAC-SHA256 signed with UNSUBSCRIBE_SECRET,
+// so the link works without a login and can't be forged for someone else. No
+// expiry on purpose: CAN-SPAM requires the opt-out to keep working for 30
+// days after the send, and an old link that still works is harmless.
 import { createHmac, timingSafeEqual } from "node:crypto";
 
 const b64url = buf => Buffer.from(buf).toString("base64url");

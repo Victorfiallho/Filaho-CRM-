@@ -1,23 +1,14 @@
-// Vercel serverless function backing the global "Assistente" chat widget
-// (web/src/components/ChatWidget.tsx). A read-only assistant scoped to the
-// caller's active company — never a general-purpose assistant with raw DB
-// access.
+// Backs the assistant chat (components/ChatWidget.tsx): a read-only
+// assistant over the caller's active company.
 //
-// Runs on Groq (OpenAI-compatible chat completions, free tier) — switched
-// from Gemini after Google AI Studio started issuing "AQ."-prefixed keys
-// that 401 (a Google-side bug as of 2026-08-31). Model: GROQ_MODEL if set,
-// else openai/gpt-oss-120b, falling back to the faster gpt-oss-20b when the
-// bigger one is rate-limited or unavailable.
+// Groq (OpenAI-compatible API, free tier): GROQ_MODEL, else gpt-oss-120b,
+// falling back to gpt-oss-20b when the bigger model is rate-limited or down.
 //
-// SECURITY MODEL (read this before adding a tool):
-// The client sends `company_id`, but it is only ever used AFTER being
-// checked against the caller's real `company_members` rows below — never
-// trusted on its own. The company's rows are loaded server-side for that
-// verified id only, and the tools (api/_lib/assistantTools.js) work on
-// those rows; no tool parameter can name a company. Everything is
-// SELECT-only — this agent cannot change data, only report on it. Text
-// inside records (names, notes) is data: the system prompt says so, and
-// even a successful injection can only read this same company's data.
+// Security: the request's company_id is used only after checking the
+// caller's company_members. The rows are loaded for that company alone and
+// the tools (_lib/assistantTools.js) read only those rows. No tool argument
+// can name a company and nothing writes, so text in a record that tries to
+// steer the model can at most read this same company's data.
 import { createClient } from "@supabase/supabase-js";
 import { createContext, findClients, findJobs, findLeads, getOverview, getRecord, getToday } from "./_lib/assistantTools.js";
 import { todayIn } from "./_lib/usTime.js";
@@ -221,8 +212,8 @@ async function callGroq(messages, model) {
   return res.json();
 }
 
-// The bigger model first; on a rate limit or outage, the rest of this
-// request uses the fallback.
+// Bigger model first. After a rate limit or outage, the rest of the request
+// uses the fallback.
 function modelCaller() {
   let model = PRIMARY_MODEL;
   return async messages => {
@@ -266,8 +257,7 @@ export default async function handler(req, res) {
     }
 
     const { data: memberRows } = await supabase.from("company_members").select("company_id").eq("user_id", userData.user.id);
-    // The one and only place company_id is checked — everything downstream
-    // uses this verified `companyId`, never the raw request value again.
+    // The only place company_id is checked; everything below uses this id.
     if (!(memberRows || []).some(r => r.company_id === requestedCompanyId)) {
       res.status(403).json({ error: "You are not a member of that company." });
       return;
@@ -306,7 +296,7 @@ export default async function handler(req, res) {
         try {
           args = JSON.parse(tc.function?.arguments || "{}") || {};
         } catch {
-          // malformed arguments from the model — run with none
+          // bad JSON from the model: run with no arguments
         }
         let result;
         try {

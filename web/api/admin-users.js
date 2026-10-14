@@ -1,35 +1,18 @@
-// Vercel serverless function — backs pages/UserManagement.tsx. Lists every
-// Supabase Auth user (including ones who signed up but have no
-// company_members row yet, so they're stuck on an empty CompanyPicker),
-// lets an owner invite a new account, grant/revoke per-company access, edit
-// the `users` app-profile row (name/role/permissions), and delete an account
-// outright.
+// Backs Users & Access: lists auth users, invites, grants and revokes
+// company access, edits profiles and deletes accounts.
 //
-// Same Bearer-token pattern as api/summarize-job.js and api/send-notification.js,
-// but company_members/users have no insert/update/delete RLS policy at all
-// (schema.sql: "provisioning stays service_role-only") — so this endpoint,
-// not the client, is the only way to change them, and it re-implements that
-// gate itself: the caller must hold role='owner' in company_members for at
-// least one company to call this at all, and any grant/revoke/role-change is
-// further restricted to companies where the caller is specifically an owner
-// (an owner of company A can't use this to touch company B).
-//
-// Every mutation below also writes an audit_log row (same table AuditLog.tsx
-// already reads) — company_members/users have no INSERT/UPDATE/DELETE
-// trigger of their own (record_audit_log() is only wired to customers/jobs/
-// pipeline_stages), so without this, granting/revoking access or editing
-// permissions would leave no trace anywhere. audit_log.company_id is NOT
-// NULL, so account-wide actions (invite, delete) log one row per company
-// affected rather than a single global entry.
+// company_members and users have no write RLS policy, so this endpoint is
+// the only writer and enforces the rule itself: the caller must own every
+// company they act on. Each change is logged to audit_log, one row per
+// affected company (company_id is required there).
 import { createClient } from "@supabase/supabase-js";
 
 async function logAudit(supabase, { companyId, actorId, entity, entityId, action, diff }) {
-  if (!companyId) return; // nothing to attach an account-wide, no-company event to
+  if (!companyId) return; // account-wide events have no company to log under
   const { error } = await supabase
     .from("audit_log")
     .insert({ company_id: companyId, user_id: actorId, entity, entity_id: entityId, action, diff: diff || {} });
-  // Best-effort: a logging failure shouldn't undo or block a mutation that
-  // already succeeded — surfaced server-side only.
+  // Best-effort: a failed audit row never undoes a change that succeeded.
   if (error) console.error("audit_log insert failed", error);
 }
 
@@ -94,7 +77,7 @@ export default async function handler(req, res) {
       return;
     }
 
-    // POST — mutations, each scoped to companies the caller owns.
+    // POST: mutations, each limited to companies the caller owns.
     const { action } = req.body || {};
 
     if (action === "invite") {
@@ -111,10 +94,8 @@ export default async function handler(req, res) {
         res.status(403).json({ error: "You are not an owner of that company." });
         return;
       }
-      // Sends Supabase's built-in invite email (magic link) landing on
-      // /reset-password, which already knows how to turn a Supabase auth
-      // link's token into a session and let the person set their first
-      // password (same flow as "Forgot password?" — see ResetPassword.tsx).
+      // Supabase's invite email links to /reset-password, where the person sets
+      // their first password.
       const origin = req.headers.origin || `https://${req.headers.host}`;
       const { data: inviteData, error: inviteError } = await supabase.auth.admin.inviteUserByEmail(email, {
         redirectTo: `${origin}/reset-password`
@@ -130,10 +111,8 @@ export default async function handler(req, res) {
         .upsert({ user_id: newUserId, company_id: companyId, role }, { onConflict: "user_id,company_id" });
       if (memberError) throw memberError;
 
-      // A `users` row with this email may already exist from a prior invite
-      // that was later deleted (delete_user below only unlinks auth_user_id,
-      // it doesn't remove the profile row) — reuse that row's id instead of
-      // colliding with users.email's unique constraint.
+      // A deleted account keeps its users row (see delete_user), so reuse it
+      // instead of hitting the unique email.
       const { data: existingProfile } = await supabase.from("users").select("id").eq("email", email).maybeSingle();
       const profileRow = {
         id: existingProfile?.id || newUserId,
@@ -170,17 +149,13 @@ export default async function handler(req, res) {
         .select("company_id, role")
         .eq("user_id", targetUserId);
       const memberships = targetMemberships || [];
-      // Every company this person belongs to must be one the caller owns —
-      // otherwise deleting them would also silently strip their access to a
-      // company the caller has no authority over.
+      // Every company the person belongs to must be owned by the caller.
       const outsideOwnedScope = memberships.some(m => !ownedCompanyIds.has(m.company_id));
       if (outsideOwnedScope) {
-        res.status(403).json({ error: "This user also belongs to a company you don't own — remove them from your companies individually instead." });
+        res.status(403).json({ error: "This user also belongs to a company you don't own. Remove them from your companies individually instead." });
         return;
       }
-      // Block deletion if it would leave any of the target's companies with
-      // no owner at all (same guard as revoke, just checked across every
-      // company this account belongs to instead of just one).
+      // Refuse if any of their companies would be left without an owner.
       for (const m of memberships.filter(x => x.role === "owner")) {
         const { data: coOwners } = await supabase
           .from("company_members")
@@ -188,7 +163,7 @@ export default async function handler(req, res) {
           .eq("company_id", m.company_id)
           .eq("role", "owner");
         if ((coOwners || []).length === 1) {
-          res.status(409).json({ error: "Can't delete the last owner of a company — reassign ownership first." });
+          res.status(409).json({ error: "Can't delete the last owner of a company. Reassign ownership first." });
           return;
         }
       }
@@ -196,10 +171,9 @@ export default async function handler(req, res) {
       const { data: targetAuthUser } = await supabase.auth.admin.getUserById(targetUserId);
       const email = targetAuthUser?.user?.email || "";
 
-      // Cascades company_members rows (FK "on delete cascade") and sets
-      // users.auth_user_id to null (FK "on delete set null") — the profile
-      // row itself is left in place so past notes/files/audit_log entries
-      // attributed to them keep a readable name instead of going blank.
+      // Deleting the auth user cascades company_members and nulls
+      // users.auth_user_id. The profile row stays, so past notes and history keep
+      // a name.
       const { error } = await supabase.auth.admin.deleteUser(targetUserId);
       if (error) throw error;
 
@@ -262,8 +236,7 @@ export default async function handler(req, res) {
         res.status(403).json({ error: "You are not an owner of that company." });
         return;
       }
-      // Guard against locking a company out of its own admin: refuse to
-      // remove the last owner (including the caller removing themselves).
+      // Never remove a company's last owner, the caller included.
       const { data: remainingOwners } = await supabase
         .from("company_members")
         .select("user_id")
@@ -302,8 +275,7 @@ export default async function handler(req, res) {
         res.status(400).json({ error: "Missing auth_user_id, name, or email." });
         return;
       }
-      // Only for a user the caller can actually see, i.e. shares an owned
-      // company with — same boundary as every other action here.
+      // Only users who share a company the caller owns.
       const { data: memberRow } = await supabase
         .from("company_members")
         .select("company_id")

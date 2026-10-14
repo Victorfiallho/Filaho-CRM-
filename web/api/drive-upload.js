@@ -1,15 +1,9 @@
-// Vercel serverless function — uploads a file (base64-encoded in the request
-// body) into an already-provisioned Drive folder (drive-provision.js must
-// have run for this entity first) and registers it in both `files` (the
-// existing generic entity-attachment table RecordModal already reads) and
-// `drive_files` (the richer Phase 3 registry: category, related transaction,
-// sync status). Same server-side-refresh-token approach as drive-provision.js
-// — see that file's header comment for why.
+// Uploads a file (base64 in the body) into an entity's Drive folder, which
+// drive-provision.js must have created, and registers it in `files` and
+// `drive_files`. Same server-side token as drive-provision.js.
 //
-// Body size note: Vercel's default request body limit (~4.5MB on Hobby) plus
-// base64's ~33% overhead caps this at a few MB per file — fine for receipt
-// photos/PDFs, not for large video. A resumable/chunked upload is a known
-// limitation for very large files (see the Phase 3 closing report).
+// Vercel's ~4.5 MB body limit plus base64 overhead caps a file at a few MB:
+// enough for receipts and PDFs, not for video.
 import { createClient } from "@supabase/supabase-js";
 import { randomUUID } from "crypto";
 
@@ -20,7 +14,7 @@ async function getAccessToken(supabase, companyId) {
   }
   const { data: settingsRow } = await supabase.from("integration_settings").select("settings").eq("id", "default").maybeSingle();
   const clientId = settingsRow?.settings?.google_oauth?.client_id;
-  if (!clientId) throw new Error("No Google OAuth client_id configured yet — import the OAuth JSON in Integrations first.");
+  if (!clientId) throw new Error("No Google OAuth client_id configured yet. Import the OAuth JSON in Integrations first.");
 
   const res = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
@@ -67,7 +61,7 @@ export default async function handler(req, res) {
     return;
   }
   if (fileBase64.length > 20 * 1024 * 1024) {
-    res.status(413).json({ error: "File too large — max ~15MB per upload." });
+    res.status(413).json({ error: "File too large (max ~15MB per upload)." });
     return;
   }
 
@@ -98,7 +92,7 @@ export default async function handler(req, res) {
       .eq("entity_id", entityId)
       .eq("subfolder_key", subfolderKey)
       .maybeSingle();
-    if (!folder) throw new Error("This folder hasn't been created yet — create/locate the Drive folder first.");
+    if (!folder) throw new Error("This folder hasn't been created yet. Create or locate the Drive folder first.");
 
     const accessToken = await getAccessToken(supabase, companyId);
     const buffer = Buffer.from(fileBase64, "base64");

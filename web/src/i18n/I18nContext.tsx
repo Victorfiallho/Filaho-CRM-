@@ -15,9 +15,8 @@ interface I18nValue {
 
 const I18nContext = createContext<I18nValue | null>(null);
 
-// Per-browser language choice (account menu → Language), defaulting to the
-// device language on first visit. Sets <html lang> so screen readers
-// pronounce the UI correctly.
+// Language chosen per browser (account menu), defaulting to the device's.
+// Sets <html lang> so screen readers pronounce the UI correctly.
 export function I18nProvider({ children }: { children: ReactNode }) {
   const [lang, setLangState] = useState<Lang>(() => {
     let stored: string | null = null;

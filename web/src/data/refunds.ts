@@ -16,8 +16,7 @@ export async function insertRefund(row: Omit<Refund, "id" | "created_at" | "upda
   return data as Refund;
 }
 
-// Never removes the original purchase/cost_line_item — this only ever
-// updates the refund's own row (status/received_date/amount).
+// Updates only the refund row; the original purchase is never removed.
 export async function updateRefund(id: string, companyId: string, patch: Partial<Refund>): Promise<Refund> {
   const sanitized = { ...patch, updated_at: now() } as Record<string, unknown>;
   if ("expected_date" in patch) sanitized.expected_date = toDateOrNull(patch.expected_date);

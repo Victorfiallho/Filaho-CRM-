@@ -34,8 +34,7 @@ export async function deleteStage(companyId: string, id: string): Promise<void> 
   if (error) throw error;
 }
 
-// Blocks deleting a stage out from under leads still sitting in it — those
-// leads would otherwise silently stop appearing in any Pipeline column.
+// A stage can't be deleted while deals sit in it; they'd vanish from the board.
 export async function countLeadsInStage(companyId: string, stageId: string): Promise<number> {
   const { count, error } = await supabase
     .from("leads")

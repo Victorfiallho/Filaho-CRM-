@@ -1,18 +1,14 @@
-// Vercel serverless function — inbound SMS replies (STOP / HELP). Not wired
-// to any provider yet: when one is chosen, point its inbound-message webhook
-// here as POST /api/sms-inbound?key=<SMS_INBOUND_SECRET>. Accepts the
-// Twilio-style form fields (From, To, Body) or the same keys as JSON, and
-// answers in TwiML, which Twilio-compatible providers read directly.
+// Inbound SMS replies (STOP / HELP). No provider is wired yet: point its
+// webhook at POST /api/sms-inbound?key=<SMS_INBOUND_SECRET>. Reads
+// Twilio-style fields (From, To, Body) as a form or JSON, answers in TwiML.
 //
-// STOP, STOPALL, UNSUBSCRIBE, CANCEL, END, QUIT (and REVOKE / OPT OUT — see
-// classifyInboundSms) → revoke_marketing_consent(): the number goes on the
-// global suppression list and every client with that number gets a
-// granted=false consent_record whose text_shown is the exact reply they sent.
-// HELP/INFO → an automatic help reply. Anything else → empty response.
+// STOP-type replies (see classifyInboundSms) call revoke_marketing_consent():
+// the number is suppressed everywhere, and each client with it gets a
+// granted=false consent record holding the exact reply. HELP/INFO gets a help
+// reply; anything else gets nothing.
 //
-// Until a provider signs its requests (Twilio's X-Twilio-Signature check
-// belongs here once it's chosen), the shared secret is the only gate, and
-// without SMS_INBOUND_SECRET configured the endpoint refuses everything.
+// The shared secret is the only gate until the provider's signature check is
+// added here. Without SMS_INBOUND_SECRET every request is refused.
 import { timingSafeEqual } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import { classifyInboundSms, toE164 } from "./_lib/consent.js";
@@ -34,9 +30,8 @@ function secretMatches(given) {
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
-// Which business the reply was sent to, by matching the destination number
-// against the booking pages' phone. Null when unknown — replies then stay
-// generic.
+// The business the reply went to, matched by its booking page phone. Null
+// when unknown, and the replies stay generic.
 async function businessFor(supabase, to) {
   const e164 = toE164(to);
   if (!e164) return null;
@@ -79,8 +74,7 @@ export default async function handler(req, res) {
     if (error) throw error;
     return twiml(res, `You're unsubscribed from ${business?.business_name || "our"} marketing texts. No more marketing messages will be sent.`);
   } catch (err) {
-    // A 500 makes the provider retry, which is what we want for an opt-out
-    // that didn't get recorded.
+    // A 500 makes the provider retry, which an unrecorded opt-out needs.
     console.error("sms-inbound failed", err);
     res.status(500).json({ error: "Could not process the message." });
   }

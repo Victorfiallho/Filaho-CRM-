@@ -5,11 +5,9 @@ export interface ChatTurn {
   text: string;
 }
 
-// Calls web/api/chat-agent.js — a read-only support assistant scoped to
-// `companyId` server-side (see that file's SECURITY MODEL comment). History
-// is plain text turns only, kept client-side in memory (ChatWidget.tsx),
-// never persisted.
-// `lang` is the app language, so the assistant answers in it.
+// Calls web/api/chat-agent.js (read-only, scoped to `companyId` server-side).
+// History is plain text turns kept by ChatWidget.tsx. `lang` is the app
+// language, so the assistant answers in it.
 export async function sendChatMessage(companyId: string, history: ChatTurn[], message: string, lang: string): Promise<string> {
   const { data: sessionData } = await supabase.auth.getSession();
   const token = sessionData.session?.access_token;

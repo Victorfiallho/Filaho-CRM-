@@ -8,10 +8,8 @@ export async function listVendors(companyId: string): Promise<Vendor[]> {
   return (data || []) as Vendor[];
 }
 
-// Case-insensitive lookup-or-create by canonical name — the normalization
-// step the spec asks for ("THE HOME DEPOT #0123" and "Home Depot" -> one
-// vendor). Phase 4 (receipt AI) will call this same function so a vendor
-// created manually here and one resolved from OCR converge on one row.
+// Case-insensitive find-or-create by canonical name, so "THE HOME DEPOT
+// #0123" and "Home Depot" end up as one vendor.
 export async function findOrCreateVendor(companyId: string, canonicalName: string): Promise<Vendor> {
   const trimmed = canonicalName.trim();
   const { data: existing, error: findError } = await supabase

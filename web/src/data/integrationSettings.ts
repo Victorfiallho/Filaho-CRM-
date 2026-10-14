@@ -11,16 +11,12 @@ const DEFAULTS: IntegrationSettings = {
   meta_ads: { enabled: false, ad_account_ids: {}, notes: "Daily ad spend/impressions/clicks sync into Reports." }
 };
 
-// Same defensive merge app.js's migrateDb() did on every load: fill in any key
-// missing from the stored blob with the default shape, so older/partial rows
-// (or a first-ever row) don't crash the Integrations screen.
+// Fills keys missing from the stored blob with defaults, so partial or
+// first-time rows don't break the Integrations screen.
 //
-// Reads via the get_my_integration_settings() RPC (schema.sql), not a plain
-// select — the underlying row is genuinely shared across every company, but
-// the RPC filters each per-company nested dict (calendar_ids, source_urls,
-// folder_ids, folder_urls, ad_account_ids, ...) down to only the companies
-// the caller belongs to, so this function's return shape is unchanged but no
-// longer discloses other tenants' integration wiring (2026-08-26 security fix).
+// Read through get_my_integration_settings(): the row is shared by all
+// companies, and the RPC strips every per-company entry the caller doesn't
+// belong to.
 export async function getIntegrationSettings(): Promise<IntegrationSettings> {
   const { data, error } = await supabase.rpc("get_my_integration_settings");
   if (error) throw error;

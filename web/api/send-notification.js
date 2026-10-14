@@ -1,35 +1,12 @@
-// Vercel serverless function (web/api/* is Vercel's zero-config function
-// folder for this project's Root Directory) — on-demand email/SMS send,
-// backing Integrations.tsx's "Email & SMS" card and RecordModal's "Send
-// reminder now" button. The daily automated reminder job is a separate
-// script (scripts/send-reminders.mjs run via GitHub Actions cron), not this
-// endpoint — this one is purely request/response, triggered by the app.
+// Sends one email or SMS on demand: the Integrations test send and "Send
+// reminder now" on a job. Daily reminders are scripts/send-reminders.mjs.
 //
-// SECURITY (2026-08-26 fix): this endpoint originally had no authentication
-// at all — any anonymous internet caller could POST here and make the app's
-// real, paid Resend/Twilio accounts send arbitrary email/SMS to any address,
-// spoofed as coming from the company's own verified sending domain/number
-// (confirmed exploitable in a security audit before this was ever
-// committed). It now requires a valid Supabase session and only sends to a
-// `to` that matches a real customer or lead contact in a company the caller
-// is a member of.
-//
-// SECURITY (2026-08-26 follow-up fix): that "known contact" check alone was
-// still satisfiable by the caller themselves — insertLead()/insertCustomer()
-// accept an arbitrary, unvalidated email/phone with no confirmation step, so
-// an authenticated member of any single company could create a lead with a
-// victim's real address seconds before calling this endpoint, turning it
-// into a relay against arbitrary third parties. Now also requires the
-// matched contact row to be older than MIN_CONTACT_AGE_MS, which the
-// legitimate "remind an existing customer/lead about their job" flow always
-// satisfies (the contact was created well before anyone reminds them of
-// anything) but a same-session manufactured contact cannot.
+// Requires a session and only sends to a contact of one of the caller's
+// companies that has existed for at least MIN_CONTACT_AGE_MS, so it can't be
+// used to message arbitrary people, even by creating a contact right before.
 const MIN_CONTACT_AGE_MS = 5 * 60 * 1000;
-//
-// Needs RESEND_API_KEY (email) and/or TWILIO_ACCOUNT_SID/TWILIO_AUTH_TOKEN/
-// TWILIO_FROM_NUMBER (SMS) set in the Vercel project — not VITE_-prefixed, so
-// they never ship to the client bundle, same convention as
-// GOOGLE_CLIENT_SECRET in api/google-oauth-callback.js.
+// Env (server only): RESEND_API_KEY for email; TWILIO_ACCOUNT_SID,
+// TWILIO_AUTH_TOKEN and TWILIO_FROM_NUMBER for SMS.
 import { createClient } from "@supabase/supabase-js";
 
 async function sendEmail(to, subject, body, fromEmail) {
@@ -100,11 +77,7 @@ export default async function handler(req, res) {
       return;
     }
 
-    // Only send to a `to` that matches a real contact in a company the
-    // caller belongs to, and one that's existed for a while — closes both
-    // the original open-relay abuse path and the "create a lead with the
-    // victim's info, then immediately message it" bypass, while still
-    // allowing the legitimate "remind this job's customer" flow.
+    // A real contact of the caller's company, older than MIN_CONTACT_AGE_MS.
     const matchColumn = type === "sms" ? "phone" : "email";
     const cutoff = new Date(Date.now() - MIN_CONTACT_AGE_MS).toISOString();
     const [{ data: customerMatch }, { data: leadMatch }] = await Promise.all([

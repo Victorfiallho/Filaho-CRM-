@@ -378,7 +378,7 @@ function topBar(page, base) {
   const logo = safeUrl(page.logo_url);
   return `<header class="top wrap"><div class="topbar" style="width:100%">
   <a class="brand" href="${esc(base)}"><span class="brand-mark">${logo ? `<img src="${esc(logo)}" alt="" width="34" height="34">` : `<b>${esc(initials(page.business_name))}</b>`}</span><span>${esc(page.business_name)}</span></a>
-  ${page.phone ? `<a class="pill-link" href="${telHref(page.phone)}" aria-label="Call ${esc(page.phone)}">${icon("phone")}<span class="lbl">${esc(page.phone)}</span></a>` : `<a class="pill-link" href="${esc(base)}#book">${icon("calendar")}<span class="lbl">Book now</span></a>`}
+  ${page.phone ? `<a class="pill-link" href="${telHref(page.phone)}" aria-label="Call ${esc(page.phone)}">${icon("phone")}<span class="lbl">${esc(page.phone)}</span></a>` : `<a class="pill-link" href="${esc(base)}#book">${icon("calendar")}<span class="lbl">Schedule a visit</span></a>`}
 </div></header>`;
 }
 
@@ -440,7 +440,7 @@ function bookingForm({ page, base, texts, values = {}, errors = {}, utm = {}, fo
   const period = values.preferred_period || "";
 
   return `<form class="card form-card" method="post" action="${esc(base)}" novalidate id="booking-form" data-today="${esc(today)}" aria-labelledby="book-h">
-  <h2 id="book-h" class="sr-only">Book your appointment</h2>
+  <h2 id="book-h" class="sr-only">Schedule your free visit</h2>
   <ol class="stepper" aria-hidden="true">${STEPS.map((s, i) => `<li data-for="${i}"><span class="bar"><i></i></span><span><span class="num">${i + 1}. </span>${esc(s.label)}</span></li>`).join("")}</ol>
   <p class="sr-only" id="step-status" role="status" aria-live="polite"></p>
 
@@ -468,7 +468,7 @@ function bookingForm({ page, base, texts, values = {}, errors = {}, utm = {}, fo
   </fieldset>
 
   <fieldset class="step" data-step="1" aria-labelledby="step-1-h">
-    ${stepHead(1, "When works for you?", "Pick a day you'd like. We'll confirm the exact time with you.")}
+    ${stepHead(1, "When can we visit?", "Pick a day for a free visit. We'll confirm the exact time with you.")}
     <div class="cal" id="cal" aria-label="Choose a date">
       <div class="cal-head"><b id="cal-month"></b><div class="cal-nav"><button type="button" class="round" id="cal-prev" aria-label="Previous month">${icon("chevronLeft")}</button><button type="button" class="round" id="cal-next" aria-label="Next month">${icon("chevronRight")}</button></div></div>
       <div class="cal-grid" id="cal-grid"></div>
@@ -534,7 +534,7 @@ function bookingForm({ page, base, texts, values = {}, errors = {}, utm = {}, fo
 
     <div class="submit-row">
       <div class="step-nav step-nav-final" style="margin-top:22px"><button type="button" class="btn ghost" data-back>${icon("arrowLeft")}Back</button><span></span></div>
-      <button class="btn" type="submit" id="submit-btn" style="width:100%;margin-top:14px">Request my appointment${icon("arrowRight")}</button>
+      <button class="btn" type="submit" id="submit-btn" style="width:100%;margin-top:14px">Schedule my free visit${icon("arrowRight")}</button>
       <p class="notice">${esc(texts.transactional.text)}</p>
     </div>
   </fieldset>
@@ -544,7 +544,7 @@ function bookingForm({ page, base, texts, values = {}, errors = {}, utm = {}, fo
 function summaryCard(page) {
   const rows = [
     ["services", "sparkles", "Service", "Not chosen yet"],
-    ["date", "calendar", "Date", "Any day"],
+    ["date", "calendar", "Visit", "Any day"],
     ["period", "clock", "Time", "Flexible"],
     ["address", "pin", "Address", "Not added yet"]
   ];
@@ -554,8 +554,8 @@ function summaryCard(page) {
     ${rows.map(([k, ic, label, empty]) => `<li data-sum="${k}" data-empty="${esc(empty)}"><span class="s-ic">${icon(ic)}</span><span><small>${esc(label)}</small><b>${esc(empty)}</b></span></li>`).join("")}
   </ul>
   <ul class="reassure">
-    <li>${icon("clock")}Takes about a minute</li>
-    <li>${icon("card")}No payment needed to book</li>
+    <li>${icon("clock")}The visit is free</li>
+    <li>${icon("card")}Your quote comes after the visit</li>
     <li>${icon("message")}We confirm by text &amp; email</li>
   </ul>
   ${page.phone ? `<p class="call">${icon("phone")}<span>Prefer to talk? <a href="${telHref(page.phone)}">${esc(page.phone)}</a></span></p>` : ""}
@@ -566,15 +566,15 @@ function successCard(page, booked) {
   return `<section class="card success-card" role="status" tabindex="-1" id="booked">
   <span class="success-mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>
   <h2>You're all set, ${esc(booked)}!</h2>
-  <p>We got your request. ${esc(page.business_name)} will reach out shortly to confirm the details.</p>
+  <p>Your visit request is in. ${esc(page.business_name)} will reach out shortly to confirm the time.</p>
   <ol class="timeline">
-    <li class="ok"><span class="t-dot">${icon("check")}</span><span><b>Request received</b><span>Just now</span></span></li>
-    <li><span class="t-dot">${icon("message")}</span><span><b>We confirm your time</b><span>By text and email</span></span></li>
-    <li><span class="t-dot">${icon("sparkles")}</span><span><b>We get it done</b><span>On the day you agreed</span></span></li>
+    <li class="ok"><span class="t-dot">${icon("check")}</span><span><b>Visit requested</b><span>Just now</span></span></li>
+    <li><span class="t-dot">${icon("message")}</span><span><b>We visit and send your quote</b><span>We confirm the time by text and email</span></span></li>
+    <li><span class="t-dot">${icon("calendar")}</span><span><b>We schedule the work</b><span>Once you approve the quote</span></span></li>
   </ol>
   <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:8px">
     ${page.phone ? `<a class="btn dark" href="${telHref(page.phone)}">${icon("phone")}Call ${esc(page.phone)}</a>` : ""}
-    <a class="btn ghost" href="${esc(page.slug ? `/book/${page.slug}` : "#")}">Book something else</a>
+    <a class="btn ghost" href="${esc(page.slug ? `/book/${page.slug}` : "#")}">Schedule another visit</a>
   </div>
 </section>`;
 }
@@ -840,12 +840,12 @@ export function renderBookingPage({ page, base, texts, values, errors, utm, form
 ${topBar(page, base)}
 <main class="wrap">
   ${booked ? "" : `<section class="hero" aria-labelledby="hero-h">
-    <span class="eyebrow"><span class="dot">${icon("calendar")}</span>Online booking</span>
-    <h1 id="hero-h">Book <em>${esc(name)}</em> in a minute.</h1>
-    <p class="lead">${serviceLine ? `${esc(serviceLine)}. ` : ""}Pick what you need and a day that works. We'll confirm by text and email.</p>
+    <span class="eyebrow"><span class="dot">${icon("calendar")}</span>Free visit</span>
+    <h1 id="hero-h">Schedule a free visit with <em>${esc(name)}</em>.</h1>
+    <p class="lead">${serviceLine ? `${esc(serviceLine)}. ` : ""}Tell us what you need and pick a day for us to visit. You get your quote after the visit.</p>
     <ul class="chips">
-      <li>${icon("clock")}About 1 minute</li>
-      <li>${icon("card")}No payment to book</li>
+      <li>${icon("clock")}Takes about a minute</li>
+      <li>${icon("card")}Free, no commitment</li>
       <li>${icon("shield")}Your info stays private</li>
     </ul>
   </section>`}
@@ -853,9 +853,9 @@ ${topBar(page, base)}
   ${booked ? "" : `<section class="section" aria-labelledby="how-h">
     <h2 id="how-h">How it works</h2>
     <ol class="how">
-      <li><b>Tell us what you need</b><span>Choose a service, a day and your address.</span></li>
-      <li><b>We confirm your time</b><span>We reach out by text and email to lock in the details.</span></li>
-      <li><b>We get it done</b><span>Our team shows up at the time we agreed.</span></li>
+      <li><b>Schedule a free visit</b><span>Choose what you need, a day and your address.</span></li>
+      <li><b>We visit and send your quote</b><span>We confirm the time by text and email, see the space and send the quote.</span></li>
+      <li><b>We schedule the work</b><span>Once you approve the quote, we agree on the date.</span></li>
     </ol>
   </section>`}
   ${faq.length && !booked ? `<section class="section" aria-labelledby="faq-h">
@@ -868,8 +868,8 @@ ${booked ? "" : `<script>${formScriptBody()}</script>`}`;
 
   return layout({
     page,
-    title: `${name} | Book online`,
-    description: `Book ${serviceLine ? serviceLine.toLowerCase() : "an appointment"} with ${name} online. Takes about a minute.`,
+    title: `${name} | Schedule a free visit`,
+    description: `Schedule a free visit with ${name}${serviceLine ? ` for ${serviceLine.toLowerCase()}` : ""}. Your quote comes after the visit.`,
     canonical: base,
     head: `<script>${headScriptBody()}</script><script type="application/ld+json">${jsonLd(ld)}</script>`,
     body

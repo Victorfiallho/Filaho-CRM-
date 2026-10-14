@@ -162,7 +162,10 @@ describe("renderBookingPage", () => {
   it("shows a tile per active service and builds the headline from the company", () => {
     expect(html.match(/<label class="tile"/g)).toHaveLength(2);
     expect(html).not.toContain("Retired service");
-    expect(html).toContain("Book <em>Peach Fresh</em> in a minute.");
+    expect(html).toContain("Schedule a free visit with <em>Peach Fresh</em>.");
+    // The business process: visit first, then the quote, then the date for the work.
+    expect(html).toContain("We visit and send your quote");
+    expect(html).toContain("Schedule my free visit");
     expect(html).toContain("Carpet cleaning and Rug cleaning.");
   });
 
@@ -178,7 +181,7 @@ describe("renderBookingPage", () => {
     const bare = renderBookingPage({ page: { ...page, phone: "", email: "", address_line: "", address_city: "", address_state: "", address_zip: "" }, base: "https://x/book/p", texts, today: "2026-10-13" });
     expect(bare).not.toContain("tel:");
     expect(bare).not.toContain("<address");
-    expect(bare).toContain("Book now");
+    expect(bare).toContain("Schedule a visit");
   });
 
   it("escapes admin-entered content", () => {

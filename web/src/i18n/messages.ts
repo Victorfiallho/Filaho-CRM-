@@ -547,10 +547,16 @@ export const en = {
   "session.inactive": "Signed out after 30 minutes of inactivity.",
   "session.limit24": "Signed out — 24-hour session limit reached.",
   "session.limit8": "Signed out — 8-hour session limit reached.",
-  "chat.title": "Assistant",
+  "chat.title": "Assistant",
+  "chat.suggest.funnel": "How is the pipeline doing?",
+  "chat.suggest.overdue": "Which deals have an overdue next step?",
+  "chat.suggest.multiDeals": "Which clients have more than one deal?",
+  "chat.suggest.today": "What do I have today?",
+  "chat.reset": "New conversation",
+  "chat.subtitle": "Answers with your real data",
   "chat.close": "Close chat",
   "chat.open": "Open assistant chat",
-  "chat.intro": "Ask about your leads, jobs, customers, or campaigns — I'll answer with real data from the active company.",
+  "chat.intro": "Ask about your deals, clients, jobs or campaigns — I answer with this company's real data, and names open the record.",
   "chat.thinking": "Thinking…",
   "chat.placeholder": "Ask something…",
   "chat.send": "Send message",
@@ -1852,10 +1858,16 @@ export const pt: Record<MessageKey, string> = {
   "session.inactive": "Você saiu após 30 minutos sem atividade.",
   "session.limit24": "Você saiu — limite de 24 horas de sessão.",
   "session.limit8": "Você saiu — limite de 8 horas de sessão.",
-  "chat.title": "Assistente",
+  "chat.title": "Assistente",
+  "chat.suggest.funnel": "Como está o funil de vendas?",
+  "chat.suggest.overdue": "Quais negócios estão com o próximo passo atrasado?",
+  "chat.suggest.multiDeals": "Quais clientes têm mais de um negócio?",
+  "chat.suggest.today": "O que tenho para hoje?",
+  "chat.reset": "Nova conversa",
+  "chat.subtitle": "Responde com seus dados reais",
   "chat.close": "Fechar chat",
   "chat.open": "Abrir o assistente",
-  "chat.intro": "Pergunte sobre leads, serviços, clientes ou campanhas — respondo com os dados reais da empresa ativa.",
+  "chat.intro": "Pergunte sobre negócios, clientes, serviços ou campanhas — respondo com os dados reais desta empresa, e os nomes abrem o registro.",
   "chat.thinking": "Pensando…",
   "chat.placeholder": "Pergunte algo…",
   "chat.send": "Enviar mensagem",

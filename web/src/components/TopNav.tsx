@@ -12,20 +12,18 @@ import CompanyLogo from "./CompanyLogo";
 import { useT } from "../i18n/I18nContext";
 import { LANGS, navKey, type MessageKey } from "../i18n/messages";
 
-// Horizontal pill navigation (replaces the icon sidebar). Dashboard is its
-// own pill; every other NAV_GROUPS group is a pill with a dropdown. The
-// active item — or the group containing it — is the black pill. Below
-// 900px the pills collapse into a full-height sheet behind the menu button.
+// Pill navigation. Dashboard is its own pill; each NAV_GROUPS group is a
+// pill with a dropdown. The active item, or its group, is the black pill.
+// Below 900px the pills move into a sheet behind the menu button.
 
 const LAST_SEEN_KEY = "fialho_activity_seen_at";
 
-// Module and group labels come from the i18n dictionary ("nav.<id>",
-// "navGroup.<name>").
+// Labels come from the i18n keys "nav.<id>" and "navGroup.<name>".
 const groupKey = (name: string) => `navGroup.${name}` as MessageKey;
 const firstSegment = (path: string) => path.replace(/^\//, "").split("/")[0];
 
-// "Booking page" isn't a CRM screen: it's the company's public page, always
-// on, so the menu item opens it in a new tab.
+// "Booking page" is the company's public page, not a CRM screen, so it
+// opens in a new tab.
 const EXTERNAL_ITEM = "booking-page";
 function NavLabel({ id }: { id: string }) {
   const { t } = useT();
@@ -195,8 +193,7 @@ function NavGroup({ name, ids, current, onPick }: { name: string; ids: string[];
   );
 }
 
-// Round button that opens the per-page search field (same searchText every
-// page already filters by). Stays expanded while it holds a query.
+// Round button that opens the page search. Stays open while it has a query.
 function SearchButton({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const [open, setOpen] = useState(false);
   const { t } = useT();
@@ -224,8 +221,8 @@ function SearchButton({ value, onChange }: { value: string; onChange: (v: string
   );
 }
 
-// Latest activity (bookings, stage moves, payments…) with an unread dot for
-// anything newer than the last time the panel was opened on this browser.
+// Latest activity (bookings, stage moves, payments) with an unread dot for
+// anything newer than the last time this browser opened the panel.
 function BellButton() {
   const { open, setOpen, ref } = usePopover();
   const { items } = useActivityFeed(8);

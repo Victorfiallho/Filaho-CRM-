@@ -10,13 +10,11 @@ import { useCompany } from "../state/CompanyContext";
 import { useModal } from "../state/ModalContext";
 import { useT } from "../i18n/I18nContext";
 
-// Global assistant, mounted once in Shell.tsx so it floats over every page.
-// Read-only (see web/api/chat-agent.js). The conversation is kept per
-// company for the browser session (sessionStorage), so it survives moving
-// between pages but not closing the tab.
-//
-// Also opened from the account menu (openAssistant()): on phones the
-// floating button is hidden because it covered page content.
+// The assistant, mounted once in Shell so it floats over every page.
+// Read-only (web/api/chat-agent.js). The conversation is kept per company
+// for the browser session, so it survives page changes but not closing the
+// tab. Also opened from the account menu (openAssistant()), since phones
+// hide the floating button.
 const OPEN_EVENT = "fialho:open-assistant";
 export function openAssistant() {
   window.dispatchEvent(new Event(OPEN_EVENT));
@@ -158,8 +156,7 @@ function ChatPanel({ companyId }: { companyId: string }) {
   );
 }
 
-// The assistant's reply: parsed Markdown, with record links that open the
-// record's modal (from the already-loaded lists).
+// An assistant reply: parsed Markdown whose record links open the record.
 function Rich({ text, onOpen }: { text: string; onOpen: () => void }) {
   const { activeCompanyId } = useCompany();
   const { openRecordModal } = useModal();

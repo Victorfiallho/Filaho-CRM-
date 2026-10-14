@@ -2,12 +2,10 @@ import { Paperclip } from "lucide-react";
 import { useId, useState } from "react";
 import { useT } from "../i18n/I18nContext";
 
-// File picker in the CRM's language. The native <input type="file"> draws
-// its own "Choose file / No file chosen" text in the *browser's* language
-// (Portuguese on a pt-BR Chrome even with English selected in the app), so
-// the real input is visually hidden inside a styled label and the chosen
-// file name is shown by us. Still a real file input: keyboard focus, Enter/
-// Space to open, and drag-and-drop onto it all keep working.
+// File picker in the CRM's language. The native input writes "Choose file /
+// No file chosen" in the browser's language, so it's hidden inside a styled
+// label and we show the file name. Still a real file input: focus,
+// Enter/Space and drag-and-drop all work.
 export default function FileButton({ accept, disabled, onFiles, label, resetAfterPick = false }: {
   accept?: string;
   disabled?: boolean;

@@ -1,21 +1,8 @@
 import type { ReactNode } from "react";
 
-// One labeled magnitude bar, scaled against `max` (the largest value in the
-// same list) rather than a fixed multiplier — so two rows are only ever the
-// same length when their values actually are. Shared by Dashboard's
-// "Pipeline by stage" and Reports' "Revenue by service"/"Ad performance"
-// campaign rows, which all had their own slightly-different, in one case
-// wrongly-scaled, copy of this same bar before.
-//
-// The fill is rounded only on its trailing (data) edge, flat at the origin —
-// a fully-rounded pill on both ends makes two close bar lengths harder to
-// compare against each other. .bar-row's hover brightens the fill a touch,
-// purely decorative: every value this bar can show is already visible in
-// valueLabel, so there's nothing gated behind hover for a mouse-only
-// affordance to hide from keyboard/touch/screen-reader users. (An earlier
-// version of this component added a `title` tooltip duplicating valueLabel's
-// text — redundant information, invisible to everyone but mouse users, and
-// a second hand-formatted copy of each value to keep in sync. Removed.)
+// One labeled bar scaled against `max` (the largest value in its list), so
+// equal lengths always mean equal values. Rounded only on the data end: two
+// close lengths are easier to compare against a flat origin.
 export default function BarRow({ label, magnitude, max, color, valueLabel }: {
   label: string;
   magnitude: number;

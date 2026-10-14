@@ -1,17 +1,6 @@
-// Loading placeholder for pages whose content is entirely derived from one or
-// more react-query hooks. Shown while those queries are still in flight so a
-// slow first fetch (or a company switch) never reads as "you have zero
-// leads/jobs/clients" — the .skeleton* shimmer classes already existed in
-// styles.css for exactly this, just weren't wired to any page yet.
-//
-// `rows` controls how many skeleton lines each card gets. Pass an array (one
-// count per card) when the page's cards are meaningfully different heights —
-// e.g. Dashboard's 7-stage "Pipeline by stage" next to its 5-row "Recent
-// activity" — so the skeleton's height roughly matches the real content's.
-// A flat number (or the default) repeats the same count for every card.
-// Getting this close matters: a skeleton much shorter than what replaces it
-// makes the whole page jump/reflow the instant the fetch resolves, which
-// reads as an abrupt cut no matter how the swap itself is eased.
+// Placeholder while a page's queries load, so a slow fetch never reads as
+// "zero clients". `rows` is the number of lines per card; pass an array when
+// cards differ in height, so the page doesn't jump when the data arrives.
 export default function PageSkeleton({ kpis = 0, cards = 2, rows = 3, fullWidth = false }: { kpis?: number; cards?: number; rows?: number | number[]; fullWidth?: boolean }) {
   const rowCounts = Array.isArray(rows) ? rows : Array.from({ length: cards }, () => rows);
   return (

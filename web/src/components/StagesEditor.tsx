@@ -17,11 +17,8 @@ interface DraftStage extends PipelineStage {
 
 const DEFAULT_COLOR = "#667085";
 
-// Local draft + explicit Save, rather than saving each keystroke: reordering
-// touches several rows at once, and stage `type` feeds Dashboard/Reports
-// math directly (see domain/pipelineStages.ts), so a clear "did I actually
-// save this" moment matters more here than it does for the simpler
-// single-field settings elsewhere in the app.
+// A local draft saved together: reordering touches several rows, and the
+// stage `type` drives Dashboard and Reports math.
 export default function StagesEditor({ companyId, stages, onClose }: { companyId: string; stages: PipelineStage[]; onClose: () => void }) {
   const { t, tn } = useT();
   const { confirm } = useConfirm();
@@ -52,10 +49,8 @@ export default function StagesEditor({ companyId, stages, onClose }: { companyId
     });
   }
 
-  // Drag-and-drop reordering, alongside the up/down buttons (buttons stay
-  // for keyboard/no-mouse access) — reassigns clean sequential `order`
-  // values for the whole list rather than swapping two, so repeated
-  // reordering never accumulates gaps or duplicate order numbers.
+  // Drag-and-drop next to the up/down buttons (kept for the keyboard).
+  // Renumbers the whole list, so `order` never gets gaps or duplicates.
   function reorderStage(draggedId: string, targetId: string) {
     if (draggedId === targetId) return;
     setDraft(d => {
@@ -122,11 +117,8 @@ export default function StagesEditor({ companyId, stages, onClose }: { companyId
 
   const sorted = [...draft].sort((a, b) => a.order - b.order);
 
-  // Portaled to #modal-root (sibling of #root, see index.html), same as
-  // RecordModal — .content carries the page-enter animation's `transform`,
-  // which makes it a containing block for any position:fixed descendant.
-  // Rendered in place, this modal-bg would be confined to .content's box
-  // instead of the viewport, clipping its own header off-screen.
+  // Portaled to #modal-root like RecordModal: .content has a transform from
+  // its page animation, which would trap a position:fixed backdrop inside it.
   return createPortal(
     <div className="modal-bg" onClick={onClose}>
       <section className="modal" role="dialog" aria-modal="true" aria-labelledby="stages-title" style={{ width: "min(760px,100%)" }} onClick={e => e.stopPropagation()}>

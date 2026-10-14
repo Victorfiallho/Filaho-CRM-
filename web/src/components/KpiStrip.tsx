@@ -12,9 +12,8 @@ export interface KpiItem {
   seriesLabel?: string;
 }
 
-// One compact row of KPI cards: small label, large number, and a dot-matrix
-// sparkline in the card's pastel tone. Four or five per row — anything more
-// belongs in a "More metrics" section, not here.
+// A row of KPI cards: label, big number and a dot-matrix sparkline in the
+// card's tone. Four or five per row; more belongs under "More metrics".
 export default function KpiStrip({ items }: { items: KpiItem[] }) {
   return (
     <div className="kpi-strip">
@@ -32,9 +31,9 @@ export default function KpiStrip({ items }: { items: KpiItem[] }) {
   );
 }
 
-// Columns of dots, filled from the bottom in proportion to each period.
-// Decorative summary of the trend — the exact numbers live elsewhere — so
-// it's one labeled image for screen readers, not 50 circles.
+// Columns of dots filled from the bottom in proportion to each period. A
+// decorative summary (the numbers live elsewhere), so screen readers get one
+// labeled image, not 50 circles.
 export function DotMatrixSparkline({ values, rows = 5, columns = 10, label }: { values: number[]; rows?: number; columns?: number; label: string }) {
   const filled = dotColumns(values, rows, columns);
   const gap = 7;

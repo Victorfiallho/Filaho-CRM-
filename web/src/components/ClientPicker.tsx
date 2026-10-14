@@ -4,9 +4,9 @@ import { searchClients } from "../domain/deals";
 import type { Customer } from "../domain/types";
 import { useT } from "../i18n/I18nContext";
 
-// "Who is this deal for?" — search the company's clients by name, phone or
+// "Who is this deal for?": search the company's clients by name, phone or
 // email, or start a new one with what was typed. With a client picked it
-// shows who they are, with Change / Edit client.
+// shows them, with Change and Edit client.
 export default function ClientPicker({ customers, value, onPick, onNew, onEdit }: {
   customers: Customer[];
   value: string;

@@ -19,16 +19,15 @@ import PageSkeleton from "./PageSkeleton";
 import RecordModal from "./RecordModal";
 import TopNav from "./TopNav";
 
-// Matches on the first path segment so nested routes keep their section's
-// title — /jobs/:id/financials used to fall through to "Dashboard".
+// By the first path segment, so nested routes (/jobs/:id/financials) keep
+// their section's title.
 function pageModuleId(pathname: string): string {
   const id = pathname.replace(/^\//, "").split("/")[0];
   return (MODULES.find(m => m[0] === id) || MODULES[0])[0];
 }
 
-// A quick, module-relevant stat instead of just repeating the company name
-// (which the top nav already shows) — makes the page subtitle actually say
-// something instead of sitting there static on every page.
+// A quick stat for the page subtitle instead of the company name, which the
+// top nav already shows.
 function useTopbarSubtitle(pathname: string, companyId: string | null, companyName: string, stages: PipelineStage[]): string {
   const { t, tn } = useT();
   const { services } = useCompany();
@@ -37,8 +36,8 @@ function useTopbarSubtitle(pathname: string, companyId: string | null, companyNa
   const { data: jobs = [], isLoading: jobsLoading } = useJobs(companyId);
   const { data: imports = [], isLoading: importsLoading } = useImportsHistory(companyId);
 
-  // Blank (the line keeps its height in CSS) until the counts are real —
-  // "0 clients" flashing to "33 clients" read as data appearing out of thin air.
+  // Blank (the line keeps its height) until the counts load, so "0 clients"
+  // never flashes before the real number.
   if (customersLoading || leadsLoading || jobsLoading || importsLoading) return "";
 
   switch (pathname.replace(/^\//, "").split("/")[0]) {
@@ -83,10 +82,8 @@ export default function Shell() {
   const navigate = useNavigate();
   const canImport = hasPermission("import");
 
-  // A search left over from the previous module silently filtering the next
-  // one (e.g. searching "Marietta" on Clients, then Jobs looking empty for no
-  // visible reason) was confusing enough to change from app.js's original
-  // "search persists forever" behavior — it now resets on every navigation.
+  // The search resets on every navigation, so a search typed on one page
+  // doesn't silently filter the next.
   useEffect(() => {
     setSearchText("");
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -94,14 +91,10 @@ export default function Shell() {
 
   const topbarSubtitle = useTopbarSubtitle(location.pathname, activeCompanyId, activeCompany?.name || "", stages);
 
-  // Also stamped on <body>, not just the shell div below: RecordModal is
-  // portaled to #modal-root, a sibling of #root in index.html — outside the
-  // shell in the DOM — so a CSS variable scoped only to the shell would never
-  // reach the Save button in that modal. body is a shared ancestor of both,
-  // so the accent override in styles.css (which reads --company-color off
-  // body) reaches everything, portals included. --accent-ink is the text
-  // color that stays readable on that accent. Cleared on unmount so
-  // Login/CompanyPicker don't inherit a stale company color.
+  // Set on <body> too: RecordModal is portaled outside the shell, and the
+  // accent in styles.css reads --company-color from body. --accent-ink is the
+  // readable text color on it. Cleared on unmount so Login/CompanyPicker don't
+  // keep a company's color.
   useEffect(() => {
     if (!activeCompany?.color) return;
     document.body.style.setProperty("--company-color", activeCompany.color);
@@ -112,23 +105,14 @@ export default function Shell() {
     };
   }, [activeCompany?.color]);
 
-  // `session` starts null on every mount until AuthContext's getSession()
-  // resolves (see its own comment) — bailing on `!session` alone, before
-  // `authLoading` confirms that's for real and not just "hasn't checked
-  // yet", would redirect a valid signed-in visit to /login on every hard
-  // reload. Same reasoning applies to `companiesLoading` below: a hard
-  // reload (or, critically, every cold start of the installed PWA/APK)
-  // restores activeCompanyId from localStorage synchronously but still
-  // needs a real network round-trip for the companies list, so
-  // `activeCompany` is momentarily null on that first render regardless —
-  // without waiting it out, a perfectly valid, already-selected session got
-  // bounced straight to /companies, discarding whatever page it wanted.
+  // Wait for auth and the companies list before redirecting: on a reload (or
+  // a PWA cold start) `session` and `activeCompany` are briefly null even when
+  // both are valid, and redirecting then would lose the page being opened.
   if (authLoading || companiesLoading) return <ShellSkeleton />;
   if (!session) return <Navigate to="/login" replace />;
   if (!activeCompanyId || !activeCompany) return <Navigate to="/companies" replace />;
-  // The nav (Company Financials, Users, Import) and the "New" button depend
-  // on the user's permissions. Painting before they load showed a short menu
-  // that then grew — so the shell waits and shows its own outline instead.
+  // The nav and the New button depend on permissions; wait for them instead
+  // of showing a short menu that then grows.
   if (permissionsLoading) return <ShellSkeleton />;
 
   const canSee = (id: string) => (id !== "users" || isOwner) && (id !== "company-financials" || isOwner) && (id !== "import" || canImport);

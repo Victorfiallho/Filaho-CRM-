@@ -4,10 +4,9 @@ import { useT } from "../i18n/I18nContext";
 import { en, type MessageKey } from "../i18n/messages";
 import type { ConsentState } from "../domain/types";
 
-// Lead/client record section: where the person came from, what they asked
-// for on the booking page, and their marketing-consent state + full history.
-// Read-only on purpose — consent_records can't be edited or deleted by
-// anyone (RLS has no write policy, and a trigger refuses UPDATE/DELETE).
+// Where the person came from, what they asked for on the booking page, and
+// their marketing consent with its full history. Read-only: consent records
+// can't be edited or deleted by anyone.
 const PILL: Record<ConsentState, string> = { opted_in: "status-active", not_opted_in: "status-draft", suppressed: "status-lost" };
 
 export default function ConsentPanel({ companyId, kind, record }: {

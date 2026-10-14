@@ -13,9 +13,7 @@ const PAD_BOTTOM = 26;
 const EASE = [0.2, 0, 0, 1] as const;
 const FOLLOW = { type: "spring", stiffness: 520, damping: 42, mass: 0.6 } as const;
 
-// Measures the container in real CSS pixels (not viewBox units scaled down
-// from a fixed constant) so stroke width and font size stay legible at any
-// width — critical on a phone-width card.
+// Measured in real CSS pixels, so stroke and text stay legible at any width.
 function useContainerWidth() {
   const ref = useRef<HTMLDivElement | null>(null);
   const [width, setWidth] = useState(0);
@@ -30,17 +28,12 @@ function useContainerWidth() {
   return [ref, width] as const;
 }
 
-// Single-series area trend (dataviz skill: "trend over time, single series →
-// area"). No legend — the card title names the series. Smooth monotone
-// curve (never dips below zero), a 10%→0 accent wash, hairline solid grid,
-// a value label at the end only, crosshair + tooltip on hover/tap/arrow
-// keys, and a table view for the same numbers. The line is the company
-// accent darkened a step, so even a light accent (Peach Fresh's coral)
-// clears 3:1 against the card.
-//
-// Motion: the line draws in once, the wash fades up behind it, and the
-// hover marker springs between weeks. All of it is skipped under
-// prefers-reduced-motion.
+// Single-series area chart: no legend (the card title names the series), a
+// monotone curve that never dips below zero, a 10%-to-0 wash, hairline grid,
+// a label on the last value, a crosshair and tooltip on hover, tap or arrow
+// keys, and a table view of the same numbers. The line is the company color
+// darkened a step so a light color still reaches 3:1 on the card. The
+// entrance motion is skipped under prefers-reduced-motion.
 export default function TrendLineChart({ data, valueFormat = String, unit }: {
   data: TrendPoint[];
   valueFormat?: (n: number) => string;
@@ -132,8 +125,7 @@ export default function TrendLineChart({ data, valueFormat = String, unit }: {
               tabIndex={0}
               onPointerMove={handlePointerMove}
               onPointerDown={handlePointerMove}
-              // A mouse click shouldn't focus the chart (and draw the keyboard
-              // focus ring around it); Tab still does.
+              // A mouse click shouldn't draw the keyboard focus ring; Tab still does.
               onMouseDown={e => e.preventDefault()}
               onPointerLeave={() => setHoverIndex(null)}
               onKeyDown={handleKeyDown}

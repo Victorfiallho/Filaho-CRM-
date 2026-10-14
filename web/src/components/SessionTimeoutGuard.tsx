@@ -4,14 +4,10 @@ import { toast } from "../lib/toast";
 import { useAuth } from "../state/AuthContext";
 import { useT } from "../i18n/I18nContext";
 
-// Two limits, which one applies depends on the "Keep me connected" choice
-// made at login (see lib/authStorage.ts):
-// - Not remembered: sign out after 30 minutes with no mouse/keyboard/touch
-//   activity, or 8 hours after login regardless of activity. The session
-//   also just disappears the moment the tab/browser closes, for free —
-//   it lives in sessionStorage, not this timer.
-// - Remembered: no inactivity limit (that would defeat the point of asking
-//   to stay connected); a flat 24 hours from login instead.
+// Limits depend on "Keep me connected" at login (lib/authStorage.ts):
+// - not kept: sign out after 30 minutes idle or 8 hours after login. The
+//   session also ends when the browser closes (it's in sessionStorage).
+// - kept: no idle limit, 24 hours after login.
 const INACTIVITY_LIMIT_MS = 30 * 60 * 1000;
 const MAX_SESSION_MS = 8 * 60 * 60 * 1000;
 const REMEMBERED_MAX_SESSION_MS = 24 * 60 * 60 * 1000;
@@ -31,8 +27,7 @@ export default function SessionTimeoutGuard() {
       return;
     }
     const remembered = getRememberMe();
-    // Stamped once per login, not per page load/refresh, so reloading the
-    // page doesn't quietly reset the session clock.
+    // Stamped once per login, so a reload doesn't reset the clock.
     if (!store.getItem(SESSION_STARTED_KEY)) {
       store.setItem(SESSION_STARTED_KEY, String(Date.now()));
     }

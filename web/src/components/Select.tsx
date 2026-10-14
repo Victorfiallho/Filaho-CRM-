@@ -27,10 +27,9 @@ const GAP = 6;
 
 interface MenuPos { top?: number; bottom?: number; left: number; minWidth: number; maxHeight: number }
 
-// Where the floating list goes, from the trigger's on-screen box: below it
-// when there's room (or when there's more room below than above), as wide as
-// its longest label but never narrower than the trigger, kept inside the
-// viewport horizontally.
+// Where the list goes: below the trigger when there's room (or more room
+// than above), as wide as its longest label but at least the trigger's
+// width, kept inside the viewport.
 function menuPosition(rect: DOMRect): MenuPos {
   const below = window.innerHeight - rect.bottom - GAP - 8;
   const above = rect.top - GAP - 8;
@@ -42,22 +41,15 @@ function menuPosition(rect: DOMRect): MenuPos {
     : { top: rect.bottom + GAP, left, minWidth: rect.width, maxHeight };
 }
 
-// Custom dropdown with the native <select> contract (value/onChange), used
-// across the app. Rewritten 2026-10-13 after it was found to flicker, need
-// two clicks and refuse to scroll:
-//   - it closed on *any* scroll event (capture phase) — including scrolling
-//     its own list, and including the scrollIntoView() it ran on open, which
-//     closed it right after opening (the "click twice" / blink);
-//   - the first painted frame was at left:0/width:0 before a layout effect
-//     moved it.
-// Now: position is computed before the first paint, page scroll/resize
-// *repositions* the list (closing only once the trigger leaves the screen),
-// scrolling inside the list is just scrolling, and keeping the highlighted
-// row visible adjusts the list's own scrollTop (never the page).
+// Dropdown with the native <select> contract (value/onChange). The position
+// is computed before the first paint; page scroll and resize reposition the
+// list (it closes only once the trigger leaves the screen); scrolling inside
+// the list just scrolls, and the highlighted row is kept visible by moving
+// the list's own scrollTop, never the page.
 //
-// Keyboard: listbox with aria-activedescendant — focus stays on the trigger,
-// arrows/Home/End/typeahead move the highlight, Enter/Space commit, Escape/
-// Tab close, like a native select.
+// Keyboard: listbox with aria-activedescendant. Focus stays on the trigger;
+// arrows, Home/End and type-ahead move the highlight; Enter/Space pick;
+// Escape/Tab close.
 export default function Select({ value, onChange, options, disabled, id, "aria-label": ariaLabel }: SelectProps) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<MenuPos | null>(null);
@@ -169,8 +161,7 @@ export default function Select({ value, onChange, options, disabled, id, "aria-l
     };
   }, [open, sheet]);
 
-  // Keep the highlighted row visible by scrolling the list itself — never
-  // scrollIntoView(), which can scroll the page too.
+  // Scroll the list itself; scrollIntoView() could scroll the page too.
   useEffect(() => {
     if (!open || !menuRef.current) return;
     const list = menuRef.current.querySelector<HTMLElement>(".cs-list") || menuRef.current;
@@ -190,8 +181,8 @@ export default function Select({ value, onChange, options, disabled, id, "aria-l
       aria-selected={opt.value === value}
       aria-disabled={opt.disabled || undefined}
       className={`cs-option${opt.value === value ? " selected" : ""}${i === highlighted ? " highlighted" : ""}${opt.disabled ? " disabled" : ""}`}
-      // Keep focus on the trigger (aria-activedescendant pattern) so a click
-      // doesn't blur it and flash a focus change.
+      // Keep focus on the trigger (aria-activedescendant), so a click doesn't
+      // blur it.
       onMouseDown={e => e.preventDefault()}
       onMouseEnter={() => setHighlighted(i)}
       onClick={() => commit(i)}

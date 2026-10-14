@@ -17,13 +17,9 @@ import "./styles.css";
 
 const queryClient = new QueryClient();
 
-// registerType 'autoUpdate' installs a new deploy's service worker in the
-// background, but the plain injected registerSW.js never reloaded the page —
-// so the first open after every deploy still ran the previous build (e.g. no
-// "Booking page" in the sidebar) until a manual refresh. Registering through
-// the plugin's helper reloads once, right at startup, when a new version
-// takes control. No periodic re-check on purpose: that reload could land in
-// the middle of someone typing into a record form.
+// The service worker updates in the background; this reloads once at
+// startup when a new deploy takes over, so nobody runs the previous build.
+// No periodic check: a reload could interrupt someone typing in a form.
 registerSW({ immediate: true });
 
 createRoot(document.getElementById("root")!).render(

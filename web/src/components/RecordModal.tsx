@@ -34,10 +34,7 @@ import { useAuth } from "../state/AuthContext";
 import { useCompany } from "../state/CompanyContext";
 import { useModal } from "../state/ModalContext";
 
-// Ported from app.js (recordForm/readForm/saveRecord). Same field lists, same
-// order, same "Name or title is required" validation, same lead->client sync
-// rule on create/edit. Mechanical change: one controlled form per open modal
-// instead of reading raw `<input>` values off the DOM by id.
+// The create/edit form for clients, deals and jobs.
 export default function RecordModal() {
   const { modal } = useModal();
   if (!modal) return null;
@@ -45,10 +42,8 @@ export default function RecordModal() {
 }
 
 function RecordModalContent() {
-  // `modal` is guaranteed non-null here (the RecordModal wrapper only mounts this
-  // component while it's set), but every hook below still has to run unconditionally
-  // on every render — so the "no modal / no company" bail-out is a plain variable,
-  // not an early return, and the actual `return null` happens after all hooks.
+  // Every hook must run on every render, so the "no modal / no company" case
+  // returns null only after them.
   const { modal, closeModal, openRecordModal } = useModal();
   const { locale, t } = useT();
   const { confirm } = useConfirm();
@@ -66,9 +61,7 @@ function RecordModalContent() {
     enabled: (type === "job" || type === "lead") && Boolean(activeCompanyId)
   });
 
-  // Notes/files attach to an already-saved record via entity_id, so a
-  // not-yet-created record (isEdit false, or no r.id yet) simply queries with
-  // a null entityId — useNotes/useFiles are disabled in that case and return [].
+  // Notes and files hang off a saved record; a new one has none.
   const notesEntityId = isEdit && r.id ? r.id : null;
   const { data: notes = [] } = useNotes(activeCompanyId, type, notesEntityId);
   const { data: files = [] } = useFiles(activeCompanyId, type, notesEntityId);
@@ -83,10 +76,8 @@ function RecordModalContent() {
   const { data: allLeads = [] } = useLeads(type === "customer" && isEdit ? activeCompanyId : null);
   const clientDeals = type === "customer" && isEdit && r.id ? dealsForClient(allLeads, r.id, stages) : [];
   const userNameById = new Map(users.map(u => [u.id, u.name]));
-  // Distinct campaigns synced from Meta Ads — offered as a dropdown so a
-  // lead's campaign_id matches meta_ads_insights.campaign_id exactly (that's
-  // an opaque Meta-assigned id, not something to hand-type reliably) for
-  // get_campaign_roi() to join on.
+  // Campaigns synced from Meta Ads, as a dropdown: campaign_id must match
+  // Meta's opaque id exactly for get_campaign_roi() to join on it.
   const campaignOptions = Array.from(new Map(adInsights.map(a => [a.campaign_id, a.campaign_name || a.campaign_id])).entries());
 
   const [newNoteBody, setNewNoteBody] = useState("");
@@ -143,12 +134,8 @@ function RecordModalContent() {
   const title = t(`rec.${isEdit ? "edit" : "new"}.${kindKey}` as MessageKey);
   const recordName = isEdit ? (type === "lead" ? [r.title, r.name].filter(Boolean).join(" · ") : String(r.name || r.title || "")) : "";
 
-  // Central permission gate — every "add lead/client/job" and "open record"
-  // entry point across the app (Shell topbar, Pipeline, Customers, Jobs,
-  // Calendar, Map & Routes) funnels through this one modal, so checking here
-  // covers all of them instead of needing the same check repeated at each
-  // call site. No "delete" permission exists in users.permissions, so
-  // deleting an existing record is treated as part of "edit".
+  // Every "new" and "open record" path goes through this modal, so the
+  // permission check lives here. Deleting counts as editing.
   const blocked = isEdit ? !hasPermission("edit") : !hasPermission("create");
   if (blocked) {
     return (
@@ -170,8 +157,8 @@ function RecordModalContent() {
   }
 
   const set = (field: string, value: string) => setForm(f => ({ ...f, [field]: value }));
-  // A new lead/job with no owner picked is owned by whoever creates it — the
-  // "Mine" filters would otherwise start out empty for everyone.
+  // A new deal or job with no owner picked belongs to whoever creates it, or
+  // the "Mine" filters would start empty.
   const ownerForSave = form.owner_user_id || (isEdit ? "" : currentAppUser?.id || "");
   const ownerOptions = [{ value: "", label: t("rec.unassigned") }, ...users.map(u => ({ value: u.id, label: u.name }))];
   const leadIsLost = type === "lead" && isLostStage(form.stage_id, stages);
@@ -195,10 +182,8 @@ function RecordModalContent() {
     }));
   };
 
-  // Auto-fills lat/lng on save when an address is given but coordinates
-  // weren't set manually, so pins show up on Map & Routes without anyone
-  // having to remember to click "Geocode visible records" afterward.
-  // Best-effort: a failed/slow geocode never blocks the save itself.
+  // Fills lat/lng on save when there's an address but no coordinates, so the
+  // pin shows up on the map. Best-effort: never blocks the save.
   async function autoGeocode(data: { address?: string; city?: string; state?: string; zip?: string; lat?: unknown; lng?: unknown }) {
     if (!activeCompanyId) return;
     if (Number(data.lat) && Number(data.lng)) return;
@@ -212,17 +197,13 @@ function RecordModalContent() {
         data.lng = loc.lng;
       }
     } catch {
-      // saving proceeds without coordinates; Map & Routes can still catch up later
+      // saved without coordinates; the map can geocode it later
     }
   }
 
-  // Esc closes the modal from anywhere in it. Enter in a plain text input
-  // jumps to the next field instead of doing nothing (or, on the last field,
-  // saves) — like Tab, but Enter, since that's the muscle-memory most people
-  // bring from other data-entry forms. Scoped to <input> only: a <textarea>
-  // needs Enter for newlines, and the custom Select's own trigger/options
-  // already use Enter/Space for their native open/choose behavior — hijacking
-  // Enter there would break picking an option with the keyboard.
+  // Esc closes. Enter in a text input moves to the next field (saves on the
+  // last one). Inputs only: textareas need Enter for newlines, and the custom
+  // Select uses Enter to pick an option.
   function handleModalKeyDown(e: React.KeyboardEvent) {
     if (e.key === "Escape") {
       closeModal();
@@ -249,17 +230,14 @@ function RecordModalContent() {
     setSaving(true);
     try {
       if (type === "job") {
-        // No silent fallback to the first client in the list: that used to
-        // attach a job to whichever client sorted first (and copy that
-        // client's address onto it) whenever nobody picked one explicitly.
+        // A job needs a client picked explicitly; never default to the first one.
         const jobCustomerId = form.customer_id || "";
         if (!jobCustomerId) {
           toast(t("rec.t.pickClient"));
           return;
         }
-        // Address/city/state/zip/lat/lng aren't asked on the job form at all —
-        // a job's location is always the linked client's, pulled straight from
-        // their record instead of re-typing (or re-geocoding) it per job.
+        // A job's location is its client's: copied from the client record, never
+        // typed on the job.
         const jobCustomer = customers.find(c => c.id === jobCustomerId);
         const data = {
           company_id: activeCompanyId,
@@ -285,8 +263,8 @@ function RecordModalContent() {
           const newJobId = uid("job");
           const leadId = (r.lead_id as string | undefined) || null;
           await insertJob({ ...(data as any), lead_id: leadId, id: newJobId, created_at: now() });
-          // A job converted from a won lead starts its costing with the
-          // lead's value as the contract, so Project Financials isn't blank.
+          // A job converted from a won deal starts its costing with the deal's value
+          // as the contract.
           if (leadId) {
             createProjectFinancials({ company_id: activeCompanyId, job_id: newJobId, original_contract_value: data.estimated_value })
               .catch(error => toastError(errorMessage(error, t("rec.t.financialsError"))));
@@ -297,9 +275,9 @@ function RecordModalContent() {
         }
         queryClient.invalidateQueries({ queryKey: ["jobs", activeCompanyId] });
       } else if (type === "lead") {
-        // The deal's client: the one picked, or a new one from the inline
-        // fields (deduped by phone/email/name, so typing someone who already
-        // exists links to them instead of duplicating).
+        // The deal's client: the one picked, or a new one from the inline fields
+        // (matched by phone, email or name first, so an existing person isn't
+        // duplicated).
         let customerId = pickedClientId;
         if (!customerId) {
           const contact: Record<string, any> = {
@@ -331,17 +309,13 @@ function RecordModalContent() {
         if (isEdit && r.id) {
           await updateLead(r.id, activeCompanyId, data as any);
         } else {
-          // Only a brand-new hand-typed deal is "Manual" — editing keeps the
-          // original source (Meta Ads, import, booking page...).
+          // Only a new deal typed here is "Manual"; editing keeps the original source.
           await insertLead({ ...data, id: uid("lead"), source: "Manual", created_at: now(), updated_at: now() } as any);
         }
         queryClient.invalidateQueries({ queryKey: ["leads", activeCompanyId] });
         queryClient.invalidateQueries({ queryKey: ["customers", activeCompanyId] });
       } else {
-        // `notes` and `drive_folder_url` only exist on the `customers` table —
-        // app.js's original readForm() always included them for leads too
-        // (harmless when everything lived in one localStorage blob), but a
-        // real `leads` table with no such columns rejects the insert/update.
+        // Clients only: notes and drive_folder_url aren't columns on deals.
         const data: Record<string, any> = {
           company_id: activeCompanyId,
           name: form.name,
@@ -459,11 +433,8 @@ function RecordModalContent() {
     }
   }
 
-  // Manual counterpart to scripts/send-reminders.mjs's daily automated
-  // reminder cron — same web/api/send-notification.js endpoint, triggered
-  // on demand instead of by a schedule. Prefers SMS when the client has a
-  // phone on file (matches the automated job's preference), falls back to
-  // email.
+  // Sends a reminder now, the manual twin of scripts/send-reminders.mjs: SMS
+  // when the client has a phone, else email.
   async function handleSendReminderNow() {
     const customer = customers.find(c => c.id === form.customer_id);
     const to = customer?.phone || customer?.email;
@@ -502,10 +473,8 @@ function RecordModalContent() {
     }
   }
 
-  // Real Drive file picker, next to the plain "paste a link" flow above —
-  // reuses the same Drive OAuth token connectGoogleWorkspace mints for the
-  // Integrations page's "Allow Drive" button, prompting for it here too if
-  // this browser session doesn't have one yet.
+  // Pick a real Drive file, asking for the Drive token if this browser
+  // session doesn't have one.
   async function handleAttachFromDrive() {
     if (!activeCompanyId || !r.id) return;
     const clientId = integrationSettings?.google_oauth.client_id;
@@ -530,9 +499,8 @@ function RecordModalContent() {
     }
   }
 
-  // Manual fallback to the automatic provisioning in handleSave — for
-  // records created before this feature existed, or if the automatic call
-  // failed silently (e.g. Google wasn't connected yet for this company).
+  // Manual version of the automatic folder creation in handleSave, for older
+  // records or when Google wasn't connected yet.
   async function handleProvisionFolder() {
     if (!activeCompanyId || !r.id) return;
     setProvisioningFolder(true);
@@ -572,9 +540,7 @@ function RecordModalContent() {
     }
   }
 
-  // Read-only location preview for the Job form (see handleSave's job
-  // branch, which pulls the actual saved address/city/state/zip/lat/lng from
-  // this same customer rather than from any job-specific input).
+  // Read-only location on the job form: the client's address.
   const jobLocationCustomer = type === "job" ? customers.find(c => c.id === form.customer_id) : undefined;
 
   const driveFolderField = (openLabel: string) => (

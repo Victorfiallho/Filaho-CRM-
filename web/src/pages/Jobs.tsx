@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import EmptyState from "../components/EmptyState";
 import KpiStrip from "../components/KpiStrip";
 import PageSkeleton from "../components/PageSkeleton";
+import SearchField from "../components/SearchField";
 import Select from "../components/Select";
 import { useCurrentAppUser, useCustomers, useIntegrationSettings, useJobs, usePermissions, useUsers } from "../data/hooks";
 import { toCSV } from "../domain/csv";
@@ -126,6 +127,7 @@ export default function Jobs() {
       <section className="card table-card" style={{ marginTop: 20 }}>
         <div className="table-toolbar">
           <div className="table-toolbar-filters">
+            <SearchField placeholder={t("search.jobs")} />
             <div className="pill-select">
               <Select
                 id="job-owner-filter"

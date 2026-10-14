@@ -1875,3 +1875,13 @@ tr:hover td{background:rgba(255,255,255,.55)}
 .new-client .link-btn{justify-self:start}
 @media(max-width:760px){.client-card{flex-wrap:wrap}.client-card-actions{width:100%;justify-content:flex-start}}
 .kind-badge{margin-left:6px;padding:2px 8px;font-size:11px;vertical-align:1px}
+
+/* Visible list search (SearchField) */
+.search-pill{display:flex;align-items:center;gap:8px;min-height:40px;padding:0 6px 0 14px;border-radius:var(--radius-pill);background:rgba(255,255,255,.85);border:1px solid rgba(17,17,17,.08);flex:0 1 320px;min-width:220px}
+.search-pill:focus-within{background:#fff;border-color:var(--ink)}
+.search-pill > svg{width:16px;height:16px;color:var(--muted);flex:0 0 auto}
+.search-pill input{flex:1;min-width:0;border:0;background:transparent;font:inherit;font-size:13.5px;color:var(--ink);padding:8px 0;outline:none}
+.search-pill input::-webkit-search-cancel-button{display:none}
+.search-pill-clear{width:28px;height:28px;border:0;border-radius:999px;background:var(--soft);display:grid;place-items:center;cursor:pointer;color:var(--muted);flex:0 0 auto}
+.search-pill-clear svg{width:14px;height:14px}
+@media(max-width:900px){.search-pill{flex:1 1 100%;min-height:44px}}

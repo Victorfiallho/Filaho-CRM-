@@ -25,6 +25,10 @@ const firstSegment = (path: string) => path.replace(/^\//, "").split("/")[0];
 // "Booking page" is the company's public page, not a CRM screen, so it
 // opens in a new tab.
 const EXTERNAL_ITEM = "booking-page";
+
+// Pages with their own visible search field (SearchField); the top bar
+// search would only duplicate it there.
+const PAGES_WITH_SEARCH = new Set(["pipeline", "customers", "jobs"]);
 function NavLabel({ id }: { id: string }) {
   const { t } = useT();
   const Icon = MODULE_ICONS[id];
@@ -126,7 +130,7 @@ export default function TopNav({ company, canSee, userName, searchText, onSearch
         </div>
 
         <div className="topnav-tools">
-          <SearchButton value={searchText} onChange={onSearch} />
+          {!PAGES_WITH_SEARCH.has(current) && <SearchButton value={searchText} onChange={onSearch} />}
           <BellButton />
           <AccountMenu userName={userName} companyName={company.name} onSwitchCompany={onSwitchCompany} onSignOut={onSignOut} />
           <button ref={menuBtnRef} className="round-btn topnav-menu-btn" aria-label={t("topnav.openMenu")} aria-expanded={sheetOpen} onClick={() => setSheetOpen(true)}>

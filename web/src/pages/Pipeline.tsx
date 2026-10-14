@@ -3,6 +3,7 @@ import { AlertTriangle, CalendarClock, Clock, MapPin, Plus, Settings, SlidersHor
 import { useMemo, useRef, useState } from "react";
 import KpiStrip from "../components/KpiStrip";
 import PageSkeleton from "../components/PageSkeleton";
+import SearchField from "../components/SearchField";
 import Select from "../components/Select";
 import StagesEditor from "../components/StagesEditor";
 import { updateLead } from "../data/leads";
@@ -188,6 +189,7 @@ export default function Pipeline() {
 
       {/* Filters: one row of pills on desktop; behind a "Filters (n)" toggle on phones. */}
       <div className="filter-bar">
+        <SearchField placeholder={t("search.deals")} />
         <button
           type="button"
           className={`btn ghost slim filter-toggle${activeFilters ? " has-active" : ""}`}

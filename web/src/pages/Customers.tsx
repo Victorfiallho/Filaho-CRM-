@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import EmptyState from "../components/EmptyState";
 import PageSkeleton from "../components/PageSkeleton";
+import SearchField from "../components/SearchField";
 import Select from "../components/Select";
 import { deleteCustomer } from "../data/customers";
 import { useCustomers, useJobs, useLeads, usePermissions } from "../data/hooks";
@@ -165,6 +166,7 @@ export default function Customers() {
     <section className="card table-card">
       <div className="table-toolbar">
         <div className="table-toolbar-filters">
+          <SearchField placeholder={t("search.clients")} />
           <div className="pill-select">
             <Select
               id="status-filter"

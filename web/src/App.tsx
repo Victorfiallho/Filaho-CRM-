@@ -15,6 +15,7 @@ import Pipeline from "./pages/Pipeline";
 import ProjectFinancials from "./pages/ProjectFinancials";
 import Reports from "./pages/Reports";
 import ResetPassword from "./pages/ResetPassword";
+import Services from "./pages/Services";
 import UserManagement from "./pages/UserManagement";
 
 export default function App() {
@@ -36,6 +37,7 @@ export default function App() {
         <Route path="/reports" element={<Reports />} />
         <Route path="/company-financials" element={<CompanyFinancials />} />
         <Route path="/audit-log" element={<AuditLog />} />
+        <Route path="/services" element={<Services />} />
         <Route path="/users" element={<UserManagement />} />
       </Route>
       <Route path="*" element={<Navigate to="/dashboard" replace />} />

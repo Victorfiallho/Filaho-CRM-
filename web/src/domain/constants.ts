@@ -14,6 +14,7 @@ import {
   LayoutDashboard,
   MapPin,
   Puzzle,
+  Tags,
   UserCog,
   Users,
   Wallet,
@@ -49,6 +50,7 @@ export const MODULES: [string, string][] = [
   ["map", "Map & Routes"],
   ["import", "Import Center"],
   ["integrations", "Integrations"],
+  ["services", "Services"],
   ["reports", "Reports"],
   ["company-financials", "Company Financials"],
   ["audit-log", "Audit Log"],
@@ -61,7 +63,7 @@ export const NAV_GROUPS: [string, string[]][] = [
   ["Sales", ["dashboard", "pipeline", "customers", "booking-page"]],
   ["Operations", ["jobs", "calendar", "map"]],
   ["Finance", ["company-financials", "reports"]],
-  ["Admin", ["import", "integrations", "audit-log", "users"]]
+  ["Admin", ["services", "import", "integrations", "audit-log", "users"]]
 ];
 
 // "users" is filtered out of Shell's rendered nav for anyone who isn't a
@@ -78,6 +80,7 @@ export const MODULE_ICONS: Record<string, LucideIcon> = {
   map: MapPin,
   import: Download,
   integrations: Puzzle,
+  services: Tags,
   reports: BarChart3,
   "company-financials": Wallet,
   "audit-log": History,

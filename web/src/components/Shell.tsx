@@ -31,6 +31,7 @@ function pageModuleId(pathname: string): string {
 // something instead of sitting there static on every page.
 function useTopbarSubtitle(pathname: string, companyId: string | null, companyName: string, stages: PipelineStage[]): string {
   const { t, tn } = useT();
+  const { services } = useCompany();
   const { data: customers = [], isLoading: customersLoading } = useCustomers(companyId);
   const { data: leads = [], isLoading: leadsLoading } = useLeads(companyId);
   const { data: jobs = [], isLoading: jobsLoading } = useJobs(companyId);
@@ -62,6 +63,8 @@ function useTopbarSubtitle(pathname: string, companyId: string | null, companyNa
       const withLocation = [...customers, ...leads, ...jobs].filter((r: any) => r.address || r.city || r.zip).length;
       return t("sub.map", { count: withLocation });
     }
+    case "services":
+      return tn("sub.services", services.length);
     default:
       return companyName;
   }

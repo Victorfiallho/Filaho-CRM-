@@ -13,6 +13,7 @@ import Login from "./pages/Login";
 import MapRoutes from "./pages/MapRoutes";
 import Pipeline from "./pages/Pipeline";
 import ProjectFinancials from "./pages/ProjectFinancials";
+import QuoteEditor from "./pages/QuoteEditor";
 import Reports from "./pages/Reports";
 import ResetPassword from "./pages/ResetPassword";
 import Services from "./pages/Services";
@@ -27,6 +28,7 @@ export default function App() {
       <Route element={<Shell />}>
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/pipeline" element={<Pipeline />} />
+        <Route path="/pipeline/quotes/:quoteId" element={<QuoteEditor />} />
         <Route path="/customers" element={<Customers />} />
         <Route path="/jobs" element={<Jobs />} />
         <Route path="/jobs/:jobId/financials" element={<ProjectFinancials />} />

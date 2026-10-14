@@ -20,6 +20,7 @@ import { listMetaAdsInsights } from "./metaAds";
 import { listNotes } from "./notes";
 import { getCurrentAppUser, listUsers } from "./users";
 import { getProjectFinancials, listProjectFinancialsByCompany } from "./projectFinancials";
+import { getQuote, listCatalog, listQuotesForLead } from "./quotes";
 import { listProfitReleases, listProfitReleasesByCompany } from "./profitReleases";
 import { listRefundsByJob } from "./refunds";
 import { listTransactionsByCompany, listTransactionsByJob } from "./transactions";
@@ -200,6 +201,32 @@ export function useFinanceSettings(companyId: string | null) {
     queryKey: ["finance-settings", companyId],
     queryFn: () => getFinanceSettings(companyId!),
     enabled: Boolean(companyId)
+  });
+}
+
+export function useQuotes(companyId: string | null, leadId: string | null) {
+  return useQuery({
+    queryKey: ["quotes", companyId, leadId],
+    queryFn: () => listQuotesForLead(companyId!, leadId!),
+    enabled: Boolean(companyId && leadId)
+  });
+}
+
+export function useQuote(companyId: string | null, quoteId: string | null) {
+  return useQuery({
+    queryKey: ["quote", companyId, quoteId],
+    queryFn: () => getQuote(companyId!, quoteId!),
+    enabled: Boolean(companyId && quoteId)
+  });
+}
+
+// The supplier catalog changes once a day at most (the scraper).
+export function useCatalog(companyId: string | null) {
+  return useQuery({
+    queryKey: ["catalog", companyId],
+    queryFn: () => listCatalog(companyId!),
+    enabled: Boolean(companyId),
+    staleTime: 30 * 60 * 1000
   });
 }
 

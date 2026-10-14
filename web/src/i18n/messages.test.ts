@@ -14,7 +14,7 @@ describe("messages", () => {
   it("defines every plural as a .one/.other pair", () => {
     // Keys named after stored data ids (cost category "other", transaction
     // types, field names) can end in ".other" without being plurals.
-    const DATA_NAMESPACES = ["cat.", "txn.", "act.field."];
+    const DATA_NAMESPACES = ["cat.", "txn.", "act.field.", "quote.part."];
     for (const key of Object.keys(en)) {
       if (DATA_NAMESPACES.some(ns => key.startsWith(ns))) continue;
       if (key.endsWith(".one")) expect(Object.keys(en), key).toContain(key.replace(/\.one$/, ".other"));

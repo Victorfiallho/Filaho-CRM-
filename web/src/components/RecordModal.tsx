@@ -4,6 +4,7 @@ import { useId, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import ClientPicker from "./ClientPicker";
 import ConsentPanel from "./ConsentPanel";
+import DealQuotes from "./DealQuotes";
 import Select, { type SelectOption } from "./Select";
 import { summarizeJob, type JobAiSummary } from "../data/aiSummary";
 import { listCustomers, insertCustomer, updateCustomer, deleteCustomer } from "../data/customers";
@@ -16,6 +17,7 @@ import { upsertClientFromLead } from "../data/leadClientSync";
 import { insertLead, updateLead, deleteLead } from "../data/leads";
 import { deleteNote, insertNote } from "../data/notes";
 import { createProjectFinancials } from "../data/projectFinancials";
+import { seedJobCostsFromQuote } from "../data/quotes";
 import { dealsForClient, dealTitle } from "../domain/deals";
 import { formatDateTime, formatDay, money, now, uid } from "../domain/format";
 import { useT } from "../i18n/I18nContext";
@@ -263,10 +265,12 @@ function RecordModalContent() {
           const leadId = (r.lead_id as string | undefined) || null;
           await insertJob({ ...(data as any), lead_id: leadId, id: newJobId, created_at: now() });
           // A job converted from a won deal starts its costing with the deal's value
-          // as the contract.
+          // as the contract and the quote's lines as planned costs.
           if (leadId) {
             createProjectFinancials({ company_id: activeCompanyId, job_id: newJobId, original_contract_value: data.estimated_value })
               .catch(error => toastError(errorMessage(error, t("rec.t.financialsError"))));
+            seedJobCostsFromQuote(activeCompanyId, newJobId, leadId)
+              .catch(error => toastError(errorMessage(error, t("quote.seedError"))));
           }
           provisionDriveFolder(activeCompanyId, "job", newJobId).catch(error =>
             toastError(errorMessage(error, t("rec.t.jobFolderError")))
@@ -676,6 +680,12 @@ function RecordModalContent() {
                   )}
                 </div>
               </FormSection>
+
+              {type === "lead" && isEdit && r.id && (
+                <FormSection title={t("quote.sec")}>
+                  <DealQuotes lead={r} />
+                </FormSection>
+              )}
 
               {type === "customer" && isEdit && r.id && (
                 <FormSection title={t("rec.sec.deals")}>

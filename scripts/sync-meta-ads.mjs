@@ -1,10 +1,7 @@
-// Daily Meta Ads performance sync. Run by .github/workflows/sync-meta-ads.yml
-// (schedule + manual dispatch), same requireEnv/supabaseRequest/chunk pattern
-// as scrape-muses.mjs. For every company with an ad_account_id configured in
-// integration_settings.meta_ads, pulls yesterday's per-campaign spend/
-// impressions/clicks from the Marketing API and upserts into
-// meta_ads_insights (read by Reports.tsx via data/metaAds.ts). Read-only
-// against Meta — this never writes anything back to Meta Ads Manager.
+// Daily Meta Ads sync (.github/workflows/sync-meta-ads.yml). For every
+// company with an ad account in integration_settings.meta_ads, pulls
+// yesterday's spend, impressions and clicks per campaign into
+// meta_ads_insights (Reports). Read-only against Meta.
 
 const META_ACCESS_TOKEN = requireEnv("META_ACCESS_TOKEN");
 const SUPABASE_URL = requireEnv("SUPABASE_URL");
@@ -51,12 +48,12 @@ async function main() {
   const [settingsRow] = await supabaseRequest("integration_settings?id=eq.default&select=settings");
   const metaAds = settingsRow?.settings?.meta_ads;
   if (!metaAds?.enabled) {
-    console.log("meta_ads integration not enabled — skipping.");
+    console.log("meta_ads integration not enabled. Skipping.");
     return;
   }
   const accounts = Object.entries(metaAds.ad_account_ids || {}).filter(([, id]) => id);
   if (!accounts.length) {
-    console.log("No ad_account_ids configured for any company — nothing to sync.");
+    console.log("No ad_account_ids configured for any company. Nothing to sync.");
     return;
   }
 

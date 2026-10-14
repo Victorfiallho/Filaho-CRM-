@@ -111,7 +111,7 @@ describe("evaluateProjectHealth traffic light", () => {
     expect(result.reason).toMatch(/contract value/i);
   });
 
-  it("is gray — not green — when no cost items exist yet (100% margin on paper)", () => {
+  it("is gray, not green, when no cost items exist yet (100% margin on paper)", () => {
     const result = evaluateProjectHealth({ ...base, costItemCount: 0, forecastProfitValue: 10000, forecastMarginPctValue: 100 });
     expect(result.status).toBe("gray");
     expect(result.reason).toBe("Add cost estimates to calculate project health.");
@@ -221,7 +221,7 @@ describe("computeProjectFinancials", () => {
 });
 
 describe("safeToWithdraw", () => {
-  it("never goes negative — floors at 0 and lets the caller show a cash-shortage alert instead", () => {
+  it("never goes negative: floors at 0 and lets the caller show a cash-shortage alert instead", () => {
     expect(safeToWithdraw(1000, 800, 500, 200, 100)).toBe(0); // raw = -600
   });
 

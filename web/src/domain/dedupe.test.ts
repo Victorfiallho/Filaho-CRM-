@@ -60,7 +60,7 @@ describe("findDuplicate", () => {
   });
 
   it("does not match against records from a different pre-filtered list", () => {
-    // Simulates the caller already having scoped `existing` to one company —
+    // The caller has already scoped `existing` to one company;
     // dedupe itself has no company concept, it just scans whatever list it's given.
     const result = findDuplicate({ phone: "5551234567" }, []);
     expect(result).toBeNull();

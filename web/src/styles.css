@@ -42,14 +42,8 @@
   }
 }
 body{
-  /* Once inside a company workspace, Shell.tsx stamps --company-color here
-     (not just on .app-shell — see the comment in Shell.tsx on why body, not
-     the shell div, is what RecordModal's portaled Save button can see too).
-     Redeclaring --brand/-2/-soft/-ring in terms of it means every button,
-     focus ring, and checkbox that already reads --brand automatically
-     becomes that company's color, with no per-component changes. Before a
-     company is chosen (Login, Select company) --company-color is unset, so
-     these fall back to the original fixed orange identity. */
+  /* Shell stamps --company-color on body, so --brand and its variants (every
+     button, focus ring and checkbox) take the active company's color. */
   --brand:var(--company-color,#f97316);
   --brand-2:color-mix(in srgb,var(--company-color,#f97316) 84%,black);
   --brand-soft:color-mix(in srgb,var(--company-color,#f97316) 10%,transparent);
@@ -68,12 +62,9 @@ button,input,select,textarea{font:inherit;color:inherit}
 button{border:0;cursor:pointer;transition:background-color .15s ease,border-color .15s ease,box-shadow .15s ease,filter .15s ease,color .15s ease,transform .15s ease}
 .login-shell{min-height:100vh;display:grid;place-items:center;padding:24px;background:var(--page-bg)}
 
-/* Split-screen login (Login.tsx only — ResetPassword.tsx keeps the simpler
-   centered .login-shell/.login-card above, since it's a rare secondary
-   flow that doesn't need the marketing treatment). The left panel shows the
-   real lifestyle photo (public/imagem login.png) under a brand-tint
-   gradient — the gradient stays so the white hero copy keeps enough
-   contrast to read over any part of the photo. */
+/* Split-screen login (Login.tsx; ResetPassword keeps the simple centered
+   card). The photo panel has a brand-tint gradient so the white text stays
+   readable over any part of the photo. */
 .login-split{min-height:100vh;display:grid;grid-template-columns:1.1fr 1fr}
 .login-hero{
   position:relative;overflow:hidden;
@@ -104,12 +95,8 @@ button{border:0;cursor:pointer;transition:background-color .15s ease,border-colo
 .auth-divider::before,.auth-divider::after{content:"";flex:1 1 auto;height:1px;background:var(--line-strong)}
 .input-with-icon{position:relative;display:flex;align-items:center}
 .input-with-icon > svg{position:absolute;left:12px;width:16px;height:16px;color:var(--muted-soft);pointer-events:none}
-/* Specificity must beat .field input's own "padding:10px 12px" shorthand
-   (declared later below, same 0-1-1 specificity as a plain ".input-with-icon
-   input" would have — later-in-file wins on a tie, so it was collapsing
-   this back to 12px and pulling typed text directly under the icon). Every
-   .input-with-icon in the app lives inside a .field, so scoping through it
-   is a real "always true" constraint, not a fragile hack. */
+/* Must beat .field input's padding shorthand (declared later, same
+   specificity), which otherwise put the typed text under the icon. */
 .field .input-with-icon input{width:100%;padding-left:38px}
 .input-icon-btn{position:absolute;right:8px;background:transparent;color:var(--muted-soft);padding:6px}
 .input-icon-btn:hover{color:var(--ink-soft)}
@@ -147,8 +134,7 @@ h1,h2,h3{margin:0;letter-spacing:-.02em;font-weight:700;color:var(--ink)}
 .field input::placeholder,.field textarea::placeholder{color:var(--muted-soft)}
 .field input:focus,.field select:focus,.field textarea:focus,.cs-trigger.open{border-color:var(--brand);background:#fff;box-shadow:0 0 0 3px var(--brand-ring)}
 
-/* Custom select — replaces the native <select> popup (which browsers render
-   with unstylable OS chrome) with a popup that follows the app's own design. */
+/* Custom select: a styled popup instead of the browser's native one. */
 .cs{position:relative}
 .cs-trigger{display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;text-align:left;font-weight:500}
 .cs-trigger:disabled{opacity:.6;cursor:not-allowed}
@@ -234,12 +220,9 @@ h1,h2,h3{margin:0;letter-spacing:-.02em;font-weight:700;color:var(--ink)}
 }
 .company-card-arrow svg{width:15px;height:15px}
 .company-card:hover .company-card-arrow{color:var(--brand);border-color:var(--brand-ring);background:var(--brand-soft);transform:translateX(2px)}
-/* Highlights whichever card the user actually opened last (tracked in
-   localStorage, separate from the *active* company id — that one gets
-   cleared on "Switch company", which is exactly when this screen is
-   visible and needs to remember it). Uses the fixed app orange, not the
-   per-company --company-color: this is a cross-cutting "you were just
-   here" affordance, not a per-company signal. */
+/* The card opened last (remembered separately from the active company,
+   which "Switch company" clears). Fixed app orange: a "you were here" mark,
+   not a company color. */
 .company-card-badge{
   display:inline-flex;align-items:center;gap:5px;align-self:flex-start;
   padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;
@@ -250,18 +233,12 @@ h1,h2,h3{margin:0;letter-spacing:-.02em;font-weight:700;color:var(--ink)}
 .company-card.last-opened:hover{background:var(--brand-soft)}
 .company-card.last-opened .company-card-arrow{color:var(--brand);border-color:var(--brand-ring);background:#fff}
 .logo{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;line-height:1;background:linear-gradient(135deg,var(--company-color),color-mix(in srgb,var(--company-color) 65%,#000));color:#fff;font-weight:800;letter-spacing:.01em;box-shadow:var(--shadow-xs)}
-/* Fourth tier of CompanyLogo's fallback chain (real logo file -> hardcoded
-   icon SVG -> company.logo raw markup -> this): plain initials, so a
-   company with none of the above renders a normal colored avatar instead of
-   an empty tinted box. Font-size is hand-tuned per .logo size context below,
-   same as this codebase already does for radius/padding at each size. */
+/* Last fallback of CompanyLogo: colored initials. Font size is tuned per
+   logo size below. */
 .logo-initials{user-select:none;font-size:15px}
 
-/* Company-select icon badges: soft tint container + Lucide-style SVG icon, per sector.
-   The tint and card accent are derived from each company's own `color` field
-   (--company-color, set per-card from the DB) instead of one-off hardcoded
-   hex values per company id — so it's correct for any company, not just the
-   four seeded ones, and it's the actual signal for "which company is this". */
+/* Company icon badges: tint and accent come from each company's own color
+   (--company-color), so they work for any company. */
 .company-card{border-left:4px solid var(--company-color)}
 .company-card:hover{border-left-color:var(--company-color)}
 .company-card.last-opened{border-left-color:var(--brand)}
@@ -288,21 +265,15 @@ h1,h2,h3{margin:0;letter-spacing:-.02em;font-weight:700;color:var(--ink)}
 .content{padding:24px}
 .view-enter{animation:viewEnter .28s cubic-bezier(.16,1,.3,1) both}
 @keyframes viewEnter{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-/* Subtle stagger for KPI rows (Dashboard/Pipeline/Reports) — each card fades
-   and rises in ~40ms after the previous one instead of popping in as a
-   block, on every mount (route change, or a skeleton finishing loading). */
+/* KPI cards rise in one after another (~40ms apart) on mount. */
 @keyframes kpiIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 .kpis > *{animation:kpiIn .32s cubic-bezier(.16,1,.3,1) both}
 .kpis > *:nth-child(2){animation-delay:.04s}
 .kpis > *:nth-child(3){animation-delay:.08s}
 .kpis > *:nth-child(4){animation-delay:.12s}
 .kpis > *:nth-child(n+5){animation-delay:.16s}
-/* Stagger treatment for the company-picker cards — that screen is a
-   standalone route (not nested under Shell's Outlet), so it never got
-   .view-enter or any entrance motion at all; it just snapped in instantly.
-   Slightly richer than .kpis' plain fade+rise: starts a touch small and
-   overshoots past 100% scale before settling, so it reads as a soft bounce
-   instead of a flat fade. */
+/* Company picker cards: a soft bounce in, since this route sits outside
+   Shell and has no page transition of its own. */
 @keyframes companyCardIn{
   0%{opacity:0;transform:translateY(10px) scale(.95)}
   60%{opacity:1;transform:translateY(-1px) scale(1.01)}
@@ -343,22 +314,15 @@ h1,h2,h3{margin:0;letter-spacing:-.02em;font-weight:700;color:var(--ink)}
 .table-filters{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding-bottom:14px}
 .table-filters .cs{min-width:160px}
 .table-filters .cs .cs-trigger,.table-filters .search-field input{min-height:38px}
-/* Table column widths are set once here via <colgroup> in Customers.tsx so
-   every row's cells line up under the matching header — a real <table>
-   computes one column model shared by <thead> and <tbody> automatically,
-   so this is a hint for proportions, not something rows can drift from. */
+/* Column widths come from the <colgroup> in Customers.tsx; a real <table>
+   shares one column model between header and rows. */
 .table-wrap{overflow:auto}
 table{width:100%;border-collapse:collapse;table-layout:auto}
 th,td{text-align:left;border-bottom:1px solid var(--line-strong);padding:8px 12px;white-space:nowrap}
 th{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-weight:700;background:var(--surface-muted);position:sticky;top:0;z-index:1}
 th.sortable{cursor:pointer;user-select:none}
-/* The sort label + chevron need flex alignment, but that layout must live on
-   an inner wrapper span — putting display:flex directly on the <th> itself
-   overrides its table-cell display, which knocks it out of the table's row
-   model entirely. The browser then stacks the header cells as plain block
-   boxes (each on its own line) while the <tbody> rows, whose <td>s keep the
-   default table-cell display, still lay out horizontally as normal — that
-   mismatch is what caused the header to render vertically above the data. */
+/* The sort label's flex layout lives on an inner span: display:flex on the
+   <th> itself takes it out of the table layout and misaligns the header. */
 th.sortable .th-sort{display:flex;align-items:center;gap:3px}
 th.sortable .th-sort svg{width:11px;height:11px;flex:0 0 auto}
 th.sortable:hover{color:var(--ink-soft)}
@@ -598,12 +562,8 @@ input[type="checkbox"]:focus-visible{outline:none;box-shadow:0 0 0 3px var(--bra
 .tab{background:#fff;border:1px solid var(--line-strong);border-radius:999px;color:var(--ink-soft);padding:8px 14px;font-weight:600}
 .tab.active{background:var(--company-color);color:#fff;border-color:var(--company-color)}
 .modal-bg{
-  /* Above .chat-widget (z-index:60) — found via a mobile pass: on a phone
-     width a modal's footer buttons sit exactly where the chat FAB floats
-     (both bottom-right fixed elements), and the FAB used to win, sitting on
-     top of and partly swallowing clicks meant for the modal's Save button.
-     Below .toast (z-index:70) so a save-error toast still surfaces above an
-     open modal. */
+  /* Above .chat-widget (60), whose button sits over a phone modal's Save, and
+     below .toast (70) so a save error still shows over an open modal. */
   position:fixed;inset:0;background:rgba(15,23,42,.4);z-index:61;display:grid;place-items:start center;
   padding:34px 16px;overflow:auto;
   animation:modalBgIn .18s ease both;
@@ -630,9 +590,7 @@ input[type="checkbox"]:focus-visible{outline:none;box-shadow:0 0 0 3px var(--bra
 .record-note-meta{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .toast{position:fixed;left:50%;bottom:22px;transform:translate(-50%,80px);opacity:0;background:var(--ink);color:#fff;border-radius:var(--radius-sm);padding:11px 18px;font-weight:600;box-shadow:var(--shadow-md);transition:.2s;z-index:70}
 .toast.show{transform:translate(-50%,0);opacity:1}
-/* Audit Log's readable diff — overrides table's default td{white-space:
-   nowrap} since a diff naturally has several field rows and can contain
-   long values that need to wrap instead of forcing the table wider. */
+/* Audit Log diffs wrap instead of widening the table. */
 .diff-list{display:flex;flex-direction:column;gap:4px;white-space:normal;max-width:420px}
 .diff-row{display:flex;flex-wrap:wrap;gap:6px;font-size:12.5px;line-height:1.4}
 .diff-field{font-weight:700;color:var(--ink-soft);flex:0 0 auto}
@@ -649,8 +607,7 @@ td a svg{width:14px;height:14px}
 .table-avatar-row{display:flex;align-items:center;gap:10px}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 
-/* Skeleton loading utilities — not wired to any live wait yet (the app is
-   fully synchronous today), ready for the async Supabase phase. */
+/* Skeleton loading placeholders (PageSkeleton). */
 .skeleton{
   position:relative;overflow:hidden;background:rgba(148,163,184,.16);border-radius:8px;
 }
@@ -719,18 +676,12 @@ td a svg{width:14px;height:14px}
   .inline-actions{flex-direction:column;align-items:stretch}
   .stage{max-height:60vh}
   .pipeline{grid-auto-columns:78vw}
-  /* Comfortable touch targets (~44px) for standalone icon controls that get
-     tapped with a finger on mobile, without bloating the dense desktop UI
-     where these are clicked with a mouse. */
+  /* ~44px touch targets for icon buttons on phones, without bloating the
+     desktop UI. */
   .icon-btn,.row-menu-trigger{width:44px;height:44px}
   .pager button{min-height:44px}
   .input-icon-btn{padding:10px}
-  /* A short page's own empty-state text (e.g. "No clients yet") naturally
-     lands right where .chat-widget's fixed FAB sits — its screen position
-     is set entirely by what's above it in the flow, so no amount of
-     padding on an ancestor container pushes it up; the FAB itself has to
-     move. Raised well clear of where a card's last line of content or an
-     empty-state message typically ends on a phone-sized viewport. */
+  /* Raise the chat button on phones, where it covered a page's last line. */
   .chat-widget{bottom:84px}
 }
 
@@ -828,12 +779,11 @@ td a svg{width:14px;height:14px}
 .consent-table td:nth-child(5){min-width:260px}
 @media (max-width:760px){.form-row.three{grid-template-columns:1fr}}
 
-/* ══ Redesign (branch redesign-worktail) ═════════════════════════════════
+/* ══ Visual system ══════════════════════════════════════════════════════
    Warm cream canvas, translucent white cards with large radii, pill
-   navigation with a black active state, Outfit type, and a pastel tone per
-   KPI/stage/status. Declared last so it overrides the older rules above;
-   those get pruned page by page as each screen is converted.
-   ════════════════════════════════════════════════════════════════════ */
+   navigation with a black active state, Outfit, and a pastel tone per
+   KPI/stage/status. Declared last, so it wins over the base rules above.
+   ═══════════════════════════════════════════════════════════════════════ */
 
 /* ── Tokens ── */
 :root{
@@ -878,8 +828,8 @@ td a svg{width:14px;height:14px}
   --dot-off:#e7e3d8;
 }
 body{
-  /* Accent = the active company's color (Shell stamps --company-color and
-     --accent-ink on body). Full strength only on CTAs and highlights;
+  /* Accent = the active company's color (Shell sets --company-color and
+     --accent-ink on body). Full strength only on actions and highlights;
      --accent-soft for tinted backgrounds. */
   --accent:var(--company-color,#e8a33d);
   --accent-soft:color-mix(in srgb,var(--accent) 16%,transparent);

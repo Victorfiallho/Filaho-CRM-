@@ -1,18 +1,9 @@
-// Daily stagnant-lead check. Run by
-// .github/workflows/notify-stagnant-leads.yml (schedule + manual dispatch),
-// same requireEnv/supabase-fetch/sendEmail pattern as send-reminders.mjs.
+// Daily stagnant-deal email (.github/workflows/notify-stagnant-leads.yml).
+// For each company, get_stagnant_leads() with the service_role key (sees
+// every company); if any come back, emails the company's owners and admins
+// through Resend (internal users have no phone on file).
 //
-// For every company, calls get_stagnant_leads() (supabase/migrations/
-// 2026-08-31_01_stagnant_leads.sql) via the service_role key — the RPC is
-// SECURITY INVOKER, and service_role bypasses RLS entirely, so this sees
-// every company's leads regardless of which auth user (if any) is "logged
-// in" for this script. If any come back, emails every company_members row
-// with role owner/admin (there's no phone number on file for internal users,
-// so this is Resend-only — no Twilio/SMS leg, unlike send-reminders.mjs).
-//
-// No dedupe: a lead still stuck tomorrow gets emailed again tomorrow. That's
-// intentional (it's still true), not a bug — same accepted tradeoff as
-// send-reminders.mjs's no-dedupe note.
+// No dedupe on purpose: a deal still stuck tomorrow is emailed again.
 
 const SUPABASE_URL = requireEnv("SUPABASE_URL");
 const SUPABASE_SERVICE_ROLE_KEY = requireEnv("SUPABASE_SERVICE_ROLE_KEY");
@@ -54,7 +45,7 @@ async function main() {
   const [settingsRow] = await supabase("integration_settings?id=eq.default&select=settings");
   const emailSms = settingsRow?.settings?.email_sms;
   if (!emailSms?.enabled) {
-    console.log("email_sms integration not enabled — skipping.");
+    console.log("email_sms integration not enabled. Skipping.");
     return;
   }
 
@@ -82,7 +73,7 @@ async function main() {
 
     const lines = stagnant
       .slice(0, 20)
-      .map(l => `- ${l.name} — ${Math.floor(l.days_in_stage)} day(s) in "${l.stage_id}" (est. $${Math.round(l.value || 0).toLocaleString("en-US")})`)
+      .map(l => `- ${l.name}: ${Math.floor(l.days_in_stage)} day(s) in "${l.stage_id}" (est. $${Math.round(l.value || 0).toLocaleString("en-US")})`)
       .join("\n");
     const body = `${stagnant.length} lead(s) at ${company.name} haven't moved stage in a while:\n\n${lines}${stagnant.length > 20 ? "\n\n(and more)" : ""}`;
 

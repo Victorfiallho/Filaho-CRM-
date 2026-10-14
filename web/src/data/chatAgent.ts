@@ -1,4 +1,4 @@
-import { supabase } from "../lib/supabaseClient";
+import { apiFetch } from "../lib/apiFetch";
 
 export interface ChatTurn {
   role: "user" | "assistant";
@@ -9,15 +9,6 @@ export interface ChatTurn {
 // History is plain text turns kept by ChatWidget.tsx. `lang` is the app
 // language, so the assistant answers in it.
 export async function sendChatMessage(companyId: string, history: ChatTurn[], message: string, lang: string): Promise<string> {
-  const { data: sessionData } = await supabase.auth.getSession();
-  const token = sessionData.session?.access_token;
-  if (!token) throw new Error("Your session expired. Sign in again.");
-  const res = await fetch("/api/chat-agent", {
-    method: "POST",
-    headers: { "content-type": "application/json", Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ company_id: companyId, history, message, lang })
-  });
-  if (!res.ok) throw new Error((await res.json().catch(() => null))?.error || "Failed to reach the assistant.");
-  const data = await res.json();
-  return data.reply as string;
+  const data = await apiFetch<{ reply: string }>("/api/chat-agent", { company_id: companyId, history, message, lang }, "Failed to reach the assistant.");
+  return data.reply;
 }

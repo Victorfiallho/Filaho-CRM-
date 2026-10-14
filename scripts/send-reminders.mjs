@@ -1,15 +1,8 @@
-// Daily job-reminder send. Run by .github/workflows/send-reminders.yml
-// (schedule + manual dispatch), same requireEnv/supabase-fetch pattern as
-// sync-google-calendar.mjs. For every job scheduled tomorrow, looks up its
-// linked customer's phone/email and sends a reminder via Twilio (SMS,
-// preferred if a phone is on file) or Resend (email, fallback) — the same
-// two providers web/api/send-notification.js uses for the on-demand
-// "Send reminder now" button, just called directly here instead of over
-// HTTP since this already runs with full service-role DB access.
+// Daily job reminders (.github/workflows/send-reminders.yml). For every job
+// scheduled tomorrow, texts the client through Twilio when there's a phone,
+// else emails through Resend (the same providers as "Send reminder now").
 //
-// No dedupe column exists yet for "already reminded this job" — acceptable
-// for a once-a-day cron (see Filaho-CRM- MVP plan), but note this would
-// double-send if the workflow were ever triggered twice for the same day.
+// No "already reminded" flag: running the workflow twice in a day sends twice.
 
 const SUPABASE_URL = requireEnv("SUPABASE_URL");
 const SUPABASE_SERVICE_ROLE_KEY = requireEnv("SUPABASE_SERVICE_ROLE_KEY");
@@ -73,7 +66,7 @@ async function main() {
   const [settingsRow] = await supabase("integration_settings?id=eq.default&select=settings");
   const emailSms = settingsRow?.settings?.email_sms;
   if (!emailSms?.enabled) {
-    console.log("email_sms integration not enabled — skipping.");
+    console.log("email_sms integration not enabled. Skipping.");
     return;
   }
 

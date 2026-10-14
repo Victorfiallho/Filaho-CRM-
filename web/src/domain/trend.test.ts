@@ -30,7 +30,7 @@ describe("weeklyTrend", () => {
   });
 
   it("excludes a row exactly on the bucket's start boundary (it belongs to the prior week)", () => {
-    // Bucket boundaries are (start, end] — a row exactly at `start` falls in
+    // Bucket boundaries are (start, end]: a row exactly at `start` falls in
     // the previous window, not this one.
     const boundary = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7).toISOString();
     const rows = [{ created_at: boundary, value: 5 }];

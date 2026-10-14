@@ -1,16 +1,10 @@
-// Background Google Calendar sync. Run by
-// .github/workflows/sync-google-calendar.yml (schedule + manual dispatch).
-// For every company with a stored refresh token (web/api/google-oauth-
-// callback.js put it there), mints a fresh access token and reconciles that
-// company's scheduled jobs against real events on their Google Calendar —
-// no browser tab needs to be open, unlike the old popup-only OAuth flow.
+// Google Calendar sync (.github/workflows/sync-google-calendar.yml). For
+// every company with a stored refresh token, gets an access token and
+// reconciles its scheduled jobs with its calendar, no browser needed.
 //
-// Every event this script creates is tagged with a private extended
-// property (crm_job_id) so it can find its own events again on the next
-// run, and so it never touches events a human added to the same calendar by
-// hand. All-day events, same shape as the existing ICS export
-// (web/src/domain/calendarExport.ts) — jobs only ever store a date, not a
-// time of day.
+// Events it creates carry a private crm_job_id property, so it finds its own
+// events again and never touches ones a person added. All-day events (jobs
+// have a date, not a time), like the .ics export.
 
 const GOOGLE_CLIENT_SECRET = requireEnv("GOOGLE_CLIENT_SECRET");
 const SUPABASE_URL = requireEnv("SUPABASE_URL");
@@ -41,7 +35,7 @@ function supabase(path, init = {}) {
 async function getClientId() {
   const [row] = await supabase("integration_settings?id=eq.default&select=settings");
   const clientId = row?.settings?.google_oauth?.client_id;
-  if (!clientId) throw new Error("No Google OAuth client_id in integration_settings — nothing to refresh against.");
+  if (!clientId) throw new Error("No Google OAuth client_id in integration_settings. Nothing to refresh against.");
   return clientId;
 }
 
@@ -79,9 +73,8 @@ function jobToEvent(job, companyName) {
 }
 
 function eventChanged(existing, desired) {
-  // Google omits `location`/`description` entirely from the response when
-  // they're empty, rather than returning "" — normalize both sides so a job
-  // with no address doesn't look "changed" on every single run.
+  // Google leaves out empty location/description; normalize both sides so a
+  // job without an address doesn't look changed on every run.
   return existing.summary !== desired.summary
     || (existing.location || "") !== desired.location
     || existing.start?.date !== desired.start.date
@@ -148,9 +141,8 @@ async function syncCompany(clientId, tokenRow) {
     }
   }
 
-  // Any tagged event whose crm_job_id isn't in this company's currently-
-  // scheduled jobs means the job was deleted or unscheduled since the last
-  // run — remove the stale event (jobsById only contains scheduled jobs).
+  // A tagged event whose job is no longer scheduled (deleted or unscheduled):
+  // remove it. jobsById holds scheduled jobs only.
   for (const [jobId, event] of eventsByJobId) {
     if (jobsById.has(jobId)) continue;
     await calendarRequest(accessToken, calendarId, `/events/${event.id}`, { method: "DELETE" });
@@ -174,7 +166,7 @@ async function main() {
       console.error(`Failed to sync ${row.company_id}:`, err.message);
     }
   }
-  if (failures === tokenRows.length) process.exit(1); // every company failed — treat as a broken run
+  if (failures === tokenRows.length) process.exit(1); // every company failed: treat the run as broken
 }
 
 main().catch(err => { console.error(err); process.exit(1); });

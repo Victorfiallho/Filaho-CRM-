@@ -26,11 +26,11 @@ import { LOST_REASONS } from "../domain/followUp";
 import { findJobForLead, jobDraftFromLead } from "../domain/leadConversion";
 import { isLostStage } from "../domain/pipelineStages";
 import { PROJECT_DRIVE_SUBFOLDERS } from "../domain/types";
+import { apiFetch } from "../lib/apiFetch";
 import { errorMessage } from "../lib/errorMessage";
 import { openDrivePicker } from "../lib/googleDrivePicker";
 import { connectGoogleWorkspace, googleAccessTokenFor } from "../lib/googleOAuth";
 import { toast, toastError } from "../lib/toast";
-import { useAuth } from "../state/AuthContext";
 import { useCompany } from "../state/CompanyContext";
 import { useModal } from "../state/ModalContext";
 
@@ -48,7 +48,6 @@ function RecordModalContent() {
   const { locale, t } = useT();
   const { confirm } = useConfirm();
   const { activeCompanyId, services, stages } = useCompany();
-  const { session } = useAuth();
   const queryClient = useQueryClient();
   const type = modal?.type ?? "customer";
   const record = modal?.record;
@@ -439,22 +438,16 @@ function RecordModalContent() {
     const customer = customers.find(c => c.id === form.customer_id);
     const to = customer?.phone || customer?.email;
     if (!to) { toast(t("rec.t.noContact")); return; }
-    if (!session?.access_token) { toast(t("rec.t.sessionExpired")); return; }
     const body = `Reminder: ${form.title || "your appointment"} is scheduled for ${form.scheduled_date || "soon"}.`;
     try {
-      const res = await fetch("/api/send-notification", {
-        method: "POST",
-        headers: { "content-type": "application/json", Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({
-          type: customer?.phone ? "sms" : "email",
-          to,
-          subject: "Appointment reminder",
-          body,
-          from_email: integrationSettings?.email_sms.from_email,
-          from_phone: integrationSettings?.email_sms.from_phone
-        })
-      });
-      if (!res.ok) throw new Error((await res.json().catch(() => null))?.error || "Failed to send.");
+      await apiFetch("/api/send-notification", {
+        type: customer?.phone ? "sms" : "email",
+        to,
+        subject: "Appointment reminder",
+        body,
+        from_email: integrationSettings?.email_sms.from_email,
+        from_phone: integrationSettings?.email_sms.from_phone
+      }, "Failed to send.");
       toast(t("rec.t.reminderSent"));
     } catch (error) {
       toastError(errorMessage(error, t("rec.t.reminderError")));

@@ -1,4 +1,4 @@
-import { supabase } from "../lib/supabaseClient";
+import { apiFetch } from "../lib/apiFetch";
 
 // Same shape as web/api/admin-users.js's response.
 export interface AdminAuthUser {
@@ -36,19 +36,7 @@ export interface AdminUsersData {
   profiles: AdminProfile[];
 }
 
-async function authedFetch<T = { ok: true }>(body?: Record<string, unknown>): Promise<T> {
-  const { data: sessionData } = await supabase.auth.getSession();
-  const token = sessionData.session?.access_token;
-  if (!token) throw new Error("Your session expired. Sign in again.");
-  const res = await fetch("/api/admin-users", {
-    method: body ? "POST" : "GET",
-    headers: { "content-type": "application/json", Authorization: `Bearer ${token}` },
-    body: body ? JSON.stringify(body) : undefined
-  });
-  const json = await res.json().catch(() => null);
-  if (!res.ok) throw new Error(json?.error || "Request failed.");
-  return json;
-}
+const authedFetch = <T = { ok: true }>(body?: Record<string, unknown>) => apiFetch<T>("/api/admin-users", body);
 
 export function listAdminUsers(): Promise<AdminUsersData> {
   return authedFetch<AdminUsersData>();

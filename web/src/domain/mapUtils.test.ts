@@ -15,7 +15,7 @@ describe("pseudoPosition", () => {
 
   it("keeps x within its guaranteed 8-89 range", () => {
     // x = 8 + (hash % 82) where hash is forced unsigned (>>>0), so this range
-    // is always safe. y uses a signed `hash >> 8`, which — same as app.js —
+    // is always safe. y uses a signed `hash >> 8`, which
     // can sign-extend for large hashes and land outside [12,84); that's an
     // inherited quirk, not something to assert a clean bound on here.
     for (let i = 0; i < 20; i++) {

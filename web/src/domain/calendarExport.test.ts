@@ -29,8 +29,8 @@ describe("googleCalendarCreateUrl", () => {
     const url = googleCalendarCreateUrl(job(), "Peach Fresh Cleaning");
     // The end date is computed via a local-time Date + toISOString round-trip
     // (same as the implementation), so it's derived here too rather than
-    // hardcoded — that calculation can land on a different UTC day depending
-    // on the machine's timezone, same as the original app.js behavior.
+    // hardcoded: that calculation can land on a different UTC day depending
+    // on the machine's time zone.
     const endDate = new Date("2024-02-01T00:00:00");
     endDate.setDate(endDate.getDate() + 1);
     const expectedEnd = calendarDateString(endDate.toISOString().slice(0, 10));

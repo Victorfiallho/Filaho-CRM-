@@ -1,20 +1,4 @@
-import { supabase } from "../lib/supabaseClient";
-
-// Calls the Drive endpoints with the caller's session token; they check
-// company membership before touching Drive.
-async function authedFetch<T>(path: string, body: Record<string, unknown>): Promise<T> {
-  const { data: sessionData } = await supabase.auth.getSession();
-  const token = sessionData.session?.access_token;
-  if (!token) throw new Error("Your session expired. Sign in again.");
-  const res = await fetch(path, {
-    method: "POST",
-    headers: { "content-type": "application/json", Authorization: `Bearer ${token}` },
-    body: JSON.stringify(body)
-  });
-  const json = await res.json().catch(() => null);
-  if (!res.ok) throw new Error(json?.error || "Request failed.");
-  return json as T;
-}
+import { apiFetch } from "../lib/apiFetch";
 
 export interface ProvisionResult {
   folder_url: string;
@@ -24,7 +8,7 @@ export interface ProvisionResult {
 // Creates or finds the Drive folder for a client or job (tree in
 // web/api/drive-provision.js).
 export function provisionDriveFolder(companyId: string, entityType: "client" | "job", entityId: string): Promise<ProvisionResult> {
-  return authedFetch<ProvisionResult>("/api/drive-provision", { company_id: companyId, entity_type: entityType, entity_id: entityId });
+  return apiFetch<ProvisionResult>("/api/drive-provision", { company_id: companyId, entity_type: entityType, entity_id: entityId });
 }
 
 export interface UploadResult {
@@ -43,7 +27,7 @@ export function uploadFileToDrive(params: {
   category?: string;
   relatedTransactionId?: string | null;
 }): Promise<UploadResult> {
-  return authedFetch<UploadResult>("/api/drive-upload", {
+  return apiFetch<UploadResult>("/api/drive-upload", {
     company_id: params.companyId,
     entity_type: params.entityType,
     entity_id: params.entityId,

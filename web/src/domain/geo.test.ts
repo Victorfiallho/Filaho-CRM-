@@ -53,7 +53,7 @@ describe("twoOptImprove", () => {
     const c = { id: "c", lat: 0, lng: 1 };
     const d = { id: "d", lat: 1, lng: 0 };
     // a-b and c-d are the two crossing diagonals; a-c-b-d traces the square's
-    // perimeter instead — shorter, and the fix 2-opt should find.
+    // perimeter instead: shorter, and the fix 2-opt should find.
     const improved = twoOptImprove([a, b, c, d]);
     expect(improved.map(p => p.id)).toEqual(["a", "c", "b", "d"]);
   });

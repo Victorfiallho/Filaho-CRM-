@@ -53,7 +53,7 @@ describe("describeActivity", () => {
   });
 });
 
-describe("describeActivity — sync noise and project money", () => {
+describe("describeActivity: sync noise and project money", () => {
   it("ignores calendar-sync and geocode bookkeeping", () => {
     expect(describeActivity(entry({ entity: "jobs", entity_id: "job_1", diff: { google_event_id: { old: null, new: "abc" } } }), ctx)).toBeNull();
   });
@@ -74,7 +74,7 @@ describe("describeActivity — sync noise and project money", () => {
   });
 });
 
-describe("describeActivity — Portuguese", () => {
+describe("describeActivity: Portuguese", () => {
   const pt = { ...ctx, t: (k: MessageKey, v?: Record<string, string | number>) => translate("pt", k, v), locale: "pt-BR" };
   it("speaks the app language", () => {
     expect(describeActivity(entry({ diff: { stage_id: { old: "new", new: "won" } } }), pt)).toBe("moveu Jane Doe para Won");

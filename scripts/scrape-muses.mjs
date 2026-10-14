@@ -1,18 +1,15 @@
-// Weekly Muses Cabinets dealer-catalog scraper. Run by
-// .github/workflows/scrape-muses.yml (schedule + manual dispatch), or locally
-// for testing: MUSE_ACCOUNT=... MUSE_PASSWORD=... SUPABASE_URL=... \
-// SUPABASE_SERVICE_ROLE_KEY=... node scripts/scrape-muses.mjs
+// Weekly Muses Cabinets dealer-catalog scrape (.github/workflows/scrape-muses.yml).
+// Locally: MUSE_ACCOUNT=... MUSE_PASSWORD=... SUPABASE_URL=... \
+//   SUPABASE_SERVICE_ROLE_KEY=... node scripts/scrape-muses.mjs
 //
-// Reverse-engineered from the real dealer portal (shop.musescabinets.com) —
-// see project memory for how this was found. No headless browser needed:
-// login is a plain POST that returns a Cognito access token, then the full
-// catalog (~2400 items, 25 pages at limit=100) is one paginated GET.
-// Never touches /api/carts or /api/orders — read-only against the catalog.
+// No headless browser: login is a POST that returns a Cognito token, then
+// the catalog (~2400 items) is one paginated GET. Read-only: never touches
+// /api/carts or /api/orders.
 
 const SUPPLIER = "muses";
 const TARGET_COMPANY_ID = process.env.TARGET_COMPANY_ID || "wish_cabinets";
 const PAGE_LIMIT = 100;
-const MIN_EXPECTED_ITEMS = 500; // sanity floor — abort rather than upsert a broken partial scrape
+const MIN_EXPECTED_ITEMS = 500; // sanity floor: abort instead of saving a broken partial scrape
 
 const MUSE_ACCOUNT = requireEnv("MUSE_ACCOUNT");
 const MUSE_PASSWORD = requireEnv("MUSE_PASSWORD");
@@ -25,8 +22,8 @@ function requireEnv(name) {
   return v;
 }
 
-// Parses ` 30"W*42"H*12"D ` style dimensions out of the free-text `detail`
-// field — Muses embeds them in prose rather than exposing separate fields.
+// Dimensions like ` 30"W*42"H*12"D ` from the free-text `detail` field;
+// Muses has no separate fields for them.
 function parseDimensions(detail) {
   if (!detail) return { width_in: null, height_in: null, depth_in: null };
   const m = detail.match(/(\d+(?:\.\d+)?)\s*"?\s*W\s*\*\s*(\d+(?:\.\d+)?)\s*"?\s*H\s*\*\s*(\d+(?:\.\d+)?)\s*"?\s*D/i);
@@ -54,7 +51,7 @@ async function fetchAllProducts(accessToken) {
     items.push(...next.products);
   }
   if (items.length < MIN_EXPECTED_ITEMS) {
-    throw new Error(`Only got ${items.length} products (expected >= ${MIN_EXPECTED_ITEMS}) — aborting without writing, catalog fetch likely broke`);
+    throw new Error(`Only got ${items.length} products (expected >= ${MIN_EXPECTED_ITEMS}). Aborting without writing, catalog fetch likely broke`);
   }
   return items;
 }
@@ -112,10 +109,8 @@ function chunk(arr, size) {
   return out;
 }
 
-// Muses' pagination isn't strictly disjoint — the same product id can show up
-// on more than one page. A batch upsert with two rows sharing a conflict key
-// fails outright ("ON CONFLICT DO UPDATE command cannot affect row a second
-// time"), so collapse to one row per external_id before upserting.
+// Muses' pages overlap (the same id can appear twice), and an upsert batch
+// with a repeated conflict key fails, so keep one row per external_id.
 function dedupeByExternalId(rows) {
   const byId = new Map();
   for (const r of rows) byId.set(r.external_id, r);
@@ -161,7 +156,7 @@ async function main() {
     }
     console.log(`Recorded ${historyRows.length} price-history rows.`);
   } else {
-    console.log("No price/stock changes since last run — no history rows written.");
+    console.log("No price/stock changes since last run. No history rows written.");
   }
 
   console.log("Done.");

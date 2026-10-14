@@ -10,7 +10,7 @@ const NIGHT_ET = new Date("2026-10-14T02:00:00Z");
 const contact = { phone: "(404) 555-0123", email: "Jane@Example.com", state: "GA", zip: "30062" };
 const rec = (channel, granted, created_at, source = "booking_page") => ({ channel, purpose: "marketing", granted, created_at, source });
 
-describe("canSendMarketing — SMS", () => {
+describe("canSendMarketing: SMS", () => {
   it("blocks when there is no consent record at all (e.g. a Thumbtack import)", () => {
     expect(canSendMarketing(contact, "sms", { consents: [], now: AFTERNOON_ET })).toMatchObject({ allowed: false, reason: "no_consent" });
   });
@@ -59,7 +59,7 @@ describe("canSendMarketing — SMS", () => {
   });
 });
 
-describe("canSendMarketing — time zones", () => {
+describe("canSendMarketing: time zones", () => {
   const consents = [rec("sms", true, "2026-10-01T12:00:00Z")];
   // 2026-10-13 13:30 UTC = 9:30am ET, 8:30am CT, 7:30am MT, 6:30am PT.
   const morning = new Date("2026-10-13T13:30:00Z");
@@ -91,7 +91,7 @@ describe("canSendMarketing — time zones", () => {
   });
 });
 
-describe("canSendMarketing — email", () => {
+describe("canSendMarketing: email", () => {
   it("allows without opt-in (CAN-SPAM is opt-out)", () => {
     expect(canSendMarketing(contact, "email", { consents: [], now: NIGHT_ET }).allowed).toBe(true);
   });

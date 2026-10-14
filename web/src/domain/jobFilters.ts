@@ -1,7 +1,6 @@
-// Pure filtering/sorting for the Jobs list and Dashboard's "Upcoming jobs".
-// scheduled_date is a plain YYYY-MM-DD string, so comparing against the
-// *local* calendar date (not toISOString's UTC date, which flips a day early
-// every evening in US time zones) keeps "today" jobs counted as upcoming.
+// Filtering and sorting for the Jobs list and the Dashboard's upcoming jobs.
+// scheduled_date is YYYY-MM-DD, compared with the local date (UTC would flip
+// to tomorrow every evening in US time zones).
 import type { Job } from "./types";
 
 export type JobWhen = "all" | "upcoming" | "past" | "unscheduled";

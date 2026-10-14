@@ -1,8 +1,5 @@
-// Ported verbatim from app.js — Google Calendar .ics parsing, personal/work
-// classification keyword lists, and company-routing heuristics for calendar
-// imports. Mechanical changes only: `services()`/`activeCompanyId` globals become
-// explicit parameters (see the comment on jobFromIcsEvent for a quirk this
-// preserves on purpose).
+// Google Calendar .ics import: parsing, personal/work classification and
+// which company an event belongs to.
 import { normKey, norm } from "./format";
 
 export interface IcsEvent {
@@ -90,11 +87,8 @@ export function companyFromCalendarEvent(title: string, description: string, fal
   return fallbackCompanyId || "peach_fresh";
 }
 
-// NOTE: `serviceFromTitle` here intentionally uses the *currently active* company's
-// service list, not the service list of the company this event gets routed to by
-// `companyFromCalendarEvent`. That mismatch exists in the original app.js too
-// (service_type is resolved before company routing is applied) — preserved as-is
-// rather than "fixed", per the no-business-rule-changes constraint.
+// Known quirk: the service is matched against the active company's
+// services, before the event is routed to its company.
 export function jobFromIcsEvent(event: IcsEvent, activeCompanyId: string, activeCompanyServices: string[]) {
   const parts = parseAddressParts(event.LOCATION || "");
   const title = event.SUMMARY || "Calendar event";

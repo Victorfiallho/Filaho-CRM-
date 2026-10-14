@@ -1,7 +1,6 @@
-// A stage's `type` says what it means for reporting, independent of its
-// display `name` or `id` — so a company can rename "Won" to "Fechado" (or
-// add a brand-new stage) without breaking the KPIs that used to hardcode the
-// literal string "won". Everything not explicitly won/lost counts as open.
+// A stage's `type` (won / lost / open) drives reporting, not its name or
+// id, so a company can rename "Won" or add stages without breaking KPIs.
+// Anything not won or lost is open.
 import type { PipelineStage } from "./types";
 
 export type StageType = "open" | "won" | "lost";

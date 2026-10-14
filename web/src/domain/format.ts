@@ -1,5 +1,5 @@
-// Ported verbatim from app.js — formatting/normalization helpers used across
-// dedupe matching, import mapping, and display. No behavior changes.
+// Formatting and normalization helpers for display, duplicate matching and
+// imports.
 
 export const money = (n: unknown) => "$" + Math.round(Number(n || 0)).toLocaleString("en-US");
 export const now = () => new Date().toISOString();
@@ -29,16 +29,14 @@ export function groupBy<T>(rows: T[], fn: (row: T) => string): Record<string, T[
   }, {});
 }
 
-// First initial of the first two words in a name, for avatar badges
-// (Pipeline lead cards, Clients table) — "?" when there's nothing to work with.
+// Initials of the first two words, for avatars; "?" when there's nothing.
 export function initials(name: string): string {
   const parts = norm(name).split(/\s+/).filter(Boolean);
   return ((parts[0]?.[0] || "") + (parts[1]?.[0] || "")).toUpperCase() || "?";
 }
 
-// "Today" / "Yesterday" / "Mon D" for a timestamp — `now` is injectable so
-// this stays a pure, testable function instead of reading the real clock.
-// `locale` (default en-US) localizes all three: "Hoje" / "Ontem" / "5 de out."
+// "Today" / "Yesterday" / "Oct 5" in `locale`. `now` is passed in so tests
+// fix the clock.
 export function relativeDate(iso: string, now: Date = new Date(), locale = "en-US"): string {
   if (!iso) return "";
   const d = new Date(iso);
@@ -53,11 +51,9 @@ export function relativeDate(iso: string, now: Date = new Date(), locale = "en-U
   return d.toLocaleDateString(locale, { month: "short", day: "numeric" });
 }
 
-// For date-only YYYY-MM-DD values (jobs.scheduled_date, leads.next_action_date).
-// `new Date("2026-10-20")` parses as UTC midnight, which every US time zone
-// renders as Oct 19 — so the parts are read as a local calendar date instead.
-// Same "Oct 20" style the rest of the app uses; the year only when it isn't
-// the current one.
+// For date-only YYYY-MM-DD values (scheduled_date, next_action_date).
+// new Date("2026-10-20") is UTC midnight, which US time zones show as Oct 19,
+// so read the parts as a local date. Year only when not the current one.
 export function formatDay(ymd: string | null | undefined, now: Date = new Date(), locale = "en-US"): string {
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(ymd || "");
   if (!m) return "";
@@ -67,10 +63,7 @@ export function formatDay(ymd: string | null | undefined, now: Date = new Date()
   });
 }
 
-// Date + time for timestamps (notes, audit log, consent history) in the
-// CRM's chosen language — `toLocaleString()` with no locale used the
-// computer's language instead, so a pt-BR Windows showed "13/10/2026,
-// 14:02:11" even with English selected in the app.
+// Date and time in the CRM's language, not the computer's.
 export function formatDateTime(iso: string | null | undefined, locale = "en-US"): string {
   if (!iso) return "";
   const d = new Date(iso);

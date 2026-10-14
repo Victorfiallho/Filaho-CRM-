@@ -1,6 +1,4 @@
-// Ported verbatim from app.js (cleanCustomer, cleanJob, leadFromCustomer). Only
-// mechanical change: `activeCompanyId` / `services()` globals become explicit
-// parameters since there's no global app state in the React version.
+// Builds clean client/job/deal rows from imported or typed data.
 import { now, uid } from "./format";
 import type { Customer, Job, Lead } from "./types";
 

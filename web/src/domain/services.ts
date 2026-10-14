@@ -1,8 +1,7 @@
 // The company's service list (company_services), edited on the Services
-// screen. It feeds the lead/job/client forms, the Import Center and the
-// public booking page (in this order). company_services' key is
-// (company_id, service), so a rename changes the key, and records that use
-// the old name (leads/jobs/customers.service_type) are renamed with it.
+// screen. It feeds the deal/job/client forms, the Import Center and the
+// booking page, in this order. The key is (company_id, service), so a rename
+// changes the key, and records using the old name are renamed with it.
 
 export interface ServiceDraft {
   // Name as saved, or null for a row added in this edit.
@@ -48,10 +47,10 @@ export function planServiceChanges(saved: string[], draft: ServiceDraft[]): Serv
   };
 }
 
-// Renames normally run directly. Only when a new name is another rename's
-// old name (a swap, A→B and B→A, or a chain) do they go through
-// placeholder names, so they never collide on the key or merge records.
-// Direct is preferred: each pass is a real update in the audit log.
+// Renames run directly, unless a new name is another rename's old name (a
+// swap A>B and B>A, or a chain): then they go through placeholder names so
+// nothing collides or merges. Direct is preferred, since each pass is a
+// real update in the audit log.
 export function renamePasses(renames: [string, string][], token = Date.now().toString(36)): [string, string][][] {
   const sources = new Set(renames.map(([from]) => from));
   if (!renames.some(([, to]) => sources.has(to))) return renames.length ? [renames] : [];

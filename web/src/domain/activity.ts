@@ -1,18 +1,16 @@
-// Turns audit_log rows (written by the record_audit_log() trigger and by
-// web/api/admin-users.js) into one plain sentence each — "moved Jane Doe to
-// Won" instead of "Lead updated: Jane Doe". Used by the Dashboard feed, the
-// TopNav bell and the Audit Log. The trigger stores an UPDATE as
-// {field: {old, new}} for changed columns only, and an INSERT/DELETE as the
-// full row.
+// Turns audit_log rows (from the record_audit_log() trigger and
+// web/api/admin-users.js) into one plain sentence each: "moved Jane Doe to
+// Won", not "Lead updated: Jane Doe". Used by the Dashboard feed, the TopNav
+// bell and the Audit Log. An UPDATE row holds {field: {old, new}} for the
+// changed columns only; INSERT/DELETE hold the full row.
 //
-// Sentences come from the i18n dictionary ("act.*" keys); ctx.t defaults to
-// English so callers (and tests) without a language still get English.
+// Sentences come from the "act.*" i18n keys; ctx.t defaults to English.
 import { en, translate, type MessageKey } from "../i18n/messages";
 import { formatDay, money } from "./format";
 import type { AuditLogEntry } from "./types";
 
-// Bookkeeping that changes on its own (every save, every calendar sync,
-// every geocode) — an update that touched only these isn't news.
+// Bookkeeping that changes on its own (saves, calendar syncs, geocoding).
+// An update that touched only these isn't news.
 export const NOISE_FIELDS = new Set(["updated_at", "lat", "lng", "google_event_id", "source_uid"]);
 
 const ENTITY_NOUN: Record<string, MessageKey> = {
@@ -22,8 +20,7 @@ const ENTITY_NOUN: Record<string, MessageKey> = {
   pipeline_stages: "act.noun.pipeline_stages"
 };
 
-// Project money tables — shown to owners only, matching who can open the
-// finance screens.
+// Project money tables: shown to owners only, like the finance screens.
 const FINANCE_ENTITIES = new Set(["project_financials", "change_orders", "cost_line_items", "transactions", "refunds", "profit_releases", "drive_files", "drive_folders"]);
 
 export function isFinanceActivity(entry: AuditLogEntry): boolean {
@@ -33,8 +30,8 @@ export function isFinanceActivity(entry: AuditLogEntry): boolean {
 type Translate = (key: MessageKey, vars?: Record<string, string | number>) => string;
 
 export interface ActivityContext {
-  // Current name of a record that still exists (an UPDATE diff carries only
-  // the changed columns, so the name usually isn't in it).
+  // Current name of a record that still exists (an UPDATE diff usually
+  // doesn't carry the name).
   nameFor: (entity: string, id: string) => string | undefined;
   stageName: (stageId: string) => string | undefined;
   userName: (appUserId: string) => string | undefined;
@@ -54,8 +51,8 @@ function text(value: unknown): string {
 
 const english: Translate = (key, vars) => translate("en", key, vars);
 
-// Field name → readable label ("next_action_date" → "follow-up date"),
-// falling back to the column name with underscores as spaces.
+// Column name to a readable label ("next_action_date" > "follow-up date"),
+// else the column name with spaces.
 export function fieldLabel(field: string, t: Translate = english): string {
   const key = `act.field.${field}` as MessageKey;
   return key in en ? t(key) : field.replace(/_id$/, "").replace(/_/g, " ");
@@ -99,7 +96,7 @@ function describeFinance(entry: AuditLogEntry, ctx: ActivityContext, t: Translat
     case "refunds": return removed ? t("act.fin.refundRemoved", { onJob }) : t("act.fin.refundTracked", { amount: money(row.amount), onJob });
     case "profit_releases": return removed ? t("act.fin.releaseRemoved", { onJob }) : t("act.fin.released", { amount: money(row.amount), onJob });
     case "drive_files": return removed ? t("act.fin.fileRemoved", { file: quoted(row.file_name) }) : t("act.fin.fileUploaded", { file: quoted(row.file_name) || t("act.fin.aFile") });
-    default: return null; // drive_folders: created automatically, not news
+    default: return null; // drive_folders are created automatically: not news
   }
 }
 
@@ -111,9 +108,8 @@ export function describeActivity(entry: AuditLogEntry, ctx: ActivityContext): st
 
   const diff = (entry.diff || {}) as Record<string, unknown>;
 
-  // A booking from the public page (submit_booking() in migration 11) writes
-  // one booking_requests row for the feed; the client/lead inserts it makes
-  // along the way would just repeat it.
+  // A booking from the public page writes one booking_requests row for the
+  // feed; the client and deal rows it creates would only repeat it.
   if (entry.entity === "booking_requests") {
     const services = Array.isArray(diff.services) ? (diff.services as unknown[]).map(text).filter(Boolean) : [];
     return t("act.booking", {

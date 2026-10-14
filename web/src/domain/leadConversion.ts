@@ -1,9 +1,5 @@
-// Lead -> job conversion. A won lead used to dead-end on the Pipeline board:
-// whoever closed the deal had to re-type client, value and service on a blank
-// job form, and jobs.lead_id (which ties revenue back to the lead's source/
-// campaign) was never filled in by any screen. These helpers build the
-// pre-filled job draft and find a lead's existing job so the same lead isn't
-// converted twice.
+// Deal > job: a prefilled job draft (client, value, service, lead_id for
+// attribution), and the deal's existing job so it isn't converted twice.
 import type { Job, Lead } from "./types";
 
 export interface JobDraftFromLead {

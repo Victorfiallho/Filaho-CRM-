@@ -1,9 +1,8 @@
-// Pure helpers behind the redesign's visual language (KpiStrip dot-matrix
-// sparklines, pastel tones per pipeline stage, readable text on the
-// company accent). No React, so they're unit-tested in visual.test.ts.
+// Pure helpers for the visual language (dot-matrix sparklines, stage tones,
+// readable text on the company color); tested in visual.test.ts.
 
-// The pastel families every KPI, stage badge and progress pill picks from.
-// CSS defines --tone-<name>-bg / -fg for each (styles.css, "Redesign tokens").
+// The pastel families KPIs, stage badges and progress pills pick from.
+// styles.css defines --tone-<name>-bg / -fg for each.
 export const TONES = ["amber", "blue", "coral", "purple", "green", "teal", "rose", "slate"] as const;
 export type Tone = typeof TONES[number];
 
@@ -16,10 +15,9 @@ export function stageTone(stage: { id: string; type?: string | null }, index: nu
   return open[index % open.length];
 }
 
-// Dot-matrix sparkline: one column per recent period, `rows` dots tall,
-// with the number of filled dots proportional to that period's value
-// against the largest one shown. Any non-zero value fills at least one dot,
-// so "a little" never looks the same as "nothing".
+// Dot-matrix sparkline: one column per period, `rows` dots tall, filled in
+// proportion to the largest value shown. Any non-zero value fills at least
+// one dot, so "a little" never looks like "nothing".
 export function dotColumns(values: number[], rows = 5, columns = 10): number[] {
   const recent = values.slice(-columns);
   const padded = [...Array(Math.max(0, columns - recent.length)).fill(0), ...recent];
@@ -29,8 +27,8 @@ export function dotColumns(values: number[], rows = 5, columns = 10): number[] {
 }
 
 // White or near-black text, whichever contrasts more with `hex` (WCAG
-// relative luminance). The accent is each company's own color, so it can't
-// be assumed dark enough for white text — Peach Fresh's coral isn't.
+// luminance). The accent is each company's color, and Peach Fresh's coral
+// needs dark text.
 export function readableOn(hex: string | null | undefined): "#ffffff" | "#111111" {
   const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || "").trim());
   if (!m) return "#ffffff";

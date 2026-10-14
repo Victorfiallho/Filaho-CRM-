@@ -1,6 +1,4 @@
-// Ported verbatim from app.js (googleCalendarCreateUrl, downloadCompanyIcs's ICS
-// text building, calendarDateString, icsText). `company()` becomes an explicit
-// companyName parameter.
+// Google Calendar "add event" links and .ics files for jobs.
 import type { Job } from "./types";
 
 export function calendarDateString(date: string): string {

@@ -36,7 +36,7 @@ export function otherDealCounts(leads: Pick<Lead, "id" | "customer_id">[]): Map<
 }
 
 // "Lead" until the person closes something (a won deal or any job), then
-// "client" — derived, never stored. Also their open deals.
+// "client". Derived, never stored. Also counts their open deals.
 export function clientStanding(
   leads: Pick<Lead, "customer_id" | "stage_id">[],
   jobs: { customer_id: string | null }[],

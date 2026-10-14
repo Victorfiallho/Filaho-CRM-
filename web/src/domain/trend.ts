@@ -3,9 +3,8 @@ export interface TrendPoint {
   value: number;
 }
 
-// Buckets rows into `weeks` consecutive 7-day windows ending "today", summing
-// valueOf(row) per window. A week with no matching rows still gets a zero
-// point (not skipped) so the line has no gaps to misread as missing data.
+// Sums valueOf(row) into `weeks` 7-day windows ending today. Empty weeks
+// are zero points, not gaps.
 export function weeklyTrend<T>(
   rows: T[],
   dateOf: (row: T) => string,
@@ -14,8 +13,7 @@ export function weeklyTrend<T>(
   now: Date = new Date()
 ): TrendPoint[] {
   const msPerWeek = 7 * 86400000;
-  // Align to local midnight so "this week's" boundary doesn't drift with
-  // the time of day the dashboard happens to be loaded.
+  // From local midnight, so the week boundary doesn't move with the time of day.
   const end = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const points: TrendPoint[] = [];
   for (let i = weeks - 1; i >= 0; i--) {

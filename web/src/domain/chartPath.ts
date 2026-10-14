@@ -2,10 +2,9 @@
 
 export interface Pt { x: number; y: number }
 
-// Monotone cubic interpolation (Fritsch–Carlson), the same curve d3's
-// curveMonotoneX draws: smooth, but it never overshoots between points — a
-// plain Catmull-Rom/bezier smoothing would dip below the baseline between a
-// 0 week and a 6 week, drawing negative leads that never happened.
+// Monotone cubic interpolation (Fritsch-Carlson, like d3's curveMonotoneX):
+// smooth, but never overshoots between points. Plain bezier smoothing would
+// dip below zero between a 0 week and a 6 week.
 export function monotonePath(points: Pt[]): string {
   const n = points.length;
   if (n === 0) return "";

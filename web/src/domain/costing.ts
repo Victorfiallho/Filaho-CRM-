@@ -1,12 +1,9 @@
-// Project Costing & Financial Control — pure formulas, no I/O. Every function
-// here mirrors one formula from the "Project Costing & Financial Control"
-// spec verbatim (section 2: FÓRMULAS FINANCEIRAS) so the spec's own worked
-// examples can be asserted directly in costing.test.ts.
+// Project costing: pure formulas, no I/O. Each mirrors a formula from the
+// Project Costing & Financial Control spec (section 2), so the spec's worked
+// examples are asserted directly in costing.test.ts.
 //
-// Margin vs. markup: a 35% MARGIN means cost / (1 - 0.35) = cost / 0.65 sets
-// the selling price — NOT cost * 1.35 (that would be a 35% markup, a smaller
-// number). Every margin-based price/cost function below divides, never
-// multiplies, for exactly this reason.
+// Margin, not markup: a 35% margin prices at cost / 0.65, not cost * 1.35
+// (a 35% markup, a smaller number). Margin-based functions divide.
 import type { CostLineItem } from "./types";
 
 export const DEFAULT_MINIMUM_MARGIN_PCT = 35;
@@ -37,52 +34,48 @@ export function marginPct(profit: number, revenue: number): number {
   return revenue > 0 ? (profit / revenue) * 100 : 0;
 }
 
-// cost / (1 - margin) — dividing, not multiplying by (1 + margin). At 35%
-// margin: $4,777.50 cost -> $4,777.50 / 0.65 = $7,350 selling price.
+// cost / (1 - margin). At 35%: $4,777.50 / 0.65 = $7,350.
 export function requiredSellingPrice(cost: number, requiredMarginPct: number): number {
   const fraction = requiredMarginPct / 100;
   if (fraction >= 1) return Infinity;
   return cost / (1 - fraction);
 }
 
-// The mirror of requiredSellingPrice: given a contract value and a required
-// margin, how much can actually be spent. $7,350 at 35% margin -> $4,777.50.
+// The mirror of requiredSellingPrice: what can be spent on a contract at a
+// required margin. $7,350 at 35% > $4,777.50.
 export function maxAllowedCost(revenue: number, requiredMarginPct: number): number {
   return revenue * (1 - requiredMarginPct / 100);
 }
 
-// $7,350 at 35% -> $2,572.50, matching the spec's worked example exactly.
+// $7,350 at 35% > $2,572.50, the spec's worked example.
 export function minimumProfitForMargin(revenue: number, requiredMarginPct: number): number {
   return revenue * (requiredMarginPct / 100);
 }
 
-// Never returns a negative "available" number — floors at 0, per spec
-// ("Nunca mostrar valor negativo como disponível").
+// Floors at 0: never show a negative amount as available (spec).
 export function safeToWithdraw(cashReceived: number, costsPaid: number, committedUnpaidCosts: number, remainingRequiredCosts: number, contingencyReserve: number): number {
   const raw = cashReceived - costsPaid - committedUnpaidCosts - remainingRequiredCosts - contingencyReserve;
   return Math.max(0, raw);
 }
 
-// ── Cost line item aggregation helpers ───────────────────────────────────
-// A "committed but unpaid" line is one whose status implies money is owed
-// but actual_paid hasn't caught up yet (ordered/committed/partially_paid),
-// as opposed to purely planned/quoted items that aren't real obligations.
+// ── Cost line item aggregation ──────────────────────────────────────────
+// "Committed but unpaid": statuses that mean money is owed (ordered,
+// committed, partially_paid) while actual_paid hasn't caught up. Planned and
+// quoted items aren't obligations yet.
 const COMMITTED_STATUSES = new Set(["ordered", "committed", "partially_paid"]);
 
 export function sumEstimatedCost(items: CostLineItem[]): number {
   return items.reduce((total, item) => total + Number(item.estimated_cost || 0), 0);
 }
 
-// For margin/profitability math: real cash out (net_cost) PLUS notional
-// internal-only costs (owner labor with no cash impact) — this is "the true
-// cost of the project", not "money that left the bank account".
+// For margin math: cash out (net_cost) plus internal costs like owner labor.
+// The true cost of the project, not what left the bank.
 export function sumActualNetCost(items: CostLineItem[]): number {
   return items.reduce((total, item) => total + Number(item.net_cost || 0) + Number(item.internal_cost || 0), 0);
 }
 
-// For cash-flow math (safeToWithdraw): real money paid out only — excludes
-// internal_cost on purpose, since owner labor with $0 actual_paid never
-// touched the bank account and must not count against cash reserves.
+// For cash-flow math (safeToWithdraw): money actually paid out. Excludes
+// internal_cost, since unpaid owner labor never touched the bank.
 export function sumCashPaid(items: CostLineItem[]): number {
   return items.reduce((total, item) => total + Number(item.net_cost || 0), 0);
 }
@@ -94,9 +87,8 @@ export interface CategoryBudgetUsage {
   overBy: number;
 }
 
-// Per-category estimated-vs-actual, for the "This project is $X over the
-// material budget" style alert — one row per category that has at least one
-// line item, sorted worst-overrun-first.
+// Estimated vs actual per category, for "$X over the materials budget"
+// alerts. Categories with line items only, worst overrun first.
 export function categoryBudgetUsage(items: CostLineItem[]): CategoryBudgetUsage[] {
   const byCategory = new Map<string, { estimated: number; actual: number }>();
   for (const item of items) {
@@ -127,9 +119,8 @@ export type HealthStatus = "green" | "yellow" | "red" | "gray";
 
 export interface ProjectHealthInput {
   revenue: number;
-  // Health is only meaningful once costs are estimated: with zero cost items
-  // the forecast cost is $0, the forecast margin is 100%, and the light
-  // would turn green on a project nobody has priced yet.
+  // Health needs cost estimates: with no cost items the forecast margin is
+  // 100% and the light would go green on a project nobody has priced.
   costItemCount: number;
   forecastProfitValue: number;
   expectedProfitTarget: number;
@@ -147,8 +138,8 @@ export interface CostingMessage {
 
 export interface ProjectHealthResult {
   status: HealthStatus;
-  // One sentence that always states the rule behind the status, so the
-  // banner never shows a bare "On track" with nothing to back it up.
+  // One sentence stating the rule behind the status, so the banner never
+  // shows a bare "On track".
   reason: string;
   alerts: string[];
   reasonParts: CostingMessage[];
@@ -158,10 +149,9 @@ export interface ProjectHealthResult {
 const fmtUsd = (n: number) => "$" + Math.round(n).toLocaleString("en-US");
 const fmtPct = (n: number) => `${n.toFixed(1)}%`;
 
-// Yellow when forecast profit dips below target but still clears the dollar
-// floor; red when it falls below the floor OR the margin falls below policy
-// (a margin breach is always red, even if the dollar floor is still met —
-// per spec: "mesmo que o limite manual em dólares ainda esteja sendo atendido").
+// Yellow when forecast profit is below target but above the dollar floor.
+// Red when it's below the floor, or when the margin is below policy (always
+// red, even if the dollar floor is met, per spec).
 export function evaluateProjectHealth(input: ProjectHealthInput): ProjectHealthResult {
   if (input.revenue <= 0) {
     return { status: "gray", reason: "Set a contract value to calculate project health.", alerts: [], reasonParts: [{ key: "pfh.noContract" }], alertMessages: [] };
@@ -212,8 +202,8 @@ export interface ProjectFinancialsInput {
   contingencyPct: number;
   minimumProfitUsd: number | null;
   paymentsReceivedManual: number;
-  // Sum of confirmed customer-payment transactions, or null when the ledger
-  // has none yet (then the manual field is used — Phase 2 migration rule).
+  // Confirmed customer payments, or null when the ledger has none yet (then
+  // the manual field is used).
   ledgerPaymentsReceived: number | null;
   releasedTotal: number;
   items: CostLineItem[];
@@ -247,8 +237,8 @@ export interface ProjectFinancialsSummary {
   health: ProjectHealthResult;
 }
 
-// "$1,000 − $10 discount + $2 fees" — the arithmetic behind the contract
-// value, so a number that differs from the original contract explains itself.
+// "$1,000 − $10 discount + $2 fees": the arithmetic behind the contract
+// value, so a number different from the original contract explains itself.
 export function contractNote(original: number, discounts: number, fees: number, approvedChangeOrders: number): string {
   const parts = [fmtUsd(original)];
   if (discounts) parts.push(`− ${fmtUsd(discounts)} discount`);
@@ -288,10 +278,9 @@ export function computeProjectFinancials(input: ProjectFinancialsInput): Project
   const customerCredit = diff > 0 ? diff : 0;
 
   const requiredReserve = committedUnpaid + remainingEstimate + contingencyUsd;
-  // Cash already handed out as a profit release is no longer sitting in the
-  // account either — folded into the "paid" side so it can't be released
-  // twice. With no cost data at all, nothing is reserved for costs that just
-  // haven't been entered yet, so withdrawal is held at $0.
+  // Profit already released has left the account too, so it counts as paid
+  // and can't be released twice. With no cost data, withdrawal is held at $0:
+  // nothing has been reserved for costs not entered yet.
   const safe = hasCostData
     ? safeToWithdraw(paymentsReceived, cashPaid + input.releasedTotal, committedUnpaid, remainingEstimate, contingencyUsd)
     : 0;

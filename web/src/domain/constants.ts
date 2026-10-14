@@ -1,8 +1,6 @@
-// Ported verbatim from app.js — company icon SVGs, module nav, import field/preset
-// definitions, and Google OAuth scope presets. Companies themselves, pipeline stages,
-// and service lists now live in Supabase (companies / pipeline_stages / company_services)
-// instead of being hardcoded here, since that's the whole point of the migration —
-// these constants are the parts that were never data, just UI/config.
+// UI configuration that isn't data: company icons and logos, the nav
+// modules, import fields and presets. Companies, stages and services live in
+// the database.
 import {
   BarChart3,
   Briefcase,
@@ -21,11 +19,8 @@ import {
   type LucideIcon
 } from "lucide-react";
 
-// Real per-company logos (web/public/logos/*). COMPANY_ICONS below stays
-// as the fallback for any company id that doesn't have a logo file.
-// wish_cabinets/arca_cabinets are vector (.svg) — swapped in 2026-08-20 for
-// the sharper-at-any-size, smaller-file-size versions; the others are still
-// the original raster logos.
+// Company logos (web/public/logos). COMPANY_ICONS is the fallback for a
+// company without one.
 export const COMPANY_LOGOS: Record<string, string> = {
   peach_fresh: "/logos/peach_fresh.png",
   wish_cabinets: "/logos/wish_cabinets.svg",
@@ -57,8 +52,8 @@ export const MODULES: [string, string][] = [
   ["users", "Users & Access"]
 ];
 
-// Sidebar sections — 12 flat items were hard to scan. Every MODULES id
-// belongs to exactly one group (constants.test.ts checks that).
+// Nav sections. Every MODULES id belongs to exactly one (constants.test.ts
+// checks it).
 export const NAV_GROUPS: [string, string[]][] = [
   ["Sales", ["dashboard", "pipeline", "customers", "booking-page"]],
   ["Operations", ["jobs", "calendar", "map"]],
@@ -66,10 +61,8 @@ export const NAV_GROUPS: [string, string[]][] = [
   ["Admin", ["services", "import", "integrations", "audit-log", "users"]]
 ];
 
-// "users" is filtered out of Shell's rendered nav for anyone who isn't a
-// company owner (see Shell.tsx's useIsOwner check) — it stays in MODULES
-// itself so pageTitle() still resolves a real label for owners who do
-// navigate to /users, instead of falling back to MODULES[0]'s "Dashboard".
+// "users" stays in MODULES even though Shell hides it from non-owners, so
+// its page still gets a title.
 export const MODULE_ICONS: Record<string, LucideIcon> = {
   dashboard: LayoutDashboard,
   pipeline: Filter,

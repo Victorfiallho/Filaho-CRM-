@@ -1,5 +1,4 @@
-// Row shapes mirror supabase/schema.sql exactly (same table/column names as the
-// original FialhoDB localStorage shape documented in schema.md).
+// Row shapes, matching supabase/schema.sql.
 
 export interface Company {
   id: string;
@@ -64,7 +63,7 @@ export interface Lead {
   source: string;
   campaign_id?: string | null;
   campaign_name?: string | null;
-  // Phase 1 (migration 2026-10-11_10): owner, next step, lost reason.
+  // Owner, next step and lost reason (migration 2026-10-11_10).
   owner_user_id?: string | null;
   next_action?: string | null;
   next_action_date?: string | null;
@@ -130,11 +129,8 @@ export interface IntegrationSettings {
   google_calendar: { enabled: boolean; calendar_ids: Record<string, string>; notes: string };
   google_sheets: { enabled: boolean; spreadsheet_ids: Record<string, string>; notes: string; source_urls: Record<string, string> };
   google_drive: { enabled: boolean; folder_ids: Record<string, string>; folder_urls: Record<string, string>; picker_api_key: string; notes: string };
-  // Real secrets (Resend/Twilio API keys) live only as Vercel/GitHub Actions
-  // env vars (web/api/send-notification.js, scripts/send-reminders.mjs) —
-  // never here, since integration_settings is readable by any authenticated
-  // user (see google_oauth_tokens' zero-RLS-policy table for the pattern this
-  // follows for anything actually secret).
+  // Secrets (Resend/Twilio keys) live only in server env vars, never here:
+  // integration_settings is readable by every signed-in user.
   email_sms: { enabled: boolean; from_email: string; from_phone: string; notes: string };
   meta_ads: { enabled: boolean; ad_account_ids: Record<string, string>; notes: string };
 }
@@ -164,15 +160,12 @@ export interface AppUser {
   id: string;
   name: string;
   auth_user_id: string | null;
-  // Only populated by getCurrentAppUser() (the signed-in user's own row, for
-  // permission checks) — listUsers()'s lookup select doesn't fetch it, so
-  // any AppUser sourced from that list won't have this set.
+  // Only set by getCurrentAppUser(); rows from listUsers() don't have it.
   permissions?: string[];
 }
 
-// Rows below come back from RPCs (get_stagnant_leads, get_funnel_summary,
-// get_campaign_roi) — already aggregated/scoped server-side, not raw table
-// rows, so their shape mirrors each RPC's `returns table (...)` exactly.
+// Rows returned by RPCs (get_stagnant_leads, get_funnel_summary,
+// get_campaign_roi), already aggregated server-side.
 
 export interface StagnantLead {
   lead_id: string;
@@ -215,10 +208,9 @@ export interface AuditLogEntry {
   created_at: string;
 }
 
-// ── Project Costing & Financial Control (Phase 1) ───────────────────────
-// Every "project" below IS a `jobs` row (job_id) — no parallel project
-// entity. A job with no matching ProjectFinancials row simply hasn't had
-// the costing module set up yet.
+// ── Project costing ─────────────────────────────────────────────────────
+// A project is a `jobs` row. A job without a ProjectFinancials row just
+// hasn't had costing set up.
 
 export interface CompanyFinanceSettings {
   company_id: string;
@@ -325,7 +317,7 @@ export interface CostLineItem {
   updated_at: string;
 }
 
-// ── Project Costing & Financial Control (Phase 2 — ledger) ───────────────
+// ── Project costing: transaction ledger ─────────────────────────────────
 export const TRANSACTION_TYPES = [
   "customer_deposit", "progress_payment", "final_payment", "change_order_payment",
   "material_purchase", "labor_payment", "subcontractor_payment", "employee_payment",
@@ -392,7 +384,7 @@ export interface ProfitRelease {
   created_at: string;
 }
 
-// ── Project Costing & Financial Control (Phase 3 — Google Drive) ─────────
+// ── Project costing: Google Drive ───────────────────────────────────────
 export type DriveEntityType = "root" | "company" | "client" | "job";
 
 export interface DriveFile {

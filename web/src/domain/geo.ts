@@ -1,7 +1,5 @@
-// Pure geo helpers for Map & Routes: distance, route ordering, a Google Maps
-// multi-stop link, and proximity-based grouping. No business rules ported
-// from app.js here — this is new functionality (route planning) the
-// original MVP never had.
+// Geo helpers for Map & Routes: distance, stop ordering, a Google Maps
+// multi-stop link and proximity grouping.
 
 export interface LatLng {
   lat: number;
@@ -20,11 +18,8 @@ export function haversineDistanceKm(a: LatLng, b: LatLng): number {
   return 2 * EARTH_RADIUS_KM * Math.asin(Math.min(1, Math.sqrt(h)));
 }
 
-// Greedy nearest-neighbor ordering: from `start`, repeatedly jump to the
-// closest not-yet-visited point. Not an optimal (TSP) route, but a cheap
-// heuristic that avoids obviously backtracking across town — good enough for
-// a handful of stops in a day, where "good order" matters more than "perfect
-// order" and there's no budget for real route-optimization APIs.
+// Greedy nearest neighbor: from `start`, always go to the closest stop not
+// visited yet. Not optimal, but avoids crossing town back and forth.
 export function nearestNeighborRoute<T extends LatLng>(points: T[], start: LatLng): T[] {
   const remaining = [...points];
   const ordered: T[] = [];
@@ -43,16 +38,9 @@ export function nearestNeighborRoute<T extends LatLng>(points: T[], start: LatLn
   return ordered;
 }
 
-// 2-opt local search: repeatedly looks for a pair of edges that cross (or
-// just add unnecessary distance) and reverses the segment between them if
-// that shortens the total route. Standard TSP refinement, adapted for an
-// open path (start -> ... -> end, no return leg) rather than a closed tour.
-// Runs on top of nearestNeighborRoute()'s output, not instead of it — NN
-// gives a decent starting order fast, 2-opt cleans up the crossings NN's
-// greedy choices tend to leave behind. Pure, synchronous, no dependencies;
-// bounded by maxIterations so it can't spin forever on a pathological input,
-// though in practice it converges in a handful of passes for the stop counts
-// (a few dozen, capped by MAX_GOOGLE_MAPS_WAYPOINTS elsewhere) this app deals with.
+// 2-opt: reverse a segment whenever that shortens the route, until nothing
+// improves (or maxIterations). Open path, no return leg. Runs on the
+// nearest-neighbor order to remove the crossings it leaves.
 export function twoOptImprove<T extends LatLng>(route: T[], maxIterations = 200): T[] {
   if (route.length < 4) return route;
   const result = [...route];
@@ -81,9 +69,8 @@ export function twoOptImprove<T extends LatLng>(route: T[], maxIterations = 200)
   return result;
 }
 
-// Google Maps' consumer web directions URL accepts an origin, a destination,
-// and up to ~23 waypoints in between. A field-service day rarely has more
-// stops than that, so no extra pagination/splitting is implemented here.
+// Google Maps' web directions URL takes an origin, a destination and about
+// 23 waypoints; a field-service day rarely has more.
 const MAX_GOOGLE_MAPS_WAYPOINTS = 23;
 
 export function buildGoogleMapsRouteUrl(stops: LatLng[]): string {
@@ -105,10 +92,8 @@ export function buildGoogleMapsRouteUrl(stops: LatLng[]): string {
   return `https://www.google.com/maps/dir/?${params.toString()}`;
 }
 
-// Groups points into rough geographic clusters by snapping lat/lng to a grid
-// cell — cheap stand-in for real clustering (k-means/DBSCAN would be
-// overkill for a few dozen stops). ~0.05 degrees is roughly 5km at Atlanta's
-// latitude, a reasonable "same neighborhood" radius for route grouping.
+// Rough clusters by snapping lat/lng to a grid. 0.05 degrees is about 5 km
+// at Atlanta's latitude: "same neighborhood".
 export function clusterByProximity<T extends LatLng>(points: T[], precisionDegrees = 0.05): Record<string, T[]> {
   const groups: Record<string, T[]> = {};
   for (const point of points) {

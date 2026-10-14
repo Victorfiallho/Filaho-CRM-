@@ -1,4 +1,4 @@
-// Ported verbatim from app.js (pseudoPosition, matchesMapFilters).
+// Map pin placement and filters.
 import type { MapRecord } from "./types";
 
 export interface MapFilters {
@@ -35,10 +35,9 @@ export type StopKindFilter = "all" | MapRecord["kind"];
 
 const KIND_WORDS: Record<MapRecord["kind"], string> = { lead: "lead", customer: "client customer", job: "job" };
 
-// Every word typed has to appear somewhere on the stop (name, address, city,
-// ZIP, service, kind, pipeline stage or job status) — "kitchen 30097" finds
-// kitchen jobs in that ZIP, which a single-substring match on name/city/ZIP
-// couldn't.
+// Every typed word must appear somewhere on the stop (name, address, city,
+// ZIP, service, kind, stage or status): "kitchen 30097" finds kitchen jobs
+// in that ZIP.
 export function matchesStopQuery(record: MapRecord & { title?: string }, query: string, stageName?: string): boolean {
   const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
   if (!words.length) return true;

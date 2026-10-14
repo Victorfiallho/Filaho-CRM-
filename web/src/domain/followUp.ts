@@ -1,7 +1,6 @@
-// Follow-ups (M2) and lost reasons (M5). Pure functions over leads + stages,
-// so Pipeline cards, the Dashboard's "Needs attention" panel and Reports all
-// agree on what "overdue" means. Dates are YYYY-MM-DD strings compared
-// against the local calendar day (see localToday in jobFilters.ts).
+// Follow-ups and lost reasons over deals + stages, so the Pipeline cards,
+// the Dashboard and Reports agree on what "overdue" means. Dates are
+// YYYY-MM-DD compared with the local day (localToday in jobFilters.ts).
 import { isLostStage, isOpenStage } from "./pipelineStages";
 import type { Lead, PipelineStage } from "./types";
 
@@ -16,7 +15,7 @@ export const LOST_REASONS = [
 
 export type FollowUpStatus = "overdue" | "today" | "upcoming";
 
-// Closed (won/lost) leads never count as due — their next step is moot.
+// Closed (won/lost) deals are never due.
 export function followUpStatus(lead: Lead, stages: PipelineStage[], today: string): FollowUpStatus | null {
   if (!lead.next_action_date || !isOpenStage(lead.stage_id, stages)) return null;
   if (lead.next_action_date < today) return "overdue";
@@ -24,7 +23,7 @@ export function followUpStatus(lead: Lead, stages: PipelineStage[], today: strin
   return "upcoming";
 }
 
-// Open leads with nothing scheduled — the ones most likely to be forgotten.
+// Open deals with nothing scheduled: the ones most likely to be forgotten.
 export function leadsWithoutNextStep(leads: Lead[], stages: PipelineStage[]): Lead[] {
   return leads.filter(l => isOpenStage(l.stage_id, stages) && !l.next_action_date);
 }

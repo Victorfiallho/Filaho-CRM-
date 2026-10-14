@@ -1,9 +1,5 @@
-// Ported verbatim from app.js (findDuplicate, findDuplicateJob, mergeClientData).
-// Same matching rules, same field priority. The only mechanical change from the
-// original: instead of reading the global `db.customers`/`db.jobs` filtered by
-// activeCompanyId, the already-company-scoped candidate list is passed in — that
-// scoping used to happen inline via a closure over `activeCompanyId`, now it happens
-// where the data is fetched (src/data/*).
+// Duplicate matching for clients and jobs (phone, email, address, name +
+// ZIP; calendar UID, title + date). Callers pass the company's candidates.
 import { normAddress, normEmail, normName, normPhone, normZip } from "./format";
 import type { Customer, Job } from "./types";
 
@@ -42,9 +38,8 @@ export function mergeClientData(existing: Customer, patch: Partial<Customer>): P
       if ((merged[field] === "" || merged[field] == null) && existing[field]) (merged as any)[field] = existing[field];
     });
   merged.status = patch.status || existing.status || "active";
-  // A client's source is how they first came in — a later lead or import
-  // for the same person must not overwrite it (that erased real sources
-  // like Meta Ads every time a linked lead was edited).
+  // A client's source is how they first came in; a later deal or import must
+  // not overwrite it.
   merged.source = existing.source || patch.source || "Lead";
   return merged;
 }

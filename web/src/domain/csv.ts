@@ -1,4 +1,3 @@
-// Ported verbatim from app.js (parseCSV).
 export function parseCSV(text: string): string[][] {
   const rows: string[][] = [];
   let row: string[] = [], cell = "", quoted = false;
@@ -20,8 +19,8 @@ export function parseCSV(text: string): string[][] {
   return rows;
 }
 
-// Inverse of parseCSV — quotes a cell only when it actually needs it (holds
-// a comma, quote, or newline), matching how most spreadsheet apps write CSV.
+// Inverse of parseCSV. Quotes a cell only when it holds a comma, quote or
+// newline, like spreadsheet apps do.
 export function toCSV(headers: string[], rows: string[][]): string {
   const escapeCell = (v: string) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
   return [headers, ...rows].map(row => row.map(escapeCell).join(",")).join("\r\n");

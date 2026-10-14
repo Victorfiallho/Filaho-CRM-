@@ -1,5 +1,5 @@
-// Display helpers for the consent badges. The actual send-gate (canSendMarketing) is server-side, in
-// web/api/_lib/consent.js — nothing here decides whether a message may go out.
+// Display helpers for consent. Whether a message may be sent is decided
+// only server-side, by canSendMarketing() in web/api/_lib/consent.js.
 import type { ConsentState } from "./types";
 
 export const CONSENT_STATE_LABELS: Record<ConsentState, string> = {

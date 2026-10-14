@@ -1,4 +1,4 @@
-// Ported verbatim from app.js (filteredRows) — same field list, same substring match.
+// The top bar search: substring match over a row's main fields.
 export function filterRowsBySearch<T>(rows: T[], query: string): T[] {
   const q = query.toLowerCase().trim();
   if (!q) return rows;

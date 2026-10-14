@@ -1,6 +1,5 @@
-// One summary row per project that has costing set up — shared by Company
-// Financials and the Dashboard's money panel so both read the same numbers
-// (and the same safety rules from computeProjectFinancials).
+// One summary row per project with costing, shared by Company Financials
+// and the Dashboard's money panel so both show the same numbers.
 import { computeProjectFinancials, type HealthStatus } from "./costing";
 import { isCustomerPayment } from "./transactions";
 import type { ChangeOrder, CostLineItem, Job, ProfitRelease, ProjectFinancials, Transaction } from "./types";
@@ -12,8 +11,8 @@ export interface ProjectRollup {
   paymentsReceived: number;
   balanceDue: number;
   customerCredit: number;
-  // False until the project has at least one cost item — its forecast
-  // profit/margin are then unknown (not 100%), and it holds no free cash.
+  // False until the project has a cost item: its profit and margin are
+  // unknown (not 100%) and it frees no cash.
   hasCostData: boolean;
   forecastProfitValue: number;
   forecastMarginValue: number;

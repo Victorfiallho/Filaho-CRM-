@@ -1,6 +1,5 @@
-// Ported verbatim from app.js (mappedRecord, autoMap, stageFromValue). Mechanical
-// change only: functions take headers/mapping/companyId/sourceLabel as parameters
-// instead of reading the global `importState`/`activeCompanyId`.
+// Maps import columns to fields (auto-guessed from headers) and builds
+// records from rows.
 import { IMPORT_FIELDS, IMPORT_PRESETS, type ImportSourceType } from "./constants";
 import { norm, normKey, normZip } from "./format";
 

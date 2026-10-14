@@ -24,7 +24,7 @@ export default function DealQuotes({ lead }: { lead: Lead }) {
   const { data: settings } = useFinanceSettings(activeCompanyId);
   const [creating, setCreating] = useState(false);
 
-  const open = (id: string) => { closeModal(); navigate(`/pipeline/quotes/${id}`); };
+  const open = (id: string) => { closeModal(); navigate(`/quotes/${id}`); };
 
   async function create() {
     if (!activeCompanyId) return;
@@ -34,7 +34,7 @@ export default function DealQuotes({ lead }: { lead: Lead }) {
         pricing_pct: Number(settings?.default_minimum_margin_pct ?? 35),
         deposit_pct: Number(settings?.default_deposit_pct ?? 0)
       });
-      queryClient.invalidateQueries({ queryKey: ["quotes", activeCompanyId, lead.id] });
+      queryClient.invalidateQueries({ queryKey: ["quotes", activeCompanyId] });
       open(id);
     } catch (error) {
       toastError(errorMessage(error, t("quote.createError")));

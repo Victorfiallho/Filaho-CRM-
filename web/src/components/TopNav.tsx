@@ -28,7 +28,7 @@ const EXTERNAL_ITEM = "booking-page";
 
 // Pages with their own visible search field (SearchField); the top bar
 // search would only duplicate it there.
-const PAGES_WITH_SEARCH = new Set(["pipeline", "customers", "jobs"]);
+const PAGES_WITH_SEARCH = new Set(["pipeline", "quotes", "customers", "jobs"]);
 function NavLabel({ id }: { id: string }) {
   const { t } = useT();
   const Icon = MODULE_ICONS[id];

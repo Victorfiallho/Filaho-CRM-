@@ -14,6 +14,7 @@ import MapRoutes from "./pages/MapRoutes";
 import Pipeline from "./pages/Pipeline";
 import ProjectFinancials from "./pages/ProjectFinancials";
 import QuoteEditor from "./pages/QuoteEditor";
+import Quotes from "./pages/Quotes";
 import Reports from "./pages/Reports";
 import ResetPassword from "./pages/ResetPassword";
 import Services from "./pages/Services";
@@ -28,6 +29,8 @@ export default function App() {
       <Route element={<Shell />}>
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/pipeline" element={<Pipeline />} />
+        <Route path="/quotes" element={<Quotes />} />
+        <Route path="/quotes/:quoteId" element={<QuoteEditor />} />
         <Route path="/pipeline/quotes/:quoteId" element={<QuoteEditor />} />
         <Route path="/customers" element={<Customers />} />
         <Route path="/jobs" element={<Jobs />} />

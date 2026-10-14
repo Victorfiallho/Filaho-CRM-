@@ -7,6 +7,7 @@ import {
   Calendar,
   CalendarCheck,
   Download,
+  FileText,
   Filter,
   History,
   LayoutDashboard,
@@ -38,6 +39,7 @@ export const COMPANY_ICONS: Record<string, string> = {
 export const MODULES: [string, string][] = [
   ["dashboard", "Dashboard"],
   ["pipeline", "Pipeline"],
+  ["quotes", "Quotes"],
   ["customers", "Clients"],
   ["booking-page", "Booking page"],
   ["jobs", "Jobs"],
@@ -55,7 +57,7 @@ export const MODULES: [string, string][] = [
 // Nav sections. Every MODULES id belongs to exactly one (constants.test.ts
 // checks it).
 export const NAV_GROUPS: [string, string[]][] = [
-  ["Sales", ["dashboard", "pipeline", "customers", "booking-page"]],
+  ["Sales", ["dashboard", "pipeline", "quotes", "customers", "booking-page"]],
   ["Operations", ["jobs", "calendar", "map"]],
   ["Finance", ["company-financials", "reports"]],
   ["Admin", ["services", "import", "integrations", "audit-log", "users"]]
@@ -66,6 +68,7 @@ export const NAV_GROUPS: [string, string[]][] = [
 export const MODULE_ICONS: Record<string, LucideIcon> = {
   dashboard: LayoutDashboard,
   pipeline: Filter,
+  quotes: FileText,
   customers: Users,
   "booking-page": CalendarCheck,
   jobs: Briefcase,

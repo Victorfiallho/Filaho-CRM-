@@ -134,6 +134,17 @@ export function searchCatalog(items: CatalogItem[], query: string, doorLine: str
     .slice(0, limit);
 }
 
+// The newest version of each deal's quote, most recently touched first.
+export function latestQuotePerDeal<Q extends { id: string; lead_id: string | null; version: number; updated_at: string }>(quotes: Q[]): Q[] {
+  const best = new Map<string, Q>();
+  for (const q of quotes) {
+    const key = q.lead_id || q.id;
+    const seen = best.get(key);
+    if (!seen || q.version > seen.version) best.set(key, q);
+  }
+  return [...best.values()].sort((a, b) => b.updated_at.localeCompare(a.updated_at));
+}
+
 export function lineFromCatalog(item: CatalogItem, id: string): QuoteLine {
   return {
     id,

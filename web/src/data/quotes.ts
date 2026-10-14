@@ -40,6 +40,12 @@ export async function listQuotesForLead(companyId: string, leadId: string): Prom
   return (data || []) as Quote[];
 }
 
+export async function listQuotes(companyId: string): Promise<Quote[]> {
+  const { data, error } = await supabase.from("quotes").select("*").eq("company_id", companyId).order("updated_at", { ascending: false });
+  if (error) throw error;
+  return (data || []) as Quote[];
+}
+
 export async function getQuote(companyId: string, id: string): Promise<{ quote: Quote; lines: QuoteLine[] } | null> {
   const [{ data: quote, error }, { data: items, error: itemsError }] = await Promise.all([
     supabase.from("quotes").select("*").eq("company_id", companyId).eq("id", id).maybeSingle(),

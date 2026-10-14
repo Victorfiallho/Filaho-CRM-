@@ -1952,3 +1952,21 @@ tr:hover td{background:rgba(255,255,255,.55)}
   .quote-result-price .sub{display:none}
   .quote-title-input{font-size:19px}
 }
+
+/* Quotes list */
+.quotes-toolbar{flex-wrap:wrap;padding-top:6px;padding-bottom:0}
+.quotes-toolbar .inline-actions{padding-bottom:10px;flex-wrap:nowrap;align-items:center}
+.quotes-tabs{margin-top:0;border-bottom:0}
+.quotes-toolbar .search-pill{min-width:240px}
+.quotes-picker{display:grid;gap:8px;border-bottom:1px solid var(--line-strong);background:var(--surface-muted)}
+.quotes-picker input{width:100%;border:1px solid var(--line-strong);border-radius:var(--radius-sm);background:#fff;padding:10px 12px;color:var(--ink);font:inherit}
+.quotes-picker input:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-ring)}
+.quotes-list{margin:0}
+.quote-row-meta{display:grid;justify-items:end;gap:2px}
+.quote-row .deal-value{min-width:96px;text-align:right}
+@media (max-width:640px){
+  .quotes-toolbar .search-pill{min-width:0;flex:1}
+  .quotes-toolbar .inline-actions{width:100%;flex-wrap:wrap}
+  .quote-row-meta .sub{display:none}
+  .quote-row .deal-value{min-width:0}
+}

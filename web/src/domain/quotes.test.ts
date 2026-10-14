@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { lineFromCatalog, parseDimensions, priceFromCost, quoteTotals, searchCatalog, sectionFor, type CatalogItem, type QuoteLine } from "./quotes";
+import { latestQuotePerDeal, lineFromCatalog, parseDimensions, priceFromCost, quoteTotals, searchCatalog, sectionFor, type CatalogItem, type QuoteLine } from "./quotes";
 
 describe("priceFromCost", () => {
   it("margin divides, markup multiplies (the CRM's margin policy)", () => {
@@ -35,6 +35,16 @@ describe("quoteTotals", () => {
 
 const item = (over: Partial<CatalogItem>): CatalogItem => ({
   id: "p", sku: "", item_category: "Base Cabinets", cabinet_type: "", color: "Atlanta White", detail: "", description: "", price: 100, stock: 5, is_available: true, ...over
+});
+
+describe("latestQuotePerDeal", () => {
+  it("keeps each deal's highest version, newest first", () => {
+    const q = (id: string, lead_id: string | null, version: number, updated_at: string) => ({ id, lead_id, version, updated_at });
+    expect(latestQuotePerDeal([
+      q("a1", "a", 1, "2026-10-01"), q("a2", "a", 2, "2026-10-03"),
+      q("b1", "b", 1, "2026-10-05"), q("x", null, 1, "2026-10-02")
+    ]).map(r => r.id)).toEqual(["b1", "a2", "x"]);
+  });
 });
 
 describe("catalog", () => {

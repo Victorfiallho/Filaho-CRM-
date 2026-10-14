@@ -20,7 +20,7 @@ import { listMetaAdsInsights } from "./metaAds";
 import { listNotes } from "./notes";
 import { getCurrentAppUser, listUsers } from "./users";
 import { getProjectFinancials, listProjectFinancialsByCompany } from "./projectFinancials";
-import { getQuote, listCatalog, listQuotesForLead } from "./quotes";
+import { getQuote, listCatalog, listQuotes, listQuotesForLead } from "./quotes";
 import { listProfitReleases, listProfitReleasesByCompany } from "./profitReleases";
 import { listRefundsByJob } from "./refunds";
 import { listTransactionsByCompany, listTransactionsByJob } from "./transactions";
@@ -209,6 +209,14 @@ export function useQuotes(companyId: string | null, leadId: string | null) {
     queryKey: ["quotes", companyId, leadId],
     queryFn: () => listQuotesForLead(companyId!, leadId!),
     enabled: Boolean(companyId && leadId)
+  });
+}
+
+export function useAllQuotes(companyId: string | null) {
+  return useQuery({
+    queryKey: ["quotes", companyId, "all"],
+    queryFn: () => listQuotes(companyId!),
+    enabled: Boolean(companyId)
   });
 }
 

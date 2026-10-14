@@ -62,7 +62,7 @@ export default function QuoteEditor() {
   if (!data) {
     return (
       <div className="quote-page">
-        <EmptyState icon={Info} action={<Link to="/pipeline" className="btn ghost slim">{t("quote.backToPipeline")}</Link>}>{t("quote.notFound")}</EmptyState>
+        <EmptyState icon={Info} action={<Link to="/quotes" className="btn ghost slim">{t("quote.backToList")}</Link>}>{t("quote.notFound")}</EmptyState>
       </div>
     );
   }
@@ -123,7 +123,7 @@ function QuoteForm({ initialQuote, initialLines }: { initialQuote: Quote; initia
 
   const refresh = () => {
     queryClient.invalidateQueries({ queryKey: ["quote", activeCompanyId, quote.id] });
-    queryClient.invalidateQueries({ queryKey: ["quotes", activeCompanyId, quote.lead_id] });
+    queryClient.invalidateQueries({ queryKey: ["quotes", activeCompanyId] });
   };
 
   async function save(): Promise<boolean> {
@@ -169,8 +169,8 @@ function QuoteForm({ initialQuote, initialLines }: { initialQuote: Quote; initia
     setBusy("version");
     try {
       const id = await createQuote(activeCompanyId, lead, { pricing_pct: quote.pricing_pct, deposit_pct: quote.deposit_pct });
-      queryClient.invalidateQueries({ queryKey: ["quotes", activeCompanyId, lead.id] });
-      navigate(`/pipeline/quotes/${id}`);
+      queryClient.invalidateQueries({ queryKey: ["quotes", activeCompanyId] });
+      navigate(`/quotes/${id}`);
     } catch (error) {
       toastError(errorMessage(error, t("quote.createError")));
     } finally {
@@ -183,9 +183,8 @@ function QuoteForm({ initialQuote, initialLines }: { initialQuote: Quote; initia
     setBusy("delete");
     try {
       await deleteQuote(activeCompanyId, quote.id);
-      queryClient.invalidateQueries({ queryKey: ["quotes", activeCompanyId, quote.lead_id] });
-      navigate("/pipeline");
-      if (lead) openRecordModal("lead", lead);
+      queryClient.invalidateQueries({ queryKey: ["quotes", activeCompanyId] });
+      navigate("/quotes");
     } catch (error) {
       toastError(errorMessage(error, t("quote.deleteError")));
       setBusy("");
@@ -199,7 +198,7 @@ function QuoteForm({ initialQuote, initialLines }: { initialQuote: Quote; initia
   return (
     <div className="quote-page">
       <nav className="breadcrumb" aria-label={t("quote.breadcrumb")}>
-        <Link to="/pipeline">{t("nav.pipeline")}</Link><ChevronRight aria-hidden="true" />
+        <Link to="/quotes">{t("nav.quotes")}</Link><ChevronRight aria-hidden="true" />
         <button type="button" className="link-btn" onClick={openDeal}>{lead ? `${lead.name}${dealTitle(lead) ? ` · ${dealTitle(lead)}` : ""}` : t("quote.deal")}</button><ChevronRight aria-hidden="true" />
         <span aria-current="page">{t("quote.versionN", { version: quote.version })}</span>
       </nav>

@@ -354,9 +354,9 @@ function LeadCard({ lead, tone, stagnantDays, followUp, dragging, onClick, onDra
     >
       <div className="lead-card-head">
         <span className={`lead-avatar tone-${tone}`} aria-hidden="true">{initials(lead.name)}</span>
-        <b className="lead-card-name">{lead.name}</b>
+        <b className="lead-card-name">{lead.title?.trim() || lead.name}</b>
       </div>
-      <div className="lead-card-service">{lead.service_type || t("pipe.service")}</div>
+      <div className="lead-card-service">{lead.title?.trim() ? [lead.name, lead.service_type].filter(Boolean).join(" · ") : lead.service_type || t("pipe.service")}</div>
       <div className="lead-card-chips">
         {Number(lead.value) > 0 && <span className="chip chip-value">{money(lead.value)}</span>}
         {(lead.city || lead.zip) && <span className="chip"><MapPin aria-hidden="true" />{lead.city || lead.zip}</span>}

@@ -16,10 +16,10 @@ export interface JobDraftFromLead {
 }
 
 export function jobDraftFromLead(lead: Lead): JobDraftFromLead {
-  const service = lead.service_type?.trim();
+  const deal = lead.title?.trim() || lead.service_type?.trim();
   const name = lead.name?.trim() || "New client";
   return {
-    title: service ? `${service} — ${name}` : name,
+    title: deal ? `${deal} — ${name}` : name,
     customer_id: lead.customer_id || "",
     lead_id: lead.id,
     service_type: lead.service_type || "",

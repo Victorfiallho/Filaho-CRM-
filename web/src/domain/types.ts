@@ -56,6 +56,9 @@ export interface Lead {
   state: string;
   zip: string;
   stage_id: string;
+  // The deal's own name ("Master bathroom"): one client can have several
+  // deals. Empty = named by its service (see domain/deals.ts).
+  title?: string;
   service_type: string;
   value: number;
   source: string;

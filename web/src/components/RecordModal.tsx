@@ -9,13 +9,14 @@ import { listCustomers, insertCustomer, updateCustomer, deleteCustomer } from ".
 import { fileToBase64, provisionDriveFolder, uploadFileToDrive } from "../data/driveDocs";
 import { deleteFile, insertFile } from "../data/files";
 import { geocodeAddress } from "../data/geocoding";
-import { useCurrentAppUser, useFiles, useIntegrationSettings, useJobs, useMetaAdsInsights, useNotes, usePermissions, useUsers } from "../data/hooks";
+import { useCurrentAppUser, useFiles, useIntegrationSettings, useJobs, useLeads, useMetaAdsInsights, useNotes, usePermissions, useUsers } from "../data/hooks";
 import { insertJob, updateJob, deleteJob } from "../data/jobs";
 import { upsertClientFromLead } from "../data/leadClientSync";
 import { insertLead, updateLead, deleteLead } from "../data/leads";
 import { deleteNote, insertNote } from "../data/notes";
 import { createProjectFinancials } from "../data/projectFinancials";
-import { formatDateTime, now, uid } from "../domain/format";
+import { dealsForClient, dealTitle } from "../domain/deals";
+import { formatDateTime, formatDay, money, now, uid } from "../domain/format";
 import { useT } from "../i18n/I18nContext";
 import type { MessageKey } from "../i18n/messages";
 import { useConfirm } from "../state/ConfirmContext";
@@ -77,6 +78,9 @@ function RecordModalContent() {
   const { data: adInsights = [] } = useMetaAdsInsights(type === "lead" ? activeCompanyId : null);
   const { data: jobs = [] } = useJobs(type === "lead" && isEdit ? activeCompanyId : null);
   const linkedJob = type === "lead" && isEdit && r.id ? findJobForLead(r.id, jobs) : undefined;
+  // A client's deals (leads), listed on the client and opened from there.
+  const { data: allLeads = [] } = useLeads(type === "customer" && isEdit ? activeCompanyId : null);
+  const clientDeals = type === "customer" && isEdit && r.id ? dealsForClient(allLeads, r.id, stages) : [];
   const userNameById = new Map(users.map(u => [u.id, u.name]));
   // Distinct campaigns synced from Meta Ads — offered as a dropdown so a
   // lead's campaign_id matches meta_ads_insights.campaign_id exactly (that's
@@ -100,7 +104,7 @@ function RecordModalContent() {
   // address/name+ZIP) to find them after the fact. When set, this is passed
   // through to upsertClientFromLead as the same `preferredClientId` an edit
   // already uses, so it links by id directly rather than guessing.
-  const [pickedClientId, setPickedClientId] = useState("");
+  const [pickedClientId, setPickedClientId] = useState<string>(() => (type === "lead" && !isEdit && r.customer_id) || "");
 
   const [form, setForm] = useState(() => ({
     title: r.title || "",
@@ -137,7 +141,7 @@ function RecordModalContent() {
 
   const kindKey = type === "customer" ? "customer" : type;
   const title = t(`rec.${isEdit ? "edit" : "new"}.${kindKey}` as MessageKey);
-  const recordName = isEdit ? String(r.name || r.title || "") : "";
+  const recordName = isEdit ? (type === "lead" ? [r.title, r.name].filter(Boolean).join(" · ") : String(r.name || r.title || "")) : "";
 
   // Central permission gate — every "add lead/client/job" and "open record"
   // entry point across the app (Shell topbar, Pipeline, Customers, Jobs,
@@ -311,6 +315,7 @@ function RecordModalContent() {
         };
         if (type === "lead") {
           data.stage_id = form.stage_id;
+          data.title = form.title.trim();
           data.value = Number(form.value || 0);
           // Only a brand-new hand-typed lead is "Manual" — editing must keep
           // the original source (Meta Ads, import, ...) or the source filter
@@ -656,6 +661,7 @@ function RecordModalContent() {
                 <div className="grid two">
                   {type === "lead" ? (
                     <>
+                      <Field label={t("rec.dealTitle")} value={form.title} onChange={v => set("title", v)} placeholder={form.service_type || t("rec.dealTitlePlaceholder")} wide />
                       <SelectBox label={t("rec.stage")} value={form.stage_id} onChange={v => set("stage_id", v)} options={stages.map(s => ({ value: s.id, label: s.name }))} />
                       <Field label={t("rec.value")} value={String(form.value)} onChange={v => set("value", v)} type="number" />
                       <SelectBox label={t("rec.owner")} value={ownerForSave} onChange={v => set("owner_user_id", v)} options={ownerOptions} />
@@ -687,6 +693,44 @@ function RecordModalContent() {
                   )}
                 </div>
               </FormSection>
+
+              {type === "customer" && isEdit && r.id && (
+                <FormSection title={t("rec.sec.deals")}>
+                  {clientDeals.length === 0 ? (
+                    <p className="sub">{t("rec.noDeals")}</p>
+                  ) : (
+                    <ul className="deal-list">
+                      {clientDeals.map(deal => {
+                        const stage = stages.find(s => s.id === deal.stage_id);
+                        return (
+                          <li key={deal.id}>
+                            <button type="button" className="deal-row" onClick={() => openRecordModal("lead", deal)}>
+                              <span className="deal-dot" style={{ background: stage?.color || "var(--muted-soft)" }} aria-hidden="true" />
+                              <span className="deal-main">
+                                <b>{dealTitle(deal) || t("rec.untitledDeal")}</b>
+                                <span className="sub">{stage?.name || deal.stage_id}{deal.created_at ? ` · ${formatDay(deal.created_at, undefined, locale)}` : ""}</span>
+                              </span>
+                              {Number(deal.value) > 0 && <span className="deal-value">{money(Number(deal.value))}</span>}
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                  {hasPermission("create") && (
+                    <button
+                      type="button"
+                      className="btn ghost slim"
+                      onClick={() => openRecordModal("lead", undefined, {
+                        customer_id: r.id, name: form.name, phone: form.phone, email: form.email,
+                        address: form.address, city: form.city, state: form.state, zip: form.zip, service_type: form.service_type
+                      })}
+                    >
+                      <Plus aria-hidden="true" />{t("rec.newDeal")}
+                    </button>
+                  )}
+                </FormSection>
+              )}
 
               <FormSection title={t("rec.sec.address")}>
                 <Field label={t("rec.address")} value={form.address} onChange={v => set("address", v)} />
@@ -814,12 +858,12 @@ function FormSection({ title, children }: { title: string; children: ReactNode }
   );
 }
 
-function Field({ label, value, onChange, type = "text", wide }: { label: string; value: string; onChange: (v: string) => void; type?: string; wide?: boolean }) {
+function Field({ label, value, onChange, type = "text", wide, placeholder }: { label: string; value: string; onChange: (v: string) => void; type?: string; wide?: boolean; placeholder?: string }) {
   const id = useId();
   return (
     <div className="field" style={wide ? { gridColumn: "1 / -1" } : undefined}>
       <label htmlFor={id}>{label}</label>
-      <input id={id} type={type} value={value} onChange={e => onChange(e.target.value)} />
+      <input id={id} type={type} value={value} placeholder={placeholder} onChange={e => onChange(e.target.value)} />
     </div>
   );
 }

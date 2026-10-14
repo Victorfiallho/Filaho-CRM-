@@ -28,10 +28,3 @@ export async function findOrCreateVendor(companyId: string, canonicalName: strin
   if (error) throw error;
   return data as Vendor;
 }
-
-export async function updateVendor(id: string, companyId: string, patch: Partial<Vendor>): Promise<Vendor> {
-  const sanitized = { ...patch, updated_at: now() };
-  const { data, error } = await supabase.from("vendors").update(sanitized).eq("id", id).eq("company_id", companyId).select().single();
-  if (error) throw error;
-  return data as Vendor;
-}

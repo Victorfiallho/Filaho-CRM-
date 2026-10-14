@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { groupBy, initials, money, normAddress, normEmail, normKey, normName, normPhone, normZip, formatDateTime, formatDay, formatShortDate, relativeDate, titleize, unique } from "./format";
+import { groupBy, initials, money, normAddress, normEmail, normKey, normName, normPhone, normZip, formatDateTime, formatDay, relativeDate, titleize, unique } from "./format";
 
 describe("money", () => {
   it("formats and rounds", () => {
@@ -114,16 +114,14 @@ describe("formatDay", () => {
   });
 });
 
-describe("formatDateTime / formatShortDate", () => {
+describe("formatDateTime", () => {
   const iso = "2026-10-13T14:02:11";
   it("follows the app language, not the computer's", () => {
     expect(formatDateTime(iso, "en-US")).toBe("Oct 13, 2026, 2:02 PM");
     expect(formatDateTime(iso, "pt-BR")).toMatch(/^13 de out\. de 2026/);
-    expect(formatShortDate(iso, "en-US")).toBe("Oct 13, 2026");
-    expect(formatShortDate(iso, "pt-BR")).toMatch(/^13 de out\. de 2026$/);
   });
   it("is empty for missing or bad input", () => {
     expect(formatDateTime("")).toBe("");
-    expect(formatShortDate("nope")).toBe("");
+    expect(formatDateTime("nope")).toBe("");
   });
 });

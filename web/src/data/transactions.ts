@@ -33,17 +33,6 @@ export async function insertTransaction(row: Omit<Transaction, "id" | "status" |
   return data as Transaction;
 }
 
-// Only draft rows may be freely edited — the DB trigger enforces this for
-// confirmed rows regardless, but checking here gives a clearer error message
-// than a raw Postgres exception in the UI.
-export async function updateDraftTransaction(id: string, companyId: string, patch: Partial<Transaction>): Promise<Transaction> {
-  const sanitized = { ...patch, updated_at: now() } as Record<string, unknown>;
-  if ("due_date" in patch) sanitized.due_date = toDateOrNull(patch.due_date);
-  const { data, error } = await supabase.from("transactions").update(sanitized).eq("id", id).eq("company_id", companyId).eq("status", "draft").select().single();
-  if (error) throw error;
-  return data as Transaction;
-}
-
 export async function deleteDraftTransaction(id: string, companyId: string): Promise<void> {
   const { error } = await supabase.from("transactions").delete().eq("id", id).eq("company_id", companyId).eq("status", "draft");
   if (error) throw error;

@@ -1,5 +1,4 @@
 import { supabase } from "../lib/supabaseClient";
-import type { DriveFile } from "../domain/types";
 
 // Same authedFetch shape as data/adminUsers.ts — Authorization is the
 // caller's own Supabase session token, checked server-side against
@@ -72,10 +71,4 @@ export function fileToBase64(file: File): Promise<string> {
     reader.onerror = () => reject(new Error("Could not read that file."));
     reader.readAsDataURL(file);
   });
-}
-
-export async function listDriveFiles(entityType: "client" | "job", entityId: string): Promise<DriveFile[]> {
-  const { data, error } = await supabase.from("drive_files").select("*").eq("entity_type", entityType).eq("entity_id", entityId).order("upload_date", { ascending: false });
-  if (error) throw error;
-  return (data || []) as DriveFile[];
 }

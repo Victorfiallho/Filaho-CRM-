@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { isCustomerPayment, isInflow, isProjectCost, OWNER_AMBIGUOUS_TYPES } from "./transactions";
+import { INFLOW_TYPES, isCustomerPayment, OWNER_AMBIGUOUS_TYPES, PROJECT_COST_TYPES } from "./transactions";
+
+const isProjectCost = (type: string) => (PROJECT_COST_TYPES as readonly string[]).includes(type);
+const isInflow = (type: string) => (INFLOW_TYPES as readonly string[]).includes(type);
 
 describe("transaction classification", () => {
   it("counts customer-facing payment types as customer payments", () => {

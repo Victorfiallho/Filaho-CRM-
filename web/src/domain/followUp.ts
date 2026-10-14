@@ -24,17 +24,6 @@ export function followUpStatus(lead: Lead, stages: PipelineStage[], today: strin
   return "upcoming";
 }
 
-export function dueFollowUps(leads: Lead[], stages: PipelineStage[], today: string) {
-  const overdue: Lead[] = [];
-  const dueToday: Lead[] = [];
-  for (const lead of leads) {
-    const status = followUpStatus(lead, stages, today);
-    if (status === "overdue") overdue.push(lead);
-    else if (status === "today") dueToday.push(lead);
-  }
-  return { overdue, dueToday };
-}
-
 // Open leads with nothing scheduled — the ones most likely to be forgotten.
 export function leadsWithoutNextStep(leads: Lead[], stages: PipelineStage[]): Lead[] {
   return leads.filter(l => isOpenStage(l.stage_id, stages) && !l.next_action_date);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dueFollowUps, followUpStatus, leadsWithoutNextStep, lostReasonCounts } from "./followUp";
+import { followUpStatus, leadsWithoutNextStep, lostReasonCounts } from "./followUp";
 import type { Lead, PipelineStage } from "./types";
 
 const stages = [
@@ -28,7 +28,7 @@ describe("followUpStatus", () => {
   });
 });
 
-describe("dueFollowUps / leadsWithoutNextStep", () => {
+describe("leadsWithoutNextStep", () => {
   const leads = [
     lead("late", { next_action_date: "2026-10-01" }),
     lead("now", { next_action_date: TODAY }),
@@ -36,11 +36,6 @@ describe("dueFollowUps / leadsWithoutNextStep", () => {
     lead("none"),
     lead("closed", { stage_id: "won" })
   ];
-  it("splits overdue from due today", () => {
-    const { overdue, dueToday } = dueFollowUps(leads, stages, TODAY);
-    expect(overdue.map(l => l.id)).toEqual(["late"]);
-    expect(dueToday.map(l => l.id)).toEqual(["now"]);
-  });
   it("finds open leads with no next step", () => {
     expect(leadsWithoutNextStep(leads, stages).map(l => l.id)).toEqual(["none"]);
   });

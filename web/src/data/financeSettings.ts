@@ -1,5 +1,4 @@
 import { supabase } from "../lib/supabaseClient";
-import { now } from "../domain/format";
 import { DEFAULT_CONTINGENCY_PCT, DEFAULT_DEPOSIT_PCT, DEFAULT_MINIMUM_MARGIN_PCT } from "../domain/costing";
 import type { CompanyFinanceSettings } from "../domain/types";
 
@@ -24,16 +23,4 @@ export async function getFinanceSettings(companyId: string): Promise<CompanyFina
     .single();
   if (insertError) throw insertError;
   return inserted as CompanyFinanceSettings;
-}
-
-export async function updateFinanceSettings(companyId: string, patch: Partial<CompanyFinanceSettings>): Promise<CompanyFinanceSettings> {
-  const sanitized = { ...patch, updated_at: now() };
-  const { data, error } = await supabase
-    .from("company_finance_settings")
-    .update(sanitized)
-    .eq("company_id", companyId)
-    .select()
-    .single();
-  if (error) throw error;
-  return data as CompanyFinanceSettings;
 }

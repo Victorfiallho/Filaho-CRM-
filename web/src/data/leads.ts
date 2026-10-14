@@ -9,17 +9,6 @@ export async function listLeads(companyId: string): Promise<Lead[]> {
   return (data || []) as Lead[];
 }
 
-export async function getLead(id: string, companyId: string): Promise<Lead | null> {
-  const { data, error } = await supabase
-    .from("leads")
-    .select("*")
-    .eq("id", id)
-    .eq("company_id", companyId)
-    .maybeSingle();
-  if (error) throw error;
-  return (data as Lead) || null;
-}
-
 export async function insertLead(row: Omit<Lead, "id"> & { id?: string }): Promise<Lead> {
   const record: Record<string, unknown> = { id: row.id || uid("lead"), ...row, lat: toNumericOrNull(row.lat), lng: toNumericOrNull(row.lng) };
   sanitizeOptionalLeadFields(record, row);

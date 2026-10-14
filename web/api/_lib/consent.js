@@ -44,12 +44,6 @@ export function latestConsent(records, channel) {
     .reduce((latest, r) => (!latest || new Date(r.created_at) > new Date(latest.created_at) ? r : latest), null);
 }
 
-// "opted_in" | "not_opted_in" | "suppressed" — the badge the CRM shows.
-export function consentState(records, channel, suppressed) {
-  if (suppressed) return "suppressed";
-  return latestConsent(records, channel)?.granted ? "opted_in" : "not_opted_in";
-}
-
 // ── the gate
 
 export const REASONS = {

@@ -17,10 +17,6 @@ export function contractRevenue(originalContractValue: number, approvedChangeOrd
   return originalContractValue + approvedChangeOrders + customerFees - discounts;
 }
 
-export function netMaterialCost(purchases: number, salesTax: number, freight: number, discounts: number, returns: number, vendorCredits: number): number {
-  return purchases + salesTax + freight - discounts - returns - vendorCredits;
-}
-
 export function estimatedTotalCost(estimatedLineCosts: number[], contingency: number): number {
   return estimatedLineCosts.reduce((total, cost) => total + cost, 0) + contingency;
 }
@@ -37,20 +33,8 @@ export function forecastProfit(revenue: number, forecastCost: number): number {
   return revenue - forecastCost;
 }
 
-export function finalProfit(finalRevenue: number, finalNetCost: number): number {
-  return finalRevenue - finalNetCost;
-}
-
 export function marginPct(profit: number, revenue: number): number {
   return revenue > 0 ? (profit / revenue) * 100 : 0;
-}
-
-export function budgetVariance(estimatedCost: number, forecastCost: number): number {
-  return estimatedCost - forecastCost;
-}
-
-export function profitBuffer(forecastProfitValue: number, minimumAcceptableProfit: number): number {
-  return forecastProfitValue - minimumAcceptableProfit;
 }
 
 // cost / (1 - margin) — dividing, not multiplying by (1 + margin). At 35%
@@ -70,10 +54,6 @@ export function maxAllowedCost(revenue: number, requiredMarginPct: number): numb
 // $7,350 at 35% -> $2,572.50, matching the spec's worked example exactly.
 export function minimumProfitForMargin(revenue: number, requiredMarginPct: number): number {
   return revenue * (requiredMarginPct / 100);
-}
-
-export function minimumDepositRequired(costsBeforeNextPayment: number, initialCommitments: number, initialContingency: number): number {
-  return costsBeforeNextPayment + initialCommitments + initialContingency;
 }
 
 // Never returns a negative "available" number — floors at 0, per spec

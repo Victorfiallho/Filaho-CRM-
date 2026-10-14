@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canSendMarketing, classifyInboundSms, consentState, normalizeEmail, renderConsentText, toE164 } from "./consent.js";
+import { canSendMarketing, classifyInboundSms, normalizeEmail, renderConsentText, toE164 } from "./consent.js";
 import { isWithinSmsWindow, timeZonesFor, todayIn, zipToState } from "./usTime.js";
 
 // 2026-10-13 18:00 UTC = 2:00pm in Atlanta (EDT, UTC-4).
@@ -105,13 +105,6 @@ describe("canSendMarketing — email", () => {
   });
 });
 
-describe("consentState", () => {
-  it("reports the badge state", () => {
-    expect(consentState([], "sms", false)).toBe("not_opted_in");
-    expect(consentState([rec("sms", true, "2026-10-01T00:00:00Z")], "sms", false)).toBe("opted_in");
-    expect(consentState([rec("sms", true, "2026-10-01T00:00:00Z")], "sms", true)).toBe("suppressed");
-  });
-});
 
 describe("normalization", () => {
   it("formats US numbers as E.164", () => {

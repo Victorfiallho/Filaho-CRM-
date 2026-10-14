@@ -395,17 +395,6 @@ export interface ProfitRelease {
 // ── Project Costing & Financial Control (Phase 3 — Google Drive) ─────────
 export type DriveEntityType = "root" | "company" | "client" | "job";
 
-export interface DriveFolder {
-  id: string;
-  company_id: string;
-  entity_type: DriveEntityType;
-  entity_id: string;
-  subfolder_key: string;
-  drive_folder_id: string;
-  drive_folder_url: string;
-  created_at: string;
-}
-
 export interface DriveFile {
   id: string;
   company_id: string;
@@ -434,7 +423,6 @@ export const PROJECT_DRIVE_SUBFOLDERS = [
   "07 - Change Orders",
   "08 - Financial Reports"
 ] as const;
-export type ProjectDriveSubfolder = typeof PROJECT_DRIVE_SUBFOLDERS[number];
 
 export type MapKind = "customer" | "lead" | "job";
 
@@ -455,8 +443,6 @@ export interface MapRecord {
 }
 
 // ── Public booking page + marketing consent (migration 2026-10-13_11) ────
-export type ConsentTextKind = "sms" | "email" | "transactional";
-
 export type ConsentChannel = "sms" | "email";
 
 export interface ConsentRecord {

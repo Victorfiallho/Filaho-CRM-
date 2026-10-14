@@ -138,6 +138,16 @@ describe("evaluateProjectHealth traffic light", () => {
     expect(result.status).toBe("red");
     expect(result.alerts[0]).toMatch(/margin/i);
   });
+
+  it("returns the same reason and alerts as message keys for translation", () => {
+    const below = evaluateProjectHealth({ ...base, forecastProfitValue: 799, forecastMarginPctValue: 40 });
+    expect(below.reasonParts.map(p => p.key)).toEqual(["pfh.belowMinimum", "pfh.marginLine"]);
+    expect(below.reasonParts[0].vars).toEqual({ profit: "$799", minimum: "$800" });
+    const breach = evaluateProjectHealth({ ...base, forecastProfitValue: 1000, forecastMarginPctValue: 30 });
+    expect(breach.reasonParts.map(p => p.key)).toEqual(["pfh.marginLine"]);
+    expect(breach.alertMessages).toEqual([{ key: "pfh.alertMargin", vars: { margin: "30.0%", min: 35 } }]);
+    expect(evaluateProjectHealth({ ...base, revenue: 0, forecastProfitValue: 0, forecastMarginPctValue: 0 }).reasonParts).toEqual([{ key: "pfh.noContract" }]);
+  });
 });
 
 describe("contractNote", () => {

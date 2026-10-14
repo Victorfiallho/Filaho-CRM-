@@ -158,12 +158,21 @@ export interface ProjectHealthInput {
   minimumMarginPct: number;
 }
 
+// A message key plus its values, so the screen can show `reason`/`alerts`
+// in the user's language. The English strings stay for tests and logs.
+export interface CostingMessage {
+  key: string;
+  vars?: Record<string, string | number>;
+}
+
 export interface ProjectHealthResult {
   status: HealthStatus;
   // One sentence that always states the rule behind the status, so the
   // banner never shows a bare "On track" with nothing to back it up.
   reason: string;
   alerts: string[];
+  reasonParts: CostingMessage[];
+  alertMessages: CostingMessage[];
 }
 
 const fmtUsd = (n: number) => "$" + Math.round(n).toLocaleString("en-US");
@@ -175,32 +184,39 @@ const fmtPct = (n: number) => `${n.toFixed(1)}%`;
 // per spec: "mesmo que o limite manual em dólares ainda esteja sendo atendido").
 export function evaluateProjectHealth(input: ProjectHealthInput): ProjectHealthResult {
   if (input.revenue <= 0) {
-    return { status: "gray", reason: "Set a contract value to calculate project health.", alerts: [] };
+    return { status: "gray", reason: "Set a contract value to calculate project health.", alerts: [], reasonParts: [{ key: "pfh.noContract" }], alertMessages: [] };
   }
   if (input.costItemCount === 0) {
-    return { status: "gray", reason: "Add cost estimates to calculate project health.", alerts: [] };
+    return { status: "gray", reason: "Add cost estimates to calculate project health.", alerts: [], reasonParts: [{ key: "pfh.noCosts" }], alertMessages: [] };
   }
 
   const marginLine = `Forecast margin ${fmtPct(input.forecastMarginPctValue)} vs ${input.minimumMarginPct}% minimum.`;
+  const marginMsg: CostingMessage = { key: "pfh.marginLine", vars: { margin: fmtPct(input.forecastMarginPctValue), min: input.minimumMarginPct } };
   const alerts: string[] = [];
+  const alertMessages: CostingMessage[] = [];
   let status: HealthStatus = "green";
   let reason = marginLine;
+  let reasonParts = [marginMsg];
 
   if (input.forecastProfitValue < input.minimumAcceptableProfit) {
     status = "red";
     reason = `Forecast profit ${fmtUsd(input.forecastProfitValue)} is below the ${fmtUsd(input.minimumAcceptableProfit)} minimum. ${marginLine}`;
+    reasonParts = [{ key: "pfh.belowMinimum", vars: { profit: fmtUsd(input.forecastProfitValue), minimum: fmtUsd(input.minimumAcceptableProfit) } }, marginMsg];
   } else if (input.forecastProfitValue < input.expectedProfitTarget) {
     status = "yellow";
     reason = `Forecast profit ${fmtUsd(input.forecastProfitValue)} is below the ${fmtUsd(input.expectedProfitTarget)} estimate. ${marginLine}`;
+    reasonParts = [{ key: "pfh.belowTarget", vars: { profit: fmtUsd(input.forecastProfitValue), target: fmtUsd(input.expectedProfitTarget) } }, marginMsg];
   }
 
   if (input.forecastMarginPctValue < input.minimumMarginPct) {
     status = "red";
     reason = marginLine;
+    reasonParts = [marginMsg];
     alerts.push(`This expense trend has reduced the forecast margin to ${fmtPct(input.forecastMarginPctValue)}, below the ${input.minimumMarginPct}% minimum policy.`);
+    alertMessages.push({ key: "pfh.alertMargin", vars: { margin: fmtPct(input.forecastMarginPctValue), min: input.minimumMarginPct } });
   }
 
-  return { status, reason, alerts };
+  return { status, reason, alerts, reasonParts, alertMessages };
 }
 
 // ── Whole-project summary ────────────────────────────────────────────────
@@ -312,9 +328,11 @@ export function computeProjectFinancials(input: ProjectFinancialsInput): Project
   if (hasCostData) {
     for (const cat of categoryBudgetUsage(items).filter(c => c.overBy > 0)) {
       health.alerts.push(`This project is ${fmtUsd(cat.overBy)} over the ${cat.category.replace(/_/g, " ")} budget.`);
+      health.alertMessages.push({ key: "pfh.alertCategory", vars: { amount: fmtUsd(cat.overBy), category: cat.category } });
     }
     if (safe === 0 && requiredReserve > paymentsReceived - cashPaid) {
       health.alerts.push("There is not enough reserved cash to complete this project safely right now.");
+      health.alertMessages.push({ key: "pfh.alertReserve" });
     }
   }
 

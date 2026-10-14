@@ -1964,3 +1964,34 @@ tr:hover td{background:rgba(255,255,255,.55)}
   .route-order-row .round-btn{width:44px;height:44px}
   .stop-kind-filter button{min-height:40px}
 }
+
+/* Project financials (job costing) */
+.pf-card{margin-top:16px}
+.project-financials .health-banner{border:0;border-radius:18px;padding:14px 18px}
+.project-financials .health-green{background:var(--tone-green-bg);color:var(--tone-green-fg)}
+.project-financials .health-green svg{color:var(--tone-green-fg)}
+.project-financials .health-yellow{background:var(--tone-amber-bg);color:var(--tone-amber-fg)}
+.project-financials .health-yellow svg{color:var(--tone-amber-fg)}
+.project-financials .health-red{background:var(--tone-rose-bg);color:var(--tone-rose-fg)}
+.project-financials .health-red svg{color:var(--tone-rose-fg)}
+.project-financials .health-banner .health-alert{color:inherit;opacity:.85}
+.mini-stats.five{grid-template-columns:repeat(5,minmax(0,1fr))}
+.pf-cost-stats{margin:0;padding:12px}
+.pf-cost-stats b{font-size:19px}
+.pf-add{border-top:1px solid var(--line)}
+.pf-add .form-section-title{margin:0 0 10px}
+.pf-add .form-row{grid-template-columns:repeat(auto-fill,minmax(180px,1fr))}
+.pf-more-fields{margin:10px 0 0}
+.pf-more-fields .form-row{margin-top:10px}
+.pf-add > .notice-inline:first-child{margin-top:0}
+.pf-status-cell{min-width:170px}
+.pf-status-cell .cs{width:100%}
+.pf-setup{margin-top:12px;max-width:560px}
+.pf-setup .field{margin:12px 0}
+@media(max-width:1100px){.mini-stats.five{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:760px){
+  .mini-stats.five{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .pf-header .inline-actions{width:100%}
+  .pf-header .inline-actions .btn{flex:1;justify-content:center}
+  .pf-add .form-row{grid-template-columns:1fr}
+}

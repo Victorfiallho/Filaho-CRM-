@@ -106,40 +106,45 @@ export default function Integrations() {
     queryClient.invalidateQueries({ queryKey: ["integration_settings"] });
   }
 
+  // Field edits and toggles: the error reaches the user instead of a "Saved"
+  // toast over a write the database refused.
+  async function save(updater: (s: IntegrationSettings) => IntegrationSettings, { quiet = false } = {}) {
+    try {
+      await patch(updater);
+      if (!quiet) toast(t("int.saved"));
+    } catch (err) {
+      toastError(errorMessage(err, t("int.saveFailed")));
+    }
+  }
+
   function toggleIntegration(key: keyof IntegrationSettings) {
-    patch(s => ({ ...s, [key]: { ...(s[key] as any), enabled: !(s[key] as any).enabled } }));
+    save(s => ({ ...s, [key]: { ...(s[key] as any), enabled: !(s[key] as any).enabled } }), { quiet: true });
   }
 
   function saveIntegrationSetting(key: keyof IntegrationSettings, value: string) {
-    patch(s => key === "google_maps"
+    save(s => key === "google_maps"
       ? { ...s, google_maps: { ...s.google_maps, api_key: value } }
       : { ...s, [key]: { ...(s[key] as any), notes: value } });
-    toast(t("int.saved"));
   }
 
   function savePickerApiKey(value: string) {
-    patch(s => ({ ...s, google_drive: { ...s.google_drive, picker_api_key: value } }));
-    toast(t("int.saved"));
+    save(s => ({ ...s, google_drive: { ...s.google_drive, picker_api_key: value } }));
   }
 
   function saveEmailSmsField(field: "from_email" | "from_phone", value: string) {
-    patch(s => ({ ...s, email_sms: { ...s.email_sms, [field]: value } }));
-    toast(t("int.saved"));
+    save(s => ({ ...s, email_sms: { ...s.email_sms, [field]: value } }));
   }
 
   function saveMetaAdAccountId(value: string) {
-    patch(s => ({ ...s, meta_ads: { ...s.meta_ads, ad_account_ids: { ...s.meta_ads.ad_account_ids, [companyId]: value } } }));
-    toast(t("int.saved"));
+    save(s => ({ ...s, meta_ads: { ...s.meta_ads, ad_account_ids: { ...s.meta_ads.ad_account_ids, [companyId]: value } } }));
   }
 
   function saveCompanyIntegrationValue(key: "google_sheets" | "google_drive" | "google_calendar", field: string, value: string) {
-    patch(s => ({ ...s, [key]: { ...(s[key] as any), [field]: { ...((s[key] as any)[field] || {}), [companyId]: value } } }));
-    toast(t("int.saved"));
+    save(s => ({ ...s, [key]: { ...(s[key] as any), [field]: { ...((s[key] as any)[field] || {}), [companyId]: value } } }));
   }
 
   function saveOAuthField(field: string, value: string) {
-    patch(s => ({ ...s, google_oauth: { ...s.google_oauth, [field]: value, enabled: field === "client_id" ? Boolean(value) : Boolean(s.google_oauth.client_id) } }));
-    toast(t("int.saved"));
+    save(s => ({ ...s, google_oauth: { ...s.google_oauth, [field]: value, enabled: field === "client_id" ? Boolean(value) : Boolean(s.google_oauth.client_id) } }));
   }
 
   function loadGoogleOAuthJson(file: File | null) {

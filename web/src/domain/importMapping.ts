@@ -20,7 +20,8 @@ const COMMON_ALIASES: Record<string, string[]> = {
   stage_id: ["etapa", "fase", "stage"],
   value: ["valor"],
   notes: ["observa", "notas"],
-  drive_folder_url: ["pasta do drive"]
+  drive_folder_url: ["pasta do drive"],
+  scheduled_date: ["date", "created", "data"]
 };
 
 export function autoMapHeaders(headers: string[], sourceType: ImportSourceType): Record<string, string> {
@@ -82,6 +83,21 @@ export function mappedRecord(
   return record;
 }
 
+// The "Date" column: when the person came in (a Thumbtack or Sheets export
+// date), so old leads don't all look new. ISO (2024-03-15) or US
+// (3/15/2024, 3/15/24) dates, or anything Date can read; "" otherwise.
+export function parseImportDate(value: unknown): string {
+  const text = norm(value);
+  if (!text) return "";
+  const us = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2}|\d{4})\b/);
+  const date = us
+    ? new Date(Date.UTC(Number(us[3].length === 2 ? `20${us[3]}` : us[3]), Number(us[1]) - 1, Number(us[2]), 12))
+    : new Date(/^\d{4}-\d{2}-\d{2}$/.test(text) ? `${text}T12:00:00Z` : text);
+  const time = date.getTime();
+  if (Number.isNaN(time) || time > Date.now() + 86400000 || date.getUTCFullYear() < 2000) return "";
+  return date.toISOString();
+}
+
 const UPDATABLE_CLIENT_FIELDS = [
   "name", "phone", "email", "address", "city", "state", "zip", "service_type", "status", "notes", "drive_folder_url", "lat", "lng"
 ] as const;
@@ -106,10 +122,10 @@ export function importTemplateCsvRows(stages: PipelineStage[], serviceNames: str
   const serviceA = serviceNames[0] || "Kitchen cabinets";
   const serviceB = serviceNames[1] || serviceA;
   return {
-    headers: ["Name", "Phone", "Email", "Address", "City", "State", "ZIP", "Service type", "Pipeline stage", "Estimated value", "Notes"],
+    headers: ["Name", "Phone", "Email", "Address", "City", "State", "ZIP", "Service type", "Pipeline stage", "Estimated value", "Date", "Notes"],
     rows: [
-      ["John Smith", "(555) 123-4567", "john@example.com", "123 Main St", "Austin", "TX", "78701", serviceA, stageA, "15000", "Referral from a neighbor"],
-      ["Mary Johnson", "555-987-6543", "mary@example.com", "45 Oak Ave", "Dallas", "TX", "75201", serviceB, stageB, "8000", ""]
+      ["John Smith", "(555) 123-4567", "john@example.com", "123 Main St", "Austin", "TX", "78701", serviceA, stageA, "15000", "2026-09-15", "Referral from a neighbor"],
+      ["Mary Johnson", "555-987-6543", "mary@example.com", "45 Oak Ave", "Dallas", "TX", "75201", serviceB, stageB, "8000", "10/01/2026", ""]
     ]
   };
 }

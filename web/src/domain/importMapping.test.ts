@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { autoMapHeaders, importTemplateCsvRows, importUpdatePatch, mappedRecord, resolveImportStage, stageFromValue } from "./importMapping";
+import { autoMapHeaders, importTemplateCsvRows, importUpdatePatch, mappedRecord, parseImportDate, resolveImportStage, stageFromValue } from "./importMapping";
 import type { PipelineStage } from "./types";
 
 describe("stageFromValue", () => {
@@ -124,5 +124,23 @@ describe("importUpdatePatch", () => {
   it("does not touch status when no status column was mapped", () => {
     const patch = importUpdatePatch({ name: "Jane", status: "active" }, { name: "Name" });
     expect(patch).toEqual({ name: "Jane" });
+  });
+});
+
+describe("parseImportDate", () => {
+  it("reads ISO and US dates", () => {
+    expect(parseImportDate("2026-03-15")).toBe("2026-03-15T12:00:00.000Z");
+    expect(parseImportDate("3/15/2026")).toBe("2026-03-15T12:00:00.000Z");
+    expect(parseImportDate("03/15/26 4:30 PM")).toBe("2026-03-15T12:00:00.000Z");
+  });
+
+  it("returns empty for blanks, junk and future dates", () => {
+    expect(parseImportDate("")).toBe("");
+    expect(parseImportDate("soon")).toBe("");
+    expect(parseImportDate("2999-01-01")).toBe("");
+  });
+
+  it("is auto-mapped from a Date column", () => {
+    expect(autoMapHeaders(["Name", "Date"], "csv").scheduled_date).toBe("Date");
   });
 });

@@ -3,9 +3,14 @@ name: Sync Meta Ads Insights
 on:
   schedule:
     # Once a day, well after midnight in most US timezones, so "yesterday"
-    # in the Marketing API's date_preset has fully settled.
+    # in the Marketing API has fully settled.
     - cron: "0 8 * * *"
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      days:
+        description: "Days to load, ending yesterday (1 = just yesterday; 90 for a first backfill)"
+        required: false
+        default: "1"
 
 jobs:
   sync:
@@ -20,3 +25,4 @@ jobs:
           META_ACCESS_TOKEN: ${{ secrets.META_ACCESS_TOKEN }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          BACKFILL_DAYS: ${{ inputs.days || '1' }}

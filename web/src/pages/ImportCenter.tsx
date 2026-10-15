@@ -20,7 +20,7 @@ import { fetchPrivateSheetValues } from "../data/googleSheetsApi";
 import {
   classifyCalendarEvent, extractFirstIcsFromZip, jobFromIcsEvent, parseICS
 } from "../domain/ics";
-import { autoMapHeaders, importTemplateCsvRows, importUpdatePatch, mappedRecord } from "../domain/importMapping";
+import { autoMapHeaders, importTemplateCsvRows, importUpdatePatch, mappedRecord, parseImportDate } from "../domain/importMapping";
 import { cleanCustomer, cleanJob, leadFromCustomer } from "../domain/records";
 import type { Customer, Job } from "../domain/types";
 import { downloadText } from "../lib/downloadText";
@@ -300,7 +300,8 @@ export default function ImportCenter() {
             created++; importCompanyCounts[companyId].created++;
             continue;
           }
-          const deal = { stage_id: item.record.stage_id, value: item.record.value };
+          const cameIn = parseImportDate(item.record.scheduled_date);
+          const deal = { stage_id: item.record.stage_id, value: item.record.value, ...(cameIn ? { created_at: cameIn } : {}) };
           if (item.action === "update" && item.duplicate) {
             const client = await updateCustomer(item.duplicate.match.id, activeCompanyId, importUpdatePatch(item.record, mapping));
             const service = (mapping.service_type && item.record.service_type) || client.service_type || services[0] || "";
@@ -312,7 +313,7 @@ export default function ImportCenter() {
             continue;
           }
           const customer = cleanCustomer(item.record, activeCompanyId, services[0] || "");
-          const inserted = await insertCustomer({ ...customer, id: uid("cust"), created_at: now() });
+          const inserted = await insertCustomer({ ...customer, id: uid("cust"), created_at: cameIn || now() });
           await insertLead(leadFromCustomer(inserted, deal));
           dealKeys.add(`${inserted.id}|${inserted.service_type}`);
           created++;

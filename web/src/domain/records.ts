@@ -48,7 +48,7 @@ export function cleanJob(record: Partial<Job> & Record<string, unknown>, company
   };
 }
 
-export function leadFromCustomer(customer: Customer, deal: Partial<Pick<Lead, "stage_id" | "value" | "service_type">> = {}): Omit<Lead, "id"> {
+export function leadFromCustomer(customer: Customer, deal: Partial<Pick<Lead, "stage_id" | "value" | "service_type" | "created_at">> = {}): Omit<Lead, "id"> {
   return {
     company_id: customer.company_id,
     customer_id: customer.id,
@@ -65,7 +65,7 @@ export function leadFromCustomer(customer: Customer, deal: Partial<Pick<Lead, "s
     source: customer.source,
     lat: customer.lat || "",
     lng: customer.lng || "",
-    created_at: now(),
+    created_at: deal.created_at || now(),
     updated_at: now()
   } as Omit<Lead, "id">;
 }

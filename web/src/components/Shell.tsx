@@ -23,6 +23,7 @@ import TopNav from "./TopNav";
 // their section's title.
 function pageModuleId(pathname: string): string {
   const id = pathname.replace(/^\//, "").split("/")[0];
+  if (id === "profile") return id;
   return (MODULES.find(m => m[0] === id) || MODULES[0])[0];
 }
 

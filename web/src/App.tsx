@@ -19,6 +19,7 @@ import Reports from "./pages/Reports";
 import ResetPassword from "./pages/ResetPassword";
 import Services from "./pages/Services";
 import UserManagement from "./pages/UserManagement";
+import Profile from "./pages/Profile";
 
 export default function App() {
   return (
@@ -44,6 +45,7 @@ export default function App() {
         <Route path="/audit-log" element={<AuditLog />} />
         <Route path="/services" element={<Services />} />
         <Route path="/users" element={<UserManagement />} />
+        <Route path="/profile" element={<Profile />} />
       </Route>
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>

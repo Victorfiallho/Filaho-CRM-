@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { Bell, ChevronDown, ExternalLink, Languages, LayoutDashboard, LogOut, Menu, MessageCircle, RefreshCw, Repeat, Search, X } from "lucide-react";
+import { Bell, ChevronDown, ExternalLink, Languages, LayoutDashboard, LogOut, Menu, MessageCircle, RefreshCw, Repeat, Search, UserRound, X } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { activityWhen, useActivityFeed } from "../data/activityFeed";
@@ -273,6 +273,7 @@ function AccountMenu({ userName, companyName, onSwitchCompany, onSignOut }: {
 }) {
   const { open, setOpen, ref } = usePopover();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const { t, lang, setLang } = useT();
   const item = (icon: ReactNode, label: string, onClick: () => void) => (
     <button className="popover-item" onClick={() => { setOpen(false); onClick(); }}>{icon}{label}</button>
@@ -298,6 +299,7 @@ function AccountMenu({ userName, companyName, onSwitchCompany, onSignOut }: {
               ))}
             </div>
           </div>
+          {item(<UserRound aria-hidden="true" />, t("topnav.profile"), () => navigate("/profile"))}
           {item(<MessageCircle aria-hidden="true" />, t("topnav.assistant"), openAssistant)}
           {item(<Repeat aria-hidden="true" />, t("topnav.switchCompany"), onSwitchCompany)}
           {item(<RefreshCw aria-hidden="true" />, t("topnav.refresh"), () => queryClient.invalidateQueries())}

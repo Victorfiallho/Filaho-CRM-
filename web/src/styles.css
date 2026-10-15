@@ -1978,3 +1978,11 @@ tr:hover td{background:rgba(255,255,255,.55)}
 .import-result-head.ok > svg{color:var(--success)}
 .import-result-head.has-errors > svg{color:var(--tone-amber-fg)}
 .import-result-head h3{margin:0 0 4px}
+
+/* My profile */
+.profile-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,360px),1fr));gap:20px;align-items:start}
+.profile-grid form .btn{margin-top:12px}
+.profile-facts{display:grid;gap:10px;margin:18px 0 10px}
+.profile-facts > div{display:flex;justify-content:space-between;gap:12px;font-size:14px}
+.profile-facts dt{color:var(--muted)}
+.profile-facts dd{margin:0;font-weight:600;text-align:right;overflow-wrap:anywhere}

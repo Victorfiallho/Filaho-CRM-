@@ -1,7 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { Download, Upload } from "lucide-react";
-import { useRef, useState } from "react";
-import { Navigate } from "react-router-dom";
+import { AlertTriangle, CheckCircle2, Download, Upload } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Navigate, useNavigate } from "react-router-dom";
 import Select from "../components/Select";
 import { useCustomers, useImportsHistory, useIntegrationSettings, useInvalidateCompanyData, useLeads, usePermissions } from "../data/hooks";
 import { saveIntegrationSettings } from "../data/integrationSettings";
@@ -31,6 +31,7 @@ import { useCompany } from "../state/CompanyContext";
 import FileButton from "../components/FileButton";
 import EmptyState from "../components/EmptyState";
 import KpiStrip from "../components/KpiStrip";
+import ProgressPill from "../components/ProgressPill";
 import { useT } from "../i18n/I18nContext";
 import { en, type MessageKey } from "../i18n/messages";
 
@@ -54,6 +55,18 @@ type JobPreviewRow = {
   action: "create" | "update" | "skip";
 };
 type PreviewRow = CustomerPreviewRow | JobPreviewRow;
+
+type ImportResult = {
+  fileName: string;
+  companyName: string;
+  calendar: boolean;
+  created: number;
+  updated: number;
+  skipped: number;
+  dealsCreated: number;
+  // Spreadsheet line (header = line 1), so it can be found in the file.
+  failures: { line: number; name: string; error: string }[];
+};
 
 // Import: upload (CSV, Google Sheet, .ics, .zip), map fields, preview
 // duplicates, then commit. Calendar imports also sort personal from work
@@ -80,6 +93,9 @@ export default function ImportCenter() {
   // Off for an old client base: clients only, so the pipeline and the month's
   // reports aren't flooded with deals nobody is working.
   const [createDeals, setCreateDeals] = useState(true);
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+  const [result, setResult] = useState<ImportResult | null>(null);
+  const navigate = useNavigate();
   const [connectingSheet, setConnectingSheet] = useState(false);
   const jobsMapCache = useRef<Record<string, Job[]>>({});
   const servicesMapCache = useRef<Record<string, string[]>>({});
@@ -143,6 +159,7 @@ export default function ImportCenter() {
 
   async function loadImportFile(file: File | null) {
     if (!file) return;
+    setResult(null);
     const name = file.name.toLowerCase();
     if (name.endsWith(".zip")) {
       try {
@@ -162,6 +179,7 @@ export default function ImportCenter() {
   }
 
   async function loadGoogleSheetCsv() {
+    setResult(null);
     if (!sheetUrl.trim() || !activeCompanyId || !settings) { toast(t("imp.t.pasteUrl")); return; }
     const csvUrl = toGoogleSheetCsvUrl(sheetUrl.trim());
     if (!csvUrl) { toastError(t("imp.t.badUrl")); return; }
@@ -189,6 +207,7 @@ export default function ImportCenter() {
   // Reads a private Google Sheet through the Sheets API with the Sheets token
   // (needs the Google OAuth client set up in Integrations).
   async function loadPrivateGoogleSheet() {
+    setResult(null);
     if (!sheetUrl.trim() || !activeCompanyId || !settings) { toast(t("imp.t.pasteUrl")); return; }
     const spreadsheetId = extractSpreadsheetId(sheetUrl.trim());
     if (!spreadsheetId) { toastError(t("imp.t.badUrl")); return; }
@@ -271,14 +290,18 @@ export default function ImportCenter() {
   async function commitImport() {
     if (!activeCompanyId) return;
     setCommitting(true);
-    let created = 0, updated = 0, skipped = 0, failed = 0;
-    let firstError: unknown = null;
+    let created = 0, updated = 0, skipped = 0, dealsCreated = 0;
+    const failures: ImportResult["failures"] = [];
+    const total = preview.length;
+    setProgress({ done: 0, total });
     const importCompanyCounts: Record<string, { created: number; updated: number; skipped: number }> = {};
     // One deal per client per service: an existing client only gets a new
     // deal when the row names a service they have no deal for yet.
     const dealKeys = new Set(deals.map(d => `${d.customer_id}|${d.service_type}`));
     try {
-      for (const item of preview) {
+      for (const [position, item] of preview.entries()) {
+        // Every few rows: a re-render per row would slow a 500-row import.
+        if (position % 5 === 0) setProgress({ done: position, total });
         try {
           if (item.action === "skip") {
             skipped++;
@@ -311,6 +334,7 @@ export default function ImportCenter() {
             if (createDeals && !dealKeys.has(`${client.id}|${service}`)) {
               await insertLead(leadFromCustomer(client, { ...deal, service_type: service }));
               dealKeys.add(`${client.id}|${service}`);
+              dealsCreated++;
             }
             updated++;
             continue;
@@ -322,13 +346,17 @@ export default function ImportCenter() {
           if (createDeals) {
             await insertLead(leadFromCustomer(inserted, deal));
             dealKeys.add(`${inserted.id}|${inserted.service_type}`);
+            dealsCreated++;
           }
           created++;
         } catch (error) {
           // Keep going: one bad row shouldn't leave the rest of the file
           // half-imported with no history entry.
-          failed++;
-          firstError = firstError || error;
+          failures.push({
+            line: item.index + 2,
+            name: item.kind === "job" ? item.record.title || "" : item.record.name || "",
+            error: errorMessage(error, t("imp.t.saveFailed"))
+          });
         }
       }
 
@@ -345,18 +373,21 @@ export default function ImportCenter() {
         await insertImport({
           company_id: activeCompanyId, file_name: fileName || "Import",
           source_type: IMPORT_PRESETS[type]?.label || "Import",
-          created_count: created, updated_count: updated, skipped_count: skipped + failed, row_count: preview.length
+          created_count: created, updated_count: updated, skipped_count: skipped + failures.length, row_count: preview.length
         });
       }
 
+      setResult({
+        fileName: fileName || t("imp.result.untitled"), companyName: activeCompany?.name || "",
+        calendar: type === "calendar_ics", created, updated, skipped, dealsCreated, failures
+      });
       resetImportState();
       invalidate();
-      if (failed) toastError(t("imp.t.partial", { created, updated, skipped, failed, error: errorMessage(firstError, "") }));
-      else toast(t("imp.t.done", { created, updated, skipped }));
     } catch (error) {
       toastError(errorMessage(error, t("imp.t.saveFailed")));
     } finally {
       setCommitting(false);
+      setProgress(null);
     }
   }
 
@@ -396,11 +427,17 @@ export default function ImportCenter() {
           </div>
         </section>
 
-        {isCalendarImport && preview.length ? (
+        {result ? (
+          <ImportResultCard
+            result={result}
+            onView={() => navigate(result.calendar ? "/jobs" : "/customers")}
+            onAnother={() => setResult(null)}
+          />
+        ) : isCalendarImport && preview.length ? (
           <PreviewTable
             preview={preview} isCalendarImport companies={companies}
             onAction={setRowAction} onCompanyChange={setImportRowCompany} onCleanup={applyCalendarCleanup}
-            onCommit={commitImport} committing={committing} companyName={activeCompany?.name || ""}
+            onCommit={commitImport} committing={committing} progress={progress} companyName={activeCompany?.name || ""}
           />
         ) : headers.length ? (
           <>
@@ -433,7 +470,7 @@ export default function ImportCenter() {
               <PreviewTable
                 preview={preview} isCalendarImport={false} companies={companies}
                 onAction={setRowAction} onCompanyChange={setImportRowCompany} onCleanup={applyCalendarCleanup}
-                onCommit={commitImport} committing={committing} companyName={activeCompany?.name || ""}
+                onCommit={commitImport} committing={committing} progress={progress} companyName={activeCompany?.name || ""}
               />
             )}
           </>
@@ -463,7 +500,53 @@ export default function ImportCenter() {
 
 const PREVIEW_LIMIT = 80;
 
-function PreviewTable({ preview, isCalendarImport, companies, onAction, onCompanyChange, onCleanup, onCommit, committing, companyName }: {
+function ImportResultCard({ result, onView, onAnother }: { result: ImportResult; onView: () => void; onAnother: () => void }) {
+  const { t, tn } = useT();
+  const failed = result.failures.length;
+  const saved = result.created + result.updated;
+  const ref = useRef<HTMLElement>(null);
+  // The Save button sits at the end of a long preview; bring the summary
+  // into view instead of leaving the user below it.
+  useEffect(() => { ref.current?.scrollIntoView({ behavior: "smooth", block: "start" }); }, []);
+  return (
+    <section className="card" aria-live="polite" ref={ref} style={{ scrollMarginTop: 96 }}>
+      <div className="card-b">
+        <div className={`import-result-head ${failed ? "has-errors" : "ok"}`}>
+          {failed ? <AlertTriangle aria-hidden="true" /> : <CheckCircle2 aria-hidden="true" />}
+          <div>
+            <h3>{failed ? t("imp.result.partialTitle") : t("imp.result.title")}</h3>
+            <p className="sub">{tn("imp.result.sub", saved, { file: result.fileName, company: result.companyName })}</p>
+          </div>
+        </div>
+        <KpiStrip items={[
+          { label: t("imp.result.created"), value: result.created, hint: result.calendar ? t("imp.result.createdJobsHint") : t("imp.result.createdHint"), tone: "green" },
+          { label: t("imp.result.updated"), value: result.updated, hint: t("imp.result.updatedHint"), tone: "blue" },
+          ...(result.calendar ? [] : [{ label: t("imp.result.deals"), value: result.dealsCreated, hint: result.dealsCreated ? t("imp.result.dealsHint") : t("imp.result.noDealsHint"), tone: "purple" as const }]),
+          { label: t("imp.result.skipped"), value: result.skipped, hint: t("imp.kpi.skipHint"), tone: "slate" },
+          ...(failed ? [{ label: t("imp.result.failed"), value: failed, hint: t("imp.result.failedHint"), tone: "rose" as const }] : [])
+        ]} />
+        {failed > 0 && (
+          <div className="table-wrap" style={{ marginTop: 14 }}>
+            <table className="data-table">
+              <thead><tr><th>{t("imp.result.line")}</th><th>{t("imp.col.name")}</th><th>{t("imp.result.error")}</th></tr></thead>
+              <tbody>
+                {result.failures.slice(0, PREVIEW_LIMIT).map(f => (
+                  <tr key={f.line}><td>{f.line}</td><td><b className="cell-strong">{f.name}</b></td><td className="sub">{f.error}</td></tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <div className="inline-actions" style={{ marginTop: 16 }}>
+          <button className="btn" onClick={onView}>{result.calendar ? t("imp.result.viewJobs") : t("imp.result.viewClients")}</button>
+          <button className="btn ghost" onClick={onAnother}>{t("imp.result.another")}</button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function PreviewTable({ preview, isCalendarImport, companies, onAction, onCompanyChange, onCleanup, onCommit, committing, progress, companyName }: {
   preview: PreviewRow[];
   isCalendarImport: boolean;
   companies: { id: string; name: string }[];
@@ -472,6 +555,7 @@ function PreviewTable({ preview, isCalendarImport, companies, onAction, onCompan
   onCleanup: (mode: "skip-personal" | "skip-review" | "restore-work") => void;
   onCommit: () => void;
   committing: boolean;
+  progress: { done: number; total: number } | null;
   companyName: string;
 }) {
   const { t } = useT();
@@ -554,6 +638,12 @@ function PreviewTable({ preview, isCalendarImport, companies, onAction, onCompan
           </table>
         </div>
         {preview.length > PREVIEW_LIMIT && <p className="sub" style={{ marginTop: 8 }}>{t("imp.showing", { count: PREVIEW_LIMIT })}</p>}
+        {progress && (
+          <div className="import-progress">
+            <ProgressPill value={progress.done} max={progress.total} tone="blue" label={t("imp.progress", { done: progress.done, total: progress.total })} />
+            <span className="sub">{t("imp.progress", { done: progress.done, total: progress.total })}</span>
+          </div>
+        )}
         <button className="btn" style={{ marginTop: 14 }} onClick={onCommit} disabled={committing}>
           {committing ? t("imp.saving") : isCalendarImport ? t("imp.saveCalendar") : t("imp.saveTo", { company: companyName })}
         </button>

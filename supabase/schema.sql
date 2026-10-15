@@ -708,6 +708,13 @@ revoke execute on function lift_suppression_on_opt_in() from anon, authenticated
 revoke execute on function lock_confirmed_transaction() from anon, authenticated;
 revoke execute on function pin_company_id() from anon, authenticated;
 
+-- The trigger functions were created with the PUBLIC grant still on, so the
+-- anon/authenticated revokes above weren't enough for them.
+revoke execute on function companies_ensure_booking_page() from public;
+revoke execute on function customer_push_contact_to_leads() from public;
+revoke execute on function lock_confirmed_transaction() from public;
+revoke execute on function pin_company_id() from public;
+
 -- Signed-in only: each checks the caller's company membership itself.
 revoke execute on function ensure_my_profile() from anon;
 revoke execute on function update_my_profile(text) from anon;

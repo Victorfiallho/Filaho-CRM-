@@ -77,6 +77,9 @@ export default function ImportCenter() {
   const [preview, setPreview] = useState<PreviewRow[]>([]);
   const [sheetUrl, setSheetUrl] = useState(() => (activeCompanyId && settings?.google_sheets.source_urls?.[activeCompanyId]) || "");
   const [committing, setCommitting] = useState(false);
+  // Off for an old client base: clients only, so the pipeline and the month's
+  // reports aren't flooded with deals nobody is working.
+  const [createDeals, setCreateDeals] = useState(true);
   const [connectingSheet, setConnectingSheet] = useState(false);
   const jobsMapCache = useRef<Record<string, Job[]>>({});
   const servicesMapCache = useRef<Record<string, string[]>>({});
@@ -86,7 +89,7 @@ export default function ImportCenter() {
   if (!hasPermission("import")) return <Navigate to="/dashboard" replace />;
 
   const resetImportState = () => {
-    setType("csv"); setFileName(""); setHeaders([]); setRows([]); setMapping({}); setPreview([]);
+    setType("csv"); setFileName(""); setHeaders([]); setRows([]); setMapping({}); setPreview([]); setCreateDeals(true);
   };
 
   function changeType(nextType: ImportSourceType) {
@@ -305,17 +308,21 @@ export default function ImportCenter() {
           if (item.action === "update" && item.duplicate) {
             const client = await updateCustomer(item.duplicate.match.id, activeCompanyId, importUpdatePatch(item.record, mapping));
             const service = (mapping.service_type && item.record.service_type) || client.service_type || services[0] || "";
-            if (!dealKeys.has(`${client.id}|${service}`)) {
+            if (createDeals && !dealKeys.has(`${client.id}|${service}`)) {
               await insertLead(leadFromCustomer(client, { ...deal, service_type: service }));
               dealKeys.add(`${client.id}|${service}`);
             }
             updated++;
             continue;
           }
-          const customer = cleanCustomer(item.record, activeCompanyId, services[0] || "");
+          // Without a deal there's nothing to fill the service for, so a blank
+          // cell stays blank instead of defaulting to the first service.
+          const customer = cleanCustomer(item.record, activeCompanyId, createDeals ? services[0] || "" : "");
           const inserted = await insertCustomer({ ...customer, id: uid("cust"), created_at: cameIn || now() });
-          await insertLead(leadFromCustomer(inserted, deal));
-          dealKeys.add(`${inserted.id}|${inserted.service_type}`);
+          if (createDeals) {
+            await insertLead(leadFromCustomer(inserted, deal));
+            dealKeys.add(`${inserted.id}|${inserted.service_type}`);
+          }
           created++;
         } catch (error) {
           // Keep going: one bad row shouldn't leave the rest of the file
@@ -413,6 +420,12 @@ export default function ImportCenter() {
                     </div>
                   ))}
                 </div>
+                <label className="switch-row" style={{ marginTop: 16 }}>
+                  <input type="checkbox" role="switch" checked={createDeals} onChange={e => setCreateDeals(e.target.checked)} />
+                  <span className="switch" aria-hidden="true" />
+                  <span>{t("imp.createDeals")}</span>
+                </label>
+                <p className="sub">{t(createDeals ? "imp.createDealsOn" : "imp.createDealsOff")}</p>
                 <button className="btn" style={{ marginTop: 16 }} onClick={buildPreview}>{t("imp.preview")}</button>
               </div>
             </section>

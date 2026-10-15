@@ -21,7 +21,8 @@ const COMMON_ALIASES: Record<string, string[]> = {
   value: ["valor"],
   notes: ["observa", "notas"],
   drive_folder_url: ["pasta do drive"],
-  scheduled_date: ["date", "created", "data"]
+  scheduled_date: ["date", "created", "data"],
+  source: ["origem", "lead source"]
 };
 
 export function autoMapHeaders(headers: string[], sourceType: ImportSourceType): Record<string, string> {
@@ -75,6 +76,9 @@ export function mappedRecord(
     const index = headers.indexOf(header);
     record[field] = norm(row[index]);
   });
+  // A mapped "Source" column (Thumbtack, Referral...) wins; blank cells fall
+  // back to the import type.
+  record.source = record.source || sourceLabel;
   if (!record.name && record.email) record.name = record.email.split("@")[0];
   record.zip = normZip(record.zip);
   record.stage_id = resolveImportStage(record.stage_id || record.status, stages);

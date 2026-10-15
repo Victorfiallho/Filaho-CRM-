@@ -144,3 +144,13 @@ describe("parseImportDate", () => {
     expect(autoMapHeaders(["Name", "Date"], "csv").scheduled_date).toBe("Date");
   });
 });
+
+describe("source column", () => {
+  it("uses the mapped source and falls back to the import type when blank", () => {
+    const headers = ["Name", "Origem"];
+    const mapping = autoMapHeaders(headers, "csv");
+    expect(mapping.source).toBe("Origem");
+    expect(mappedRecord(["Jane", "Thumbtack"], headers, mapping, "c", "CSV upload").source).toBe("Thumbtack");
+    expect(mappedRecord(["Jane", ""], headers, mapping, "c", "CSV upload").source).toBe("CSV upload");
+  });
+});

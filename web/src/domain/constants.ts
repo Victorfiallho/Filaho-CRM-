@@ -87,7 +87,7 @@ export const IMPORT_FIELDS: [string, string][] = [
   ["name", "Name"], ["phone", "Phone"], ["email", "Email"], ["address", "Address"],
   ["city", "City"], ["state", "State"], ["zip", "ZIP"], ["service_type", "Service type"],
   ["status", "Status"], ["stage_id", "Pipeline stage"], ["value", "Estimated value"], ["scheduled_date", "Date"],
-  ["notes", "Notes"], ["drive_folder_url", "Drive folder URL"], ["lat", "Latitude"], ["lng", "Longitude"]
+  ["notes", "Notes"], ["source", "Source"], ["drive_folder_url", "Drive folder URL"], ["lat", "Latitude"], ["lng", "Longitude"]
 ];
 
 export type ImportSourceType = "csv" | "sheets" | "calendar" | "calendar_ics" | "manual";

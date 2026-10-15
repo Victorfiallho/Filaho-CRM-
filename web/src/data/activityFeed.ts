@@ -5,8 +5,9 @@ import { describeActivity, isFinanceActivity, type ActivityContext } from "../do
 import { relativeDate } from "../domain/format";
 import type { AuditLogEntry } from "../domain/types";
 import { useT } from "../i18n/I18nContext";
+import { useAuth } from "../state/AuthContext";
 import { useCompany } from "../state/CompanyContext";
-import { useAuditLog, useCustomers, useIsOwner, useJobs, useLeads, useUsers } from "./hooks";
+import { useAuditLog, useCurrentAppUser, useCustomers, useIsOwner, useJobs, useLeads, useUsers } from "./hooks";
 
 export interface ActivityItem {
   row: AuditLogEntry;
@@ -27,6 +28,8 @@ export function useActivityContext(): { ctx: ActivityContext; actorFor: (row: Au
   const { data: jobs = [] } = useJobs(activeCompanyId);
   const { data: customers = [] } = useCustomers(activeCompanyId);
   const { data: users = [] } = useUsers();
+  const { session } = useAuth();
+  const { data: me } = useCurrentAppUser();
 
   const names: Record<string, Map<string, string>> = {
     leads: new Map(leads.map(l => [l.id, l.name])),
@@ -38,6 +41,16 @@ export function useActivityContext(): { ctx: ActivityContext; actorFor: (row: Au
   const userByAppId = new Map(users.map(u => [u.id, u.name]));
   // audit_log.user_id is the auth uuid, not users.id.
   const userByAuthId = new Map(users.filter(u => u.auth_user_id).map(u => [u.auth_user_id as string, u.name]));
+  // A login without a named profile in Users still did the action: name the
+  // signed-in person from their login, and anyone else as "someone", never
+  // "System" (that's for rows with no user at all: triggers, scripts).
+  const myId = session?.user.id;
+  const myName = me?.name || session?.user.user_metadata?.full_name || session?.user.user_metadata?.name || session?.user.email || "";
+  const actorName = (authId: string | null) => {
+    if (!authId) return t("act.actor.system");
+    const name = userByAuthId.get(authId) || (authId === myId ? myName : "");
+    return name || t("act.actor.teammate");
+  };
 
   return {
     ctx: {
@@ -47,7 +60,7 @@ export function useActivityContext(): { ctx: ActivityContext; actorFor: (row: Au
       t,
       locale
     },
-    actorFor: row => (row.entity === "booking_requests" ? t("act.actor.booking") : userByAuthId.get(row.user_id || "") || t("act.actor.system"))
+    actorFor: row => (row.entity === "booking_requests" ? t("act.actor.booking") : actorName(row.user_id))
   };
 }
 

@@ -67,7 +67,8 @@ export const en = {
   "navGroup.Admin": "Admin",
   "topnav.goDashboard": "{company} dashboard",
   "topnav.search": "Search this company",
-  "topnav.searchPlaceholder": "Search this company…",
+  "topnav.searchPlaceholder": "Search this company…",
+
   "search.deals": "Search deals by name, phone or email",
   "search.clients": "Search clients by name, phone or email",
   "search.jobs": "Search jobs by title, client or city",
@@ -551,7 +552,13 @@ export const en = {
   "session.inactive": "Signed out after 30 minutes of inactivity.",
   "session.limit24": "Signed out: 24-hour session limit reached.",
   "session.limit8": "Signed out: 8-hour session limit reached.",
-  "chat.title": "Assistant",
+  "chat.title": "Assistant",
+
+
+
+
+
+
   "chat.suggest.funnel": "How is the pipeline doing?",
   "chat.suggest.overdue": "Which deals have an overdue next step?",
   "chat.suggest.multiDeals": "Which clients have more than one deal?",
@@ -906,6 +913,10 @@ export const en = {
   "imp.t.privateLoaded": "Private Google Sheet loaded. Review the column matching.",
   "imp.t.privateFailed": "Could not load that private sheet.",
   "imp.t.done": "{created} created, {updated} updated, {skipped} skipped.",
+  "imp.t.partial": "{created} created, {updated} updated, {skipped} skipped. {failed} rows failed: {error}",
+  "imp.template": "Download CSV template",
+  "imp.templateHint": "Fill it in and upload it here; the columns match automatically.",
+  "imp.dupInFile": "Same person as row {line} of the file",
   "imp.t.saveFailed": "Could not save the import.",
   "stg.title": "Customize your pipeline",
   "stg.subtitle": "Set up the steps your deals follow from first contact to a completed job.",
@@ -1088,7 +1099,8 @@ export const en = {
   "quotes.empty": "No quotes yet. Click New quote and pick the deal.",
   "rec.noDeals": "No deals yet.",
   "rec.untitledDeal": "Deal",
-  "rec.newDeal": "New deal for this client",
+  "rec.newDeal": "New deal for this client",
+
   "deal.sec.client": "Client",
   "deal.whoFor": "Who is this deal for?",
   "deal.searchClient": "Search by name, phone or email",
@@ -1505,7 +1517,8 @@ export const pt: Record<MessageKey, string> = {
   "navGroup.Admin": "Admin",
   "topnav.goDashboard": "Painel de {company}",
   "topnav.search": "Buscar nesta empresa",
-  "topnav.searchPlaceholder": "Buscar nesta empresa…",
+  "topnav.searchPlaceholder": "Buscar nesta empresa…",
+
   "search.deals": "Buscar negócio por nome, telefone ou e-mail",
   "search.clients": "Buscar cliente por nome, telefone ou e-mail",
   "search.jobs": "Buscar serviço por título, cliente ou cidade",
@@ -1984,7 +1997,13 @@ export const pt: Record<MessageKey, string> = {
   "session.inactive": "Você saiu após 30 minutos sem atividade.",
   "session.limit24": "Você saiu: limite de 24 horas de sessão.",
   "session.limit8": "Você saiu: limite de 8 horas de sessão.",
-  "chat.title": "Assistente",
+  "chat.title": "Assistente",
+
+
+
+
+
+
   "chat.suggest.funnel": "Como está o funil de vendas?",
   "chat.suggest.overdue": "Quais negócios estão com o próximo passo atrasado?",
   "chat.suggest.multiDeals": "Quais clientes têm mais de um negócio?",
@@ -2339,6 +2358,10 @@ export const pt: Record<MessageKey, string> = {
   "imp.t.privateLoaded": "Planilha privada carregada. Confira as colunas.",
   "imp.t.privateFailed": "Não foi possível carregar a planilha privada.",
   "imp.t.done": "{created} criados, {updated} atualizados, {skipped} ignorados.",
+  "imp.t.partial": "{created} criados, {updated} atualizados, {skipped} ignorados. {failed} linhas falharam: {error}",
+  "imp.template": "Baixar modelo CSV",
+  "imp.templateHint": "Preencha e envie aqui; as colunas são reconhecidas automaticamente.",
+  "imp.dupInFile": "Mesma pessoa da linha {line} do arquivo",
   "imp.t.saveFailed": "Não foi possível salvar a importação.",
   "stg.title": "Personalizar o pipeline",
   "stg.subtitle": "Defina as etapas que seus negócios seguem do primeiro contato até o serviço concluído.",
@@ -2521,7 +2544,8 @@ export const pt: Record<MessageKey, string> = {
   "quotes.empty": "Nenhum orçamento ainda. Clique em Novo orçamento e escolha o negócio.",
   "rec.noDeals": "Nenhum negócio ainda.",
   "rec.untitledDeal": "Negócio",
-  "rec.newDeal": "Novo negócio para este cliente",
+  "rec.newDeal": "Novo negócio para este cliente",
+
   "deal.sec.client": "Cliente",
   "deal.whoFor": "Para quem é este negócio?",
   "deal.searchClient": "Buscar por nome, telefone ou e-mail",

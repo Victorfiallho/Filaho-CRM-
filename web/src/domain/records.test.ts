@@ -63,3 +63,17 @@ describe("leadFromCustomer", () => {
     expect(lead.service_type).toBe("Deep Cleaning");
   });
 });
+
+describe("leadFromCustomer with deal fields", () => {
+  it("uses the imported stage, value and service when given", () => {
+    const customer = {
+      id: "cust_1", company_id: "c", name: "Jane", phone: "", email: "", address: "", city: "", state: "", zip: "",
+      status: "active", service_type: "Kitchen", source: "CSV upload", notes: "", drive_folder_url: "", lat: "", lng: "",
+      created_at: "", updated_at: ""
+    } as const;
+    const lead = leadFromCustomer({ ...customer }, { stage_id: "estimate", value: 1500, service_type: "Bath" });
+    expect(lead.stage_id).toBe("estimate");
+    expect(lead.value).toBe(1500);
+    expect(lead.service_type).toBe("Bath");
+  });
+});

@@ -1,9 +1,9 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { Upload } from "lucide-react";
+import { Download, Upload } from "lucide-react";
 import { useRef, useState } from "react";
 import { Navigate } from "react-router-dom";
 import Select from "../components/Select";
-import { useCustomers, useImportsHistory, useIntegrationSettings, useInvalidateCompanyData, usePermissions } from "../data/hooks";
+import { useCustomers, useImportsHistory, useIntegrationSettings, useInvalidateCompanyData, useLeads, usePermissions } from "../data/hooks";
 import { saveIntegrationSettings } from "../data/integrationSettings";
 import { insertCustomer, updateCustomer } from "../data/customers";
 import { insertImport } from "../data/imports";
@@ -11,7 +11,7 @@ import { insertJob, updateJob } from "../data/jobs";
 import { insertLead } from "../data/leads";
 import { listJobs } from "../data/jobs";
 import { listServices } from "../data/services";
-import { parseCSV } from "../domain/csv";
+import { parseCSV, toCSV } from "../domain/csv";
 import { IMPORT_FIELDS, IMPORT_PRESETS, type ImportSourceType } from "../domain/constants";
 import { findDuplicate, findDuplicateJob, type DuplicateMatch } from "../domain/dedupe";
 import { now, uid } from "../domain/format";
@@ -20,9 +20,10 @@ import { fetchPrivateSheetValues } from "../data/googleSheetsApi";
 import {
   classifyCalendarEvent, extractFirstIcsFromZip, jobFromIcsEvent, parseICS
 } from "../domain/ics";
-import { autoMapHeaders, mappedRecord } from "../domain/importMapping";
+import { autoMapHeaders, importTemplateCsvRows, importUpdatePatch, mappedRecord } from "../domain/importMapping";
 import { cleanCustomer, cleanJob, leadFromCustomer } from "../domain/records";
 import type { Customer, Job } from "../domain/types";
+import { downloadText } from "../lib/downloadText";
 import { errorMessage } from "../lib/errorMessage";
 import { connectGoogleWorkspace, googleAccessTokenFor } from "../lib/googleOAuth";
 import { toast, toastError } from "../lib/toast";
@@ -38,6 +39,8 @@ type CustomerPreviewRow = {
   kind?: undefined;
   record: Record<string, any>;
   duplicate: DuplicateMatch<Customer> | null;
+  // Index of an earlier row in the same file with the same person.
+  fileDuplicateOf?: number;
   action: "create" | "update" | "skip";
 };
 type JobPreviewRow = {
@@ -56,9 +59,10 @@ type PreviewRow = CustomerPreviewRow | JobPreviewRow;
 // duplicates, then commit. Calendar imports also sort personal from work
 // events and can move a row to another company.
 export default function ImportCenter() {
-  const { activeCompanyId, activeCompany, companies, services } = useCompany();
+  const { activeCompanyId, activeCompany, companies, services, stages } = useCompany();
   const { t, tn } = useT();
   const { data: customers = [] } = useCustomers(activeCompanyId);
+  const { data: deals = [] } = useLeads(activeCompanyId);
   const { data: settings } = useIntegrationSettings();
   const { data: history = [] } = useImportsHistory(activeCompanyId);
   const invalidate = useInvalidateCompanyData(activeCompanyId);
@@ -212,15 +216,30 @@ export default function ImportCenter() {
     }
   }
 
+  function downloadTemplate() {
+    const { headers: templateHeaders, rows: templateRows } = importTemplateCsvRows(stages, services);
+    // The BOM makes Excel open the file as UTF-8.
+    downloadText("filaho-import-template.csv", "\uFEFF" + toCSV(templateHeaders, templateRows), "text/csv");
+  }
+
   function buildPreview() {
     if (!activeCompanyId) return;
-    const previewRows: PreviewRow[] = rows
-      .map((row, index): CustomerPreviewRow => {
-        const record = mappedRecord(row, headers, mapping, activeCompanyId, IMPORT_PRESETS[type].label);
-        const duplicate = findDuplicate(record, customers);
-        return { index, record, duplicate, action: duplicate ? "update" : "create" };
-      })
-      .filter(r => r.record.name || r.record.phone || r.record.email || r.record.address);
+    const previewRows: PreviewRow[] = [];
+    // Earlier rows of this file, so the same person twice in one sheet
+    // doesn't become two clients.
+    const seen: Customer[] = [];
+    rows.forEach((row, index) => {
+      const record = mappedRecord(row, headers, mapping, activeCompanyId, IMPORT_PRESETS[type].label, stages);
+      if (!(record.name || record.phone || record.email || record.address)) return;
+      const duplicate = findDuplicate(record, customers);
+      const fileDuplicate = duplicate ? null : findDuplicate(record, seen);
+      seen.push({ ...record, id: String(index) } as Customer);
+      if (fileDuplicate) {
+        previewRows.push({ index, record, duplicate: null, fileDuplicateOf: Number(fileDuplicate.match.id), action: "skip" });
+        return;
+      }
+      previewRows.push({ index, record, duplicate, action: duplicate ? "update" : "create" });
+    });
     setPreview(previewRows);
   }
 
@@ -249,42 +268,60 @@ export default function ImportCenter() {
   async function commitImport() {
     if (!activeCompanyId) return;
     setCommitting(true);
-    let created = 0, updated = 0, skipped = 0;
+    let created = 0, updated = 0, skipped = 0, failed = 0;
+    let firstError: unknown = null;
     const importCompanyCounts: Record<string, { created: number; updated: number; skipped: number }> = {};
+    // One deal per client per service: an existing client only gets a new
+    // deal when the row names a service they have no deal for yet.
+    const dealKeys = new Set(deals.map(d => `${d.customer_id}|${d.service_type}`));
     try {
       for (const item of preview) {
-        if (item.action === "skip") {
-          skipped++;
+        try {
+          if (item.action === "skip") {
+            skipped++;
+            if (item.kind === "job") {
+              const companyId = item.company_id || item.record.company_id || activeCompanyId;
+              importCompanyCounts[companyId] = importCompanyCounts[companyId] || { created: 0, updated: 0, skipped: 0 };
+              importCompanyCounts[companyId].skipped++;
+            }
+            continue;
+          }
           if (item.kind === "job") {
             const companyId = item.company_id || item.record.company_id || activeCompanyId;
             importCompanyCounts[companyId] = importCompanyCounts[companyId] || { created: 0, updated: 0, skipped: 0 };
-            importCompanyCounts[companyId].skipped++;
-          }
-          continue;
-        }
-        if (item.kind === "job") {
-          const companyId = item.company_id || item.record.company_id || activeCompanyId;
-          importCompanyCounts[companyId] = importCompanyCounts[companyId] || { created: 0, updated: 0, skipped: 0 };
-          const defaultService = (servicesMapCache.current[companyId] || [])[0] || "";
-          if (item.action === "update" && item.duplicate) {
-            await updateJob(item.duplicate.match.id, companyId, cleanJob(item.record, companyId, defaultService));
-            updated++; importCompanyCounts[companyId].updated++;
+            const defaultService = (servicesMapCache.current[companyId] || [])[0] || "";
+            if (item.action === "update" && item.duplicate) {
+              await updateJob(item.duplicate.match.id, companyId, cleanJob(item.record, companyId, defaultService));
+              updated++; importCompanyCounts[companyId].updated++;
+              continue;
+            }
+            const job = cleanJob(item.record, companyId, defaultService);
+            await insertJob({ ...job, id: uid("job"), created_at: now() });
+            created++; importCompanyCounts[companyId].created++;
             continue;
           }
-          const job = cleanJob(item.record, companyId, defaultService);
-          await insertJob({ ...job, id: uid("job"), created_at: now() });
-          created++; importCompanyCounts[companyId].created++;
-          continue;
+          const deal = { stage_id: item.record.stage_id, value: item.record.value };
+          if (item.action === "update" && item.duplicate) {
+            const client = await updateCustomer(item.duplicate.match.id, activeCompanyId, importUpdatePatch(item.record, mapping));
+            const service = (mapping.service_type && item.record.service_type) || client.service_type || services[0] || "";
+            if (!dealKeys.has(`${client.id}|${service}`)) {
+              await insertLead(leadFromCustomer(client, { ...deal, service_type: service }));
+              dealKeys.add(`${client.id}|${service}`);
+            }
+            updated++;
+            continue;
+          }
+          const customer = cleanCustomer(item.record, activeCompanyId, services[0] || "");
+          const inserted = await insertCustomer({ ...customer, id: uid("cust"), created_at: now() });
+          await insertLead(leadFromCustomer(inserted, deal));
+          dealKeys.add(`${inserted.id}|${inserted.service_type}`);
+          created++;
+        } catch (error) {
+          // Keep going: one bad row shouldn't leave the rest of the file
+          // half-imported with no history entry.
+          failed++;
+          firstError = firstError || error;
         }
-        if (item.action === "update" && item.duplicate) {
-          await updateCustomer(item.duplicate.match.id, activeCompanyId, cleanCustomer(item.record, activeCompanyId, services[0] || ""));
-          updated++;
-          continue;
-        }
-        const customer = cleanCustomer(item.record, activeCompanyId, services[0] || "");
-        const inserted = await insertCustomer({ ...customer, id: uid("cust"), created_at: now() });
-        await insertLead(leadFromCustomer(inserted));
-        created++;
       }
 
       if (type === "calendar_ics" && Object.keys(importCompanyCounts).length) {
@@ -300,13 +337,14 @@ export default function ImportCenter() {
         await insertImport({
           company_id: activeCompanyId, file_name: fileName || "Import",
           source_type: IMPORT_PRESETS[type]?.label || "Import",
-          created_count: created, updated_count: updated, skipped_count: skipped, row_count: preview.length
+          created_count: created, updated_count: updated, skipped_count: skipped + failed, row_count: preview.length
         });
       }
 
       resetImportState();
       invalidate();
-      toast(t("imp.t.done", { created, updated, skipped }));
+      if (failed) toastError(t("imp.t.partial", { created, updated, skipped, failed, error: errorMessage(firstError, "") }));
+      else toast(t("imp.t.done", { created, updated, skipped }));
     } catch (error) {
       toastError(errorMessage(error, t("imp.t.saveFailed")));
     } finally {
@@ -332,6 +370,10 @@ export default function ImportCenter() {
                 <label>{t("imp.file")}</label>
                 <FileButton accept=".csv,.ics,.zip,text/csv,text/calendar,application/zip" onFiles={files => loadImportFile(files?.[0] || null)} />
               </div>
+            </div>
+            <div className="inline-actions" style={{ marginBottom: 12 }}>
+              <button className="btn ghost slim" onClick={downloadTemplate}><Download aria-hidden="true" />{t("imp.template")}</button>
+              <span className="sub">{t("imp.templateHint")}</span>
             </div>
             <div className="field">
               <label htmlFor="imp-sheet">{t("imp.sheetUrl")}</label>
@@ -486,7 +528,9 @@ function PreviewTable({ preview, isCalendarImport, companies, onAction, onCompan
                   <td><b className="cell-strong">{row.kind === "job" ? row.record.title : row.record.name}</b></td>
                   <td className="sub">{row.kind === "job" ? [row.record.scheduled_date, row.record.address, row.record.city].filter(Boolean).join(" · ") : row.record.phone || row.record.email || ""}</td>
                   <td>
-                    {row.duplicate
+                    {row.kind !== "job" && row.fileDuplicateOf != null
+                      ? <span className="sub">{t("imp.dupInFile", { line: row.fileDuplicateOf + 2 })}</span>
+                      : row.duplicate
                       ? <>{(row.duplicate.match as any).name || (row.duplicate.match as any).title} <span className="sub">({row.duplicate.reasons.map(r => tr("dup", r)).join(", ")})</span></>
                       : <span className="cell-missing">{t("imp.noMatch")}</span>}
                   </td>

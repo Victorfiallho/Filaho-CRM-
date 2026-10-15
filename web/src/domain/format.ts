@@ -5,7 +5,8 @@ export const money = (n: unknown) => "$" + Math.round(Number(n || 0)).toLocaleSt
 export const now = () => new Date().toISOString();
 export const uid = (prefix: string) => `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 export const norm = (v: unknown) => String(v || "").trim();
-export const normKey = (v: unknown) => norm(v).toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+// Accents are dropped first so "Endereço" reads as "endereco", not "endere o".
+export const normKey = (v: unknown) => norm(v).normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 export const normPhone = (v: unknown) => norm(v).replace(/\D/g, "").slice(-10);
 export const normEmail = (v: unknown) => norm(v).toLowerCase();
 export const normAddress = (v: unknown) => norm(v).toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();

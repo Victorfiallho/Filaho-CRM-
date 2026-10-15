@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { autoMapHeaders, mappedRecord, stageFromValue } from "./importMapping";
+import { autoMapHeaders, importTemplateCsvRows, importUpdatePatch, mappedRecord, resolveImportStage, stageFromValue } from "./importMapping";
+import type { PipelineStage } from "./types";
 
 describe("stageFromValue", () => {
   it("maps free-text status/stage values to pipeline stage ids", () => {
@@ -68,5 +69,60 @@ describe("mappedRecord", () => {
     expect(record.status).toBe("active");
     expect(record.value).toBe(0);
     expect(record.stage_id).toBe("new");
+  });
+});
+
+const stage = (id: string, name: string, order: number, type = "open"): PipelineStage =>
+  ({ id, company_id: "c", name, order, color: null, type, win_probability: 0 });
+const STAGES = [
+  stage("lead_in", "Lead in", 1), stage("visit", "Site visit", 2), stage("estimate", "Estimate Sent", 3),
+  stage("closed", "Fechado", 4, "won"), stage("gone", "Lost", 5, "lost")
+];
+
+describe("resolveImportStage", () => {
+  it("matches the company's stages by id or name, ignoring case and accents", () => {
+    expect(resolveImportStage("visit", STAGES)).toBe("visit");
+    expect(resolveImportStage("SITE VISIT", STAGES)).toBe("visit");
+    expect(resolveImportStage("fechado", STAGES)).toBe("closed");
+  });
+
+  it("uses stage types for won and lost keywords", () => {
+    expect(resolveImportStage("Won", STAGES)).toBe("closed");
+    expect(resolveImportStage("Perdido", STAGES)).toBe("gone");
+  });
+
+  it("falls back to the first open stage for blanks and unknown values", () => {
+    expect(resolveImportStage("", STAGES)).toBe("lead_in");
+    expect(resolveImportStage("Contacted", STAGES)).toBe("lead_in");
+    expect(resolveImportStage("Orçamento", STAGES)).toBe("estimate");
+  });
+});
+
+describe("autoMapHeaders with Portuguese headers", () => {
+  it("maps accented Portuguese column names", () => {
+    const mapping = autoMapHeaders(["Nome", "Telefone", "E-mail", "Endereço", "CEP", "Serviço", "Etapa", "Valor", "Observações"], "csv");
+    expect(mapping).toMatchObject({
+      name: "Nome", phone: "Telefone", email: "E-mail", address: "Endereço", zip: "CEP",
+      service_type: "Serviço", stage_id: "Etapa", value: "Valor", notes: "Observações"
+    });
+  });
+
+  it("maps every column of the downloadable template", () => {
+    const { headers } = importTemplateCsvRows(STAGES, ["Kitchen"]);
+    const mapping = autoMapHeaders(headers, "csv");
+    expect(Object.values(mapping).sort()).toEqual([...headers].sort());
+  });
+});
+
+describe("importUpdatePatch", () => {
+  it("only writes mapped, non-blank cells", () => {
+    const mapping = { name: "Name", phone: "Phone", email: "Email", status: "Status" };
+    const patch = importUpdatePatch({ name: "Jane", phone: "", status: "active", source: "CSV upload" }, mapping);
+    expect(patch).toEqual({ name: "Jane", status: "active" });
+  });
+
+  it("does not touch status when no status column was mapped", () => {
+    const patch = importUpdatePatch({ name: "Jane", status: "active" }, { name: "Name" });
+    expect(patch).toEqual({ name: "Jane" });
   });
 });

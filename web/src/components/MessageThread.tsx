@@ -2,7 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, Mail, MessageSquare, Send } from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useMessagingStatus, useThread } from "../data/hooks";
-import { markThreadRead, sendMessage } from "../data/messages";
+import { markThreadRead, sendMessage, syncThread } from "../data/messages";
 import { formatDateTime } from "../domain/format";
 import type { Customer, Message, MessageChannel } from "../domain/types";
 import { useT } from "../i18n/I18nContext";
@@ -39,6 +39,16 @@ export default function MessageThread({ companyId, customer }: { companyId: stri
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight });
   }, [messages.length]);
+
+  // Pull this client's latest Gmail emails in when the conversation opens,
+  // instead of waiting for the 15-minute background sync.
+  const gmail = setup?.email_via === "gmail";
+  useEffect(() => {
+    if (!gmail || !customer.email) return;
+    syncThread(companyId, customer.id)
+      .then(r => { if (r.synced) queryClient.invalidateQueries({ queryKey: ["messages", companyId] }); })
+      .catch(() => { /* the background sync catches up */ });
+  }, [gmail, companyId, customer.id, customer.email, queryClient]);
 
   const unread = messages.some(m => m.direction === "in" && !m.read_at);
   useEffect(() => {
@@ -97,7 +107,11 @@ export default function MessageThread({ companyId, customer }: { companyId: stri
               <Mail aria-hidden="true" />{t("msg.email")}
             </button>
           </div>
-          {address && <span className="sub msg-to">{t("msg.to", { address })}</span>}
+          {address && (
+            <span className="sub msg-to">
+              {channel === "email" && setup?.email_account ? t("msg.toVia", { address, account: setup.email_account }) : t("msg.to", { address })}
+            </span>
+          )}
         </div>
         {notice && <p className="msg-notice"><AlertTriangle aria-hidden="true" />{notice}</p>}
         {channel === "email" && (

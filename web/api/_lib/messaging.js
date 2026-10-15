@@ -13,20 +13,25 @@ export function smsConfigured(identity) {
   return Boolean(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && identity.sms_from);
 }
 
+// Email goes through the company's Gmail when connected, else Resend.
 export function emailConfigured(identity) {
-  return Boolean(process.env.RESEND_API_KEY && identity.email_from);
+  return identity.gmail || Boolean(process.env.RESEND_API_KEY && identity.email_from);
 }
 
 // The company's row in company_messaging, with env fallbacks. reply_to
 // falls back to the booking page email so replies reach a real inbox.
 export async function loadIdentity(supabase, companyId) {
-  const [{ data: row }, { data: page }, { data: company }] = await Promise.all([
+  const [{ data: row }, { data: page }, { data: company }, { data: google }] = await Promise.all([
     supabase.from("company_messaging").select("sms_from, email_from, email_reply_to").eq("company_id", companyId).maybeSingle(),
     supabase.from("booking_pages").select("email").eq("company_id", companyId).maybeSingle(),
-    supabase.from("companies").select("name").eq("id", companyId).maybeSingle()
+    supabase.from("companies").select("name").eq("id", companyId).maybeSingle(),
+    supabase.from("google_oauth_tokens").select("scope, account_email").eq("company_id", companyId).maybeSingle()
   ]);
+  const scope = google?.scope || "";
   return {
     company_name: company?.name || "",
+    gmail: /gmail\.send/.test(scope) && /gmail\.readonly/.test(scope),
+    gmail_account: google?.account_email || "",
     sms_from: row?.sms_from || process.env.TWILIO_FROM_NUMBER || "",
     email_from: row?.email_from || process.env.RESEND_FROM_EMAIL || "",
     email_reply_to: row?.email_reply_to || page?.email || ""

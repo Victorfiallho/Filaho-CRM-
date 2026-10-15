@@ -3,7 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { getIntegrationSettings, saveIntegrationSettings } from "../data/integrationSettings";
-import { useIntegrationSettings } from "../data/hooks";
+import { useIntegrationSettings, useMessagingStatus } from "../data/hooks";
 import { now } from "../domain/format";
 import type { IntegrationSettings } from "../domain/types";
 import { errorMessage } from "../lib/errorMessage";
@@ -23,6 +23,7 @@ export default function Integrations() {
   const { session } = useAuth();
   const { t } = useT();
   const { data: settings } = useIntegrationSettings();
+  const { data: messaging } = useMessagingStatus(activeCompanyId);
   const queryClient = useQueryClient();
   const [connectingService, setConnectingService] = useState<string | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
@@ -50,8 +51,10 @@ export default function Integrations() {
         window.close();
         return;
       }
-      if (connected === "calendar") toast(t("int.calConnected"));
-      else if (calendarError) toastError(t("int.calFailed", { error: calendarError }));
+      if (connected === "calendar") {
+        toast(t("int.calConnected"));
+        queryClient.invalidateQueries({ queryKey: ["messaging_status"] });
+      } else if (calendarError) toastError(t("int.calFailed", { error: calendarError }));
       searchParams.delete("connected");
       searchParams.delete("calendar_error");
       setSearchParams(searchParams, { replace: true });
@@ -66,6 +69,7 @@ export default function Integrations() {
       if (e.origin !== window.location.origin || e.data?.source !== "fialho-google-oauth") return;
       if (e.data.connected) {
         queryClient.invalidateQueries({ queryKey: ["integration_settings"] });
+        queryClient.invalidateQueries({ queryKey: ["messaging_status"] });
         toast(t("int.calConnected"));
       } else if (e.data.error) {
         toastError(t("int.calFailed", { error: String(e.data.error) }));
@@ -275,6 +279,11 @@ export default function Integrations() {
         </IntegrationCard>
 
         <IntegrationCard title={t("int.emailSms")} description={t("int.emailSmsText")} enabled={settings.email_sms.enabled} onToggle={() => toggleIntegration("email_sms")}>
+          <div className="field">
+            <label>{t("int.gmail")}</label>
+            <p className="sub">{messaging?.email_via === "gmail" ? t("int.gmailOn", { account: messaging.email_account || "Gmail" }) : t("int.gmailOff")}</p>
+            <button className="btn ghost slim" type="button" onClick={startCalendarOAuth}>{messaging?.email_via === "gmail" ? t("int.gmailReconnect") : t("int.gmailConnect")}</button>
+          </div>
           <div className="field"><label htmlFor="int-from-email">{t("int.fromEmail")}</label><DebouncedField id="int-from-email" value={settings.email_sms.from_email} onCommit={v => saveEmailSmsField("from_email", v)} placeholder="notifications@yourdomain.com" /></div>
           <div className="field"><label htmlFor="int-from-phone">{t("int.fromPhone")}</label><DebouncedField id="int-from-phone" value={settings.email_sms.from_phone} onCommit={v => saveEmailSmsField("from_phone", v)} placeholder="+15555550123" /></div>
           <p className="sub">{t("int.serverKeys")}</p>

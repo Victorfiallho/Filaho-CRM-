@@ -1,0 +1,19 @@
+name: Sync Gmail into Messages
+
+on:
+  schedule:
+    # Every 15 minutes: client email replies show up in Messages.
+    - cron: "*/15 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Run the sync on the CRM
+        env:
+          MESSAGES_CRON_SECRET: ${{ secrets.MESSAGES_CRON_SECRET }}
+        run: |
+          curl -fsS --max-time 120 -H "x-cron-secret: $MESSAGES_CRON_SECRET" \
+            "https://web-one-psi-82.vercel.app/api/messages?cron=1"

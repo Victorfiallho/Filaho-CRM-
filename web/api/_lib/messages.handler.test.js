@@ -19,6 +19,8 @@ function builder(table) {
     select: (_c, opts) => { if (opts?.head) countOnly = true; return self; },
     eq: (c, v) => { filters.push(r => r[c] === v); return self; },
     gte: (c, v) => { filters.push(r => r[c] >= v); return self; },
+    in: (c, vs) => { filters.push(r => vs.includes(r[c])); return self; },
+    update: patch => { op = "update"; payload = patch; return { eq: (c, v) => { (db[table] || []).filter(r => r[c] === v).forEach(r => Object.assign(r, patch)); return Promise.resolve({ error: null }); } }; },
     order: (col, o) => { order = { col, asc: o?.ascending !== false }; return self; },
     limit: n => { lim = n; return self; },
     insert: row => { op = "insert"; payload = row; (db[table] ||= []).push({ created_at: new Date().toISOString(), ...row }); return self; },
@@ -128,7 +130,37 @@ describe("POST /api/messages", () => {
   it("GET reports which channels are set up", async () => {
     delete process.env.RESEND_API_KEY;
     const res = await call({ method: "GET", url: "/api/messages?company_id=A" });
-    expect(res.body).toEqual({ sms: true, email: false });
+    expect(res.body).toMatchObject({ sms: true, email: false, email_via: null });
+  });
+});
+
+describe("email through the company's Gmail", () => {
+  it("sends from the connected Gmail, in the client's existing thread", async () => {
+    db.google_oauth_tokens = [{ company_id: "A", refresh_token: "r", scope: "calendar.events gmail.send gmail.readonly", account_email: null }];
+    db.integration_settings = [{ id: "default", settings: { google_oauth: { client_id: "cid" } } }];
+    db.messages.push({ id: "old", company_id: "A", customer_id: "c1", channel: "email", subject: "Quote", provider_thread_id: "T9", created_at: "2026-10-01" });
+    fetchMock.mockImplementation(async url => {
+      const u = String(url);
+      if (u.includes("oauth2")) return { ok: true, json: async () => ({ access_token: "at" }) };
+      if (u.endsWith("/profile")) return { ok: true, json: async () => ({ emailAddress: "PeachFresh.co@gmail.com" }) };
+      return { ok: true, json: async () => ({ id: "g1", threadId: "T9" }) };
+    });
+    const res = await send({ channel: "email", body: "See you Monday" });
+    expect(res.statusCode).toBe(200);
+    const sendCall = fetchMock.mock.calls.find(([u]) => String(u).endsWith("/messages/send"));
+    const payload = JSON.parse(sendCall[1].body);
+    expect(payload.threadId).toBe("T9");
+    const raw = Buffer.from(payload.raw.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf8");
+    expect(raw).toContain('From: "Wish Cabinets" <peachfresh.co@gmail.com>');
+    expect(raw).toContain("To: jane@x.com");
+    expect(raw).toContain("Subject: Re: Quote");
+    expect(db.messages.at(-1)).toMatchObject({ status: "sent", provider_id: "g1", provider_thread_id: "T9", from_addr: "peachfresh.co@gmail.com", subject: "Re: Quote" });
+    expect(db.google_oauth_tokens[0].account_email).toBe("peachfresh.co@gmail.com");
+  });
+
+  it("the background sync needs the cron secret", async () => {
+    process.env.MESSAGES_CRON_SECRET = "s3cret";
+    expect((await call({ method: "GET", token: null, url: "/api/messages?cron=1" })).statusCode).toBe(401);
   });
 });
 

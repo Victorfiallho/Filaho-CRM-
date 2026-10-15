@@ -98,6 +98,10 @@ export default async function handler(req, res) {
           company_id: companyId,
           refresh_token: tokenBody.refresh_token,
           scope: tokenBody.scope || "",
+          // Possibly another Google account now: re-read its address and
+          // start the Gmail sync over.
+          account_email: null,
+          gmail_synced_at: null,
           updated_at: new Date().toISOString()
         }])
       });

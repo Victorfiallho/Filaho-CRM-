@@ -8,9 +8,16 @@ import { createClient } from "@supabase/supabase-js";
 import { createHmac, randomBytes } from "crypto";
 
 // drive.file reaches only files this app creates (the CRM folder tree and
-// its uploads), never the rest of the company's Drive. Companies connected
-// before it was added must reconnect once to grant it.
-const STATE_SCOPE = "https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/drive.file";
+// its uploads), never the rest of the company's Drive. gmail.send and
+// gmail.readonly let Messages email clients from the company's own Gmail and
+// bring their replies in (api/_lib/gmail.js). Companies connected before a
+// scope was added must reconnect once to grant it.
+const STATE_SCOPE = [
+  "https://www.googleapis.com/auth/calendar.events",
+  "https://www.googleapis.com/auth/drive.file",
+  "https://www.googleapis.com/auth/gmail.send",
+  "https://www.googleapis.com/auth/gmail.readonly"
+].join(" ");
 
 function signState(payload, secret) {
   const json = Buffer.from(JSON.stringify(payload)).toString("base64url");

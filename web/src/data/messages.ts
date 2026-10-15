@@ -27,8 +27,21 @@ export async function listRecentMessages(companyId: string): Promise<Message[]> 
   return (data || []) as Message[];
 }
 
-export async function getMessagingStatus(companyId: string): Promise<{ sms: boolean; email: boolean }> {
+export interface MessagingStatus {
+  sms: boolean;
+  email: boolean;
+  email_via: "gmail" | "resend" | null;
+  email_account: string;
+}
+
+export async function getMessagingStatus(companyId: string): Promise<MessagingStatus> {
   return apiFetch(`/api/messages?company_id=${encodeURIComponent(companyId)}`, undefined, "Could not check messaging setup.");
+}
+
+// Copies this client's Gmail emails into the conversation (sent from Gmail
+// directly, or replies that arrived since the last background sync).
+export async function syncThread(companyId: string, customerId: string): Promise<{ synced: number }> {
+  return apiFetch(`/api/messages?company_id=${encodeURIComponent(companyId)}&sync=${encodeURIComponent(customerId)}`, undefined, "Could not sync email.");
 }
 
 export async function sendMessage(input: { companyId: string; customerId: string; channel: MessageChannel; subject?: string; body: string }): Promise<Message> {

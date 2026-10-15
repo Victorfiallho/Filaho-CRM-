@@ -1,15 +1,16 @@
 // The bit of Markdown the assistant is told to use (paragraphs, bullet and
-// numbered lists, **bold**, `code`, links), parsed into data that
+// numbered lists, **bold**, `code`, record links), parsed into data that
 // ChatWidget renders as React elements. Never HTML, so text from the model
 // or from records can't inject markup. Links to "lead:<id>", "client:<id>"
-// or "job:<id>" become buttons that open the record.
+// or "job:<id>" become buttons that open the record. Any other link shows
+// its label only: record text from the public booking page reaches the
+// model, and a clickable external link could carry client data out.
 
 export type Inline =
   | { kind: "text"; text: string }
   | { kind: "bold"; text: string }
   | { kind: "code"; text: string }
-  | { kind: "record"; text: string; type: "lead" | "customer" | "job"; id: string }
-  | { kind: "link"; text: string; href: string };
+  | { kind: "record"; text: string; type: "lead" | "customer" | "job"; id: string };
 
 export type Block =
   | { kind: "p"; lines: Inline[][] }
@@ -30,7 +31,6 @@ export function parseInline(text: string): Inline[] {
       const target = m[4];
       const rec = /^(lead|client|customer|job):(.+)$/.exec(target);
       if (rec) out.push({ kind: "record", text: label, type: RECORD_TYPES[rec[1]], id: rec[2] });
-      else if (/^https?:\/\//i.test(target)) out.push({ kind: "link", text: label, href: target });
       else out.push({ kind: "text", text: label });
     }
     last = re.lastIndex;

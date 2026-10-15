@@ -1,8 +1,39 @@
 {
   "rewrites": [
-    { "source": "/book/:slug/:page(privacy|sms-terms)", "destination": "/api/book?slug=:slug&page=:page" },
-    { "source": "/book/:slug", "destination": "/api/book?slug=:slug" },
-    { "source": "/u/:token", "destination": "/api/unsubscribe?token=:token" },
-    { "source": "/(.*)", "destination": "/index.html" }
+    {
+      "source": "/book/:slug/:page(privacy|sms-terms)",
+      "destination": "/api/book?slug=:slug&page=:page"
+    },
+    {
+      "source": "/book/:slug",
+      "destination": "/api/book?slug=:slug"
+    },
+    {
+      "source": "/u/:token",
+      "destination": "/api/unsubscribe?token=:token"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Frame-Options",
+          "value": "SAMEORIGIN"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        }
+      ]
+    }
   ]
 }

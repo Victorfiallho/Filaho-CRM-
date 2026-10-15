@@ -14,8 +14,8 @@ describe("parseInline", () => {
     ]);
   });
 
-  it("keeps only http(s) links; anything else is plain text", () => {
-    expect(parseInline("[site](https://example.com)")).toEqual([{ kind: "link", text: "site", href: "https://example.com" }]);
+  it("shows only the label of external links, so model output can't carry data out", () => {
+    expect(parseInline("[site](https://example.com/?d=Bob%20555)")).toEqual([{ kind: "text", text: "site" }]);
     expect(parseInline("[bad](javascript:alert(1))")[0]).toMatchObject({ kind: "text" });
     expect(parseInline("<img src=x>")).toEqual([{ kind: "text", text: "<img src=x>" }]);
   });

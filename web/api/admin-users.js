@@ -112,8 +112,16 @@ export default async function handler(req, res) {
       if (memberError) throw memberError;
 
       // A deleted account keeps its users row (see delete_user), so reuse it
-      // instead of hitting the unique email.
-      const { data: existingProfile } = await supabase.from("users").select("id").eq("email", email).maybeSingle();
+      // instead of hitting the unique email. Only a row whose login is gone:
+      // a profile still tied to a live account belongs to that person.
+      const { data: existingProfile } = await supabase.from("users").select("id, auth_user_id").eq("email", email).maybeSingle();
+      if (existingProfile?.auth_user_id && existingProfile.auth_user_id !== newUserId) {
+        const { data: owner } = await supabase.auth.admin.getUserById(existingProfile.auth_user_id);
+        if (owner?.user) {
+          res.status(409).json({ error: "That email already belongs to another user's profile." });
+          return;
+        }
+      }
       const profileRow = {
         id: existingProfile?.id || newUserId,
         auth_user_id: newUserId,
@@ -270,23 +278,28 @@ export default async function handler(req, res) {
     }
 
     if (action === "update_profile") {
-      const { auth_user_id: targetAuthUserId, id: existingId, name, email, role, permissions } = req.body || {};
+      const { auth_user_id: targetAuthUserId, name, email, role, permissions } = req.body || {};
       if (!targetAuthUserId || !name || !email) {
         res.status(400).json({ error: "Missing auth_user_id, name, or email." });
         return;
       }
-      // Only users who share a company the caller owns.
-      const { data: memberRow } = await supabase
+      // The profile is global (one row per person, shown in every company),
+      // so the caller must own every company the user belongs to, as for
+      // delete_user. The row is found by login, never by an id from the body.
+      const { data: targetMemberships, error: membershipsError } = await supabase
         .from("company_members")
         .select("company_id")
-        .eq("user_id", targetAuthUserId)
-        .in("company_id", Array.from(ownedCompanyIds))
-        .limit(1)
-        .maybeSingle();
-      if (!memberRow) {
-        res.status(403).json({ error: "That user isn't a member of a company you own." });
+        .eq("user_id", targetAuthUserId);
+      if (membershipsError) throw membershipsError;
+      const memberRow = (targetMemberships || []).find(m => ownedCompanyIds.has(m.company_id));
+      if (!memberRow || (targetMemberships || []).some(m => !ownedCompanyIds.has(m.company_id))) {
+        res.status(403).json({ error: "You can only edit users whose companies you all own." });
         return;
       }
+      const { data: existingRow, error: existingError } = await supabase
+        .from("users").select("id").eq("auth_user_id", targetAuthUserId).limit(1).maybeSingle();
+      if (existingError) throw existingError;
+      const existingId = existingRow?.id;
       const row = {
         id: existingId || targetAuthUserId,
         auth_user_id: targetAuthUserId,
@@ -295,7 +308,11 @@ export default async function handler(req, res) {
         role: role || "member",
         permissions: Array.isArray(permissions) ? permissions : []
       };
-      const { error } = await supabase.from("users").upsert(row, { onConflict: "id" });
+      // insert, not upsert, for a new row: an existing row with that id
+      // belongs to someone else and must not be overwritten.
+      const { error } = existingId
+        ? await supabase.from("users").update(row).eq("id", existingId)
+        : await supabase.from("users").insert(row);
       if (error) throw error;
 
       await logAudit(supabase, {

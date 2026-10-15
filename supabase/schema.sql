@@ -603,45 +603,34 @@ declare
   path text[];
   old_dict jsonb;
   new_dict jsonb;
-  merged_dict jsonb;
+  merged jsonb;
   k text;
 begin
-  -- service_role connections (background scripts, if any are ever added for
-  -- this table) carry no end-user JWT, so auth.uid() is null here — RLS
-  -- already lets service_role bypass everything, so this trigger should too
-  -- rather than treating "no companies" as "no changes are ever allowed."
+  -- service_role (background scripts) has no end-user JWT and isn't limited.
   if auth.uid() is null then
     return new;
+  end if;
+  if jsonb_typeof(new.settings) is distinct from 'object' then
+    raise exception 'settings must be a JSON object';
   end if;
 
   select coalesce(array_agg(company_id), array[]::text[]) into my_companies
   from company_members where user_id = auth.uid();
 
-  -- Fixed 2026-08-26 (follow-up audit): the caller's `new.settings` was
-  -- always built from get_my_integration_settings()'s read, which already
-  -- filters every OTHER company's keys out before the client ever sees them
-  -- -- so those keys are structurally *absent* from new_dict, not merely
-  -- unchanged. The original version of this loop treated "absent from
-  -- new_dict" the same as "explicitly deleted," which raised a false
-  -- "not authorized" exception on every save by any company other than
-  -- whichever one happened to populate a shared key first. This version
-  -- only raises when the caller's payload explicitly supplies a *different*
-  -- value for a key outside their own companies (genuine tampering), and
-  -- otherwise carries the old value forward into what actually gets written,
-  -- so a company's data is never silently dropped by someone else's save.
   foreach path slice 1 in array scoped_paths loop
-    old_dict := coalesce(old.settings #> path, '{}'::jsonb);
-    new_dict := coalesce(new.settings #> path, '{}'::jsonb);
-    merged_dict := new_dict;
+    old_dict := case when jsonb_typeof(old.settings #> path) = 'object' then old.settings #> path else '{}'::jsonb end;
+    new_dict := case when jsonb_typeof(new.settings #> path) = 'object' then new.settings #> path else '{}'::jsonb end;
+    merged := '{}'::jsonb;
     for k in select jsonb_object_keys(old_dict) loop
-      if not (k = any(my_companies)) then
-        if (new_dict ? k) and (old_dict -> k) is distinct from (new_dict -> k) then
-          raise exception 'not authorized to modify integration settings for company %', k;
-        end if;
-        merged_dict := jsonb_set(merged_dict, array[k], old_dict -> k);
-      end if;
+      if not (k = any(my_companies)) then merged := merged || jsonb_build_object(k, old_dict -> k); end if;
     end loop;
-    new.settings := jsonb_set(new.settings, path, merged_dict);
+    for k in select jsonb_object_keys(new_dict) loop
+      if k = any(my_companies) then merged := merged || jsonb_build_object(k, new_dict -> k); end if;
+    end loop;
+    if jsonb_typeof(new.settings -> path[1]) is distinct from 'object' then
+      new.settings := jsonb_set(new.settings, array[path[1]], '{}'::jsonb, true);
+    end if;
+    new.settings := jsonb_set(new.settings, path, merged, true);
   end loop;
   return new;
 end;

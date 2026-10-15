@@ -74,7 +74,7 @@ export default async function handler(req, res) {
 
     const { data: job } = await supabase
       .from("jobs")
-      .select("id, title, status, service_type, scheduled_date, estimated_value, customer_name")
+      .select("id, company_id, title, status, service_type, scheduled_date, estimated_value, customer_name")
       .eq("id", jobId)
       .in("company_id", companyIds)
       .maybeSingle();
@@ -86,6 +86,7 @@ export default async function handler(req, res) {
     const { data: notes } = await supabase
       .from("notes")
       .select("body, created_at")
+      .eq("company_id", job.company_id)
       .eq("entity_type", "job")
       .eq("entity_id", jobId)
       .order("created_at", { ascending: true });

@@ -167,7 +167,6 @@ function Rich({ text, onOpen }: { text: string; onOpen: () => void }) {
   const inline = (parts: Inline[]): ReactNode => parts.map((p, i) => {
     if (p.kind === "bold") return <b key={i}>{p.text}</b>;
     if (p.kind === "code") return <code key={i}>{p.text}</code>;
-    if (p.kind === "link") return <a key={i} href={p.href} target="_blank" rel="noopener noreferrer">{p.text}</a>;
     if (p.kind === "record") {
       const record = p.type === "lead" ? leads.find(l => l.id === p.id) : p.type === "customer" ? customers.find(c => c.id === p.id) : jobs.find(j => j.id === p.id);
       if (!record) return <Fragment key={i}>{p.text}</Fragment>;

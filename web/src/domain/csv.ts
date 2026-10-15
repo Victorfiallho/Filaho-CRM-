@@ -20,8 +20,13 @@ export function parseCSV(text: string): string[][] {
 }
 
 // Inverse of parseCSV. Quotes a cell only when it holds a comma, quote or
-// newline, like spreadsheet apps do.
+// newline, like spreadsheet apps do. A cell starting with = + - @ (or a tab
+// or CR) gets a leading ' so Excel/Sheets show it as text instead of running
+// it as a formula: names typed on the public booking page end up in exports.
 export function toCSV(headers: string[], rows: string[][]): string {
-  const escapeCell = (v: string) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
+  const escapeCell = (raw: string) => {
+    const v = /^[=+\-@\t\r]/.test(raw) ? `'${raw}` : raw;
+    return /[",\r\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
+  };
   return [headers, ...rows].map(row => row.map(escapeCell).join(",")).join("\r\n");
 }

@@ -47,8 +47,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Also drop the Google Workspace tokens, so they don't outlive the CRM
     // session on a shared browser.
     clearGoogleSession();
-    // Nothing cached for this account survives into the next login.
+    // Nothing cached for this account survives into the next login,
+    // including the assistant's chat history.
     queryClient.clear();
+    try {
+      Object.keys(sessionStorage).filter(k => k.startsWith("fialho_chat_")).forEach(k => sessionStorage.removeItem(k));
+    } catch { /* storage blocked: nothing to clear */ }
     setSession(null);
   };
 

@@ -427,10 +427,8 @@ alter table integration_settings enable row level security;
 -- owner, not the caller's `authenticated` role.
 drop policy if exists integration_settings_select on integration_settings;
 revoke select on integration_settings from authenticated;
--- The app's saveIntegrationSettings() does a plain .upsert({id:"default",...}),
--- which Postgres executes as INSERT ... ON CONFLICT (id) DO UPDATE and needs
--- SELECT on the conflict-target column to detect the existing row -- grant
--- that one column back (not `settings`) so writes keep working.
+-- SELECT on `id` only. The app writes through save_my_integration_settings()
+-- below, not an upsert (which would also need SELECT on `settings`).
 grant select (id) on integration_settings to authenticated;
 drop policy if exists integration_settings_insert on integration_settings;
 create policy integration_settings_insert on integration_settings for insert with check (
@@ -579,3 +577,30 @@ drop trigger if exists integration_settings_scope_guard on integration_settings;
 create trigger integration_settings_scope_guard
   before update on integration_settings
   for each row execute function enforce_integration_settings_scope();
+
+-- The app saves through this (migration 2026-10-15_17). An upsert can't work:
+-- ON CONFLICT DO UPDATE SET settings = EXCLUDED.settings needs SELECT on
+-- `settings`, which is revoked above.
+create or replace function save_my_integration_settings(p_settings jsonb)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not exists (select 1 from company_members where user_id = auth.uid()) then
+    raise exception 'not authorized to change integration settings';
+  end if;
+  if jsonb_typeof(p_settings) is distinct from 'object' then
+    raise exception 'settings must be a JSON object';
+  end if;
+
+  update integration_settings set settings = p_settings where id = 'default';
+  if not found then
+    insert into integration_settings (id, settings) values ('default', p_settings);
+  end if;
+end;
+$$;
+
+revoke execute on function save_my_integration_settings(jsonb) from public;
+grant execute on function save_my_integration_settings(jsonb) to authenticated;

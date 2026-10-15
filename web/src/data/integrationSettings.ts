@@ -32,7 +32,9 @@ export async function getIntegrationSettings(): Promise<IntegrationSettings> {
   };
 }
 
+// Through save_my_integration_settings() (migration 2026-10-15_17): a plain
+// upsert needs SELECT on the settings column, which users don't have.
 export async function saveIntegrationSettings(settings: IntegrationSettings): Promise<void> {
-  const { error } = await supabase.from("integration_settings").upsert({ id: "default", settings });
+  const { error } = await supabase.rpc("save_my_integration_settings", { p_settings: settings });
   if (error) throw error;
 }

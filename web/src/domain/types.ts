@@ -483,3 +483,24 @@ export interface ContactConsentStatus {
   email_state: ConsentState;
   email_at: string | null;
 }
+
+export type MessageChannel = "sms" | "email";
+
+// A text or email to/from a client (migration 2026-10-15_21). Written only
+// by the server.
+export interface Message {
+  id: string;
+  company_id: string;
+  customer_id: string | null;
+  channel: MessageChannel;
+  direction: "out" | "in";
+  to_addr: string;
+  from_addr: string;
+  subject: string;
+  body: string;
+  status: "sent" | "failed" | "received";
+  error: string | null;
+  sent_by: string | null;
+  read_at: string | null;
+  created_at: string;
+}

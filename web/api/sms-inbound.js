@@ -1,6 +1,9 @@
-// Inbound SMS replies (STOP / HELP). No provider is wired yet: point its
-// webhook at POST /api/sms-inbound?key=<SMS_INBOUND_SECRET>. Reads
-// Twilio-style fields (From, To, Body) as a form or JSON, answers in TwiML.
+// Inbound SMS. Point the Twilio number's webhook at
+// POST /api/sms-inbound?key=<SMS_INBOUND_SECRET>. Reads Twilio-style fields
+// (From, To, Body, MessageSid) as a form or JSON, answers in TwiML.
+//
+// Every text is stored in the client's conversation (Messages, see
+// _lib/messaging.js recordInboundSms) and shows in the activity feed.
 //
 // STOP-type replies (see classifyInboundSms) call revoke_marketing_consent():
 // the number is suppressed everywhere, and each client with it gets a
@@ -13,6 +16,7 @@ import { timingSafeEqual } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import { classifyInboundSms, toE164 } from "./_lib/consent.js";
 import { query, readForm } from "./_lib/http.js";
+import { recordInboundSms } from "./_lib/messaging.js";
 
 const xml = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&apos;" })[c]);
 
@@ -53,10 +57,17 @@ export default async function handler(req, res) {
   const from = toE164(form.get("From") || form.get("from"));
   const body = String(form.get("Body") || form.get("body") || "").slice(0, 1600);
   const kind = classifyInboundSms(body);
-  if (!from || !kind) return twiml(res, null);
+  if (!from) return twiml(res, null);
 
   const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
   try {
+    // Every text goes into the client's conversation (Messages), STOP and
+    // HELP included, so staff see exactly what the client sent.
+    await recordInboundSms(supabase, {
+      from, to: toE164(form.get("To") || form.get("to")), body, sid: form.get("MessageSid") || form.get("SmsSid") || null
+    });
+    if (!kind) return twiml(res, null);
+
     const business = await businessFor(supabase, form.get("To") || form.get("to"));
     if (kind === "help") {
       const contact = [business?.phone, business?.email].filter(Boolean).join(" or ");

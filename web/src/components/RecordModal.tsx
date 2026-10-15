@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import ClientPicker from "./ClientPicker";
 import ConsentPanel from "./ConsentPanel";
 import DealQuotes from "./DealQuotes";
+import MessageThread from "./MessageThread";
 import Select, { type SelectOption } from "./Select";
 import { summarizeJob, type JobAiSummary } from "../data/aiSummary";
 import { listCustomers, insertCustomer, updateCustomer, deleteCustomer } from "../data/customers";
@@ -22,6 +23,7 @@ import { dealsForClient, dealTitle } from "../domain/deals";
 import { formatDateTime, formatDay, money, now, uid } from "../domain/format";
 import { useT } from "../i18n/I18nContext";
 import type { MessageKey } from "../i18n/messages";
+import type { Customer } from "../domain/types";
 import { useConfirm } from "../state/ConfirmContext";
 import FileButton from "./FileButton";
 import { LOST_REASONS } from "../domain/followUp";
@@ -72,6 +74,11 @@ function RecordModalContent() {
   const { has: hasPermission } = usePermissions();
   const { data: adInsights = [] } = useMetaAdsInsights(type === "lead" ? activeCompanyId : null);
   const { data: jobs = [] } = useJobs(type === "lead" && isEdit ? activeCompanyId : null);
+  // The conversation belongs to the person: a deal's thread is its client's.
+  const messageClient: Customer | undefined = !isEdit ? undefined
+    : type === "customer" ? (r as Customer)
+    : type === "lead" ? customers.find(c => c.id === r.customer_id)
+    : undefined;
   const linkedJob = type === "lead" && isEdit && r.id ? findJobForLead(r.id, jobs) : undefined;
   // A client's deals (leads), listed on the client and opened from there.
   const { data: allLeads = [] } = useLeads(type === "customer" && isEdit ? activeCompanyId : null);
@@ -750,6 +757,11 @@ function RecordModalContent() {
                 </FormSection>
               )}
             </>
+          )}
+          {isEdit && r.id && messageClient && (
+            <FormSection title={t("rec.sec.messages")}>
+              <MessageThread companyId={activeCompanyId} customer={messageClient} />
+            </FormSection>
           )}
           {isEdit && r.id && (type === "lead" || type === "customer") && (
             <FormSection title={t("rec.sec.consent")}>

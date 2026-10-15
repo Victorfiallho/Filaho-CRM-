@@ -17,6 +17,7 @@ import { listJobs } from "./jobs";
 import { getStagnantLeads } from "./leadInsights";
 import { listLeads } from "./leads";
 import { listMetaAdsInsights } from "./metaAds";
+import { getMessagingStatus, listRecentMessages, listThread } from "./messages";
 import { listNotes } from "./notes";
 import { getCurrentAppUser, listUsers } from "./users";
 import { getProjectFinancials, listProjectFinancialsByCompany } from "./projectFinancials";
@@ -343,4 +344,35 @@ export function useInvalidateCompanyData(companyId: string | null) {
     queryClient.invalidateQueries({ queryKey: ["jobs", companyId] });
     queryClient.invalidateQueries({ queryKey: ["imports", companyId] });
   };
+}
+
+// Messages refresh on their own so a client's reply shows up without a reload.
+const MESSAGES_POLL_MS = 20000;
+
+export function useThread(companyId: string | null, customerId: string | null) {
+  return useQuery({
+    queryKey: ["messages", companyId, customerId],
+    queryFn: () => listThread(companyId!, customerId!),
+    enabled: Boolean(companyId && customerId),
+    refetchInterval: MESSAGES_POLL_MS
+  });
+}
+
+export function useRecentMessages(companyId: string | null) {
+  return useQuery({
+    queryKey: ["messages", companyId, "recent"],
+    queryFn: () => listRecentMessages(companyId!),
+    enabled: Boolean(companyId),
+    refetchInterval: MESSAGES_POLL_MS
+  });
+}
+
+export function useMessagingStatus(companyId: string | null) {
+  return useQuery({
+    queryKey: ["messaging_status", companyId],
+    queryFn: () => getMessagingStatus(companyId!),
+    enabled: Boolean(companyId),
+    staleTime: 5 * 60 * 1000,
+    retry: false
+  });
 }

@@ -20,6 +20,7 @@ import ResetPassword from "./pages/ResetPassword";
 import Services from "./pages/Services";
 import UserManagement from "./pages/UserManagement";
 import Profile from "./pages/Profile";
+import Messages from "./pages/Messages";
 
 export default function App() {
   return (
@@ -34,6 +35,7 @@ export default function App() {
         <Route path="/quotes/:quoteId" element={<QuoteEditor />} />
         <Route path="/pipeline/quotes/:quoteId" element={<QuoteEditor />} />
         <Route path="/customers" element={<Customers />} />
+        <Route path="/messages" element={<Messages />} />
         <Route path="/jobs" element={<Jobs />} />
         <Route path="/jobs/:jobId/financials" element={<ProjectFinancials />} />
         <Route path="/calendar" element={<Calendar />} />

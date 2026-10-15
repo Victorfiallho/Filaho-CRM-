@@ -10,6 +10,7 @@ import {
   FileText,
   Filter,
   History,
+  MessageSquare,
   LayoutDashboard,
   MapPin,
   Puzzle,
@@ -41,6 +42,7 @@ export const MODULES: [string, string][] = [
   ["pipeline", "Pipeline"],
   ["quotes", "Quotes"],
   ["customers", "Clients"],
+  ["messages", "Messages"],
   ["booking-page", "Booking page"],
   ["jobs", "Jobs"],
   ["calendar", "Calendar"],
@@ -57,7 +59,7 @@ export const MODULES: [string, string][] = [
 // Nav sections. Every MODULES id belongs to exactly one (constants.test.ts
 // checks it).
 export const NAV_GROUPS: [string, string[]][] = [
-  ["Sales", ["dashboard", "pipeline", "quotes", "customers", "booking-page"]],
+  ["Sales", ["dashboard", "pipeline", "quotes", "customers", "messages", "booking-page"]],
   ["Operations", ["jobs", "calendar", "map"]],
   ["Finance", ["company-financials", "reports"]],
   ["Admin", ["services", "import", "integrations", "audit-log", "users"]]
@@ -78,6 +80,7 @@ export const MODULE_ICONS: Record<string, LucideIcon> = {
   integrations: Puzzle,
   services: Tags,
   reports: BarChart3,
+  messages: MessageSquare,
   "company-financials": Wallet,
   "audit-log": History,
   users: UserCog

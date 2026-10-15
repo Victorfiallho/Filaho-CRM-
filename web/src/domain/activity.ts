@@ -108,6 +108,10 @@ export function describeActivity(entry: AuditLogEntry, ctx: ActivityContext): st
 
   const diff = (entry.diff || {}) as Record<string, unknown>;
 
+  // A client's text, written by api/sms-inbound.js.
+  if (entry.entity === "messages") {
+    return t("act.message", { name: text(diff.name) || t("act.newCustomer"), preview: text(diff.preview) });
+  }
   // A booking from the public page writes one booking_requests row for the
   // feed; the client and deal rows it creates would only repeat it.
   if (entry.entity === "booking_requests") {

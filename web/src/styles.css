@@ -1986,3 +1986,57 @@ tr:hover td{background:rgba(255,255,255,.55)}
 .profile-facts > div{display:flex;justify-content:space-between;gap:12px;font-size:14px}
 .profile-facts dt{color:var(--muted)}
 .profile-facts dd{margin:0;font-weight:600;text-align:right;overflow-wrap:anywhere}
+
+/* Messages: client conversation (record modal + inbox) */
+.msg-thread{display:grid;gap:12px;min-width:0}
+.msg-list{display:flex;flex-direction:column;gap:8px;max-height:360px;overflow-y:auto;padding:4px 2px}
+.msg-empty{text-align:center;padding:16px 0}
+.msg{max-width:min(78%,520px);padding:9px 12px;border-radius:16px;font-size:14px;line-height:1.4;overflow-wrap:anywhere}
+.msg p{margin:0;white-space:pre-wrap}
+.msg-in{align-self:flex-start;background:var(--soft);color:var(--ink);border-bottom-left-radius:6px}
+.msg-out{align-self:flex-end;background:var(--selected);color:var(--selected-ink);border-bottom-right-radius:6px}
+.msg-out .msg-meta{color:inherit;opacity:.75}
+.msg-failed{background:var(--tone-rose-bg);color:var(--tone-rose-fg)}
+.msg-subject-line{display:block;margin-bottom:2px}
+.msg-meta{display:inline-flex;align-items:center;gap:5px;margin-top:4px;font-size:11.5px;color:var(--muted)}
+.msg-meta svg{width:12px;height:12px}
+.msg-error{font-weight:600}
+.msg-composer{display:grid;gap:8px;border-top:1px solid var(--line);padding-top:12px}
+.msg-composer-top{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.msg-composer .seg button{display:inline-flex;align-items:center;gap:5px}
+.msg-composer .seg button svg{width:14px;height:14px}
+.msg-composer .seg button:disabled{opacity:.45;cursor:not-allowed}
+.msg-to{overflow-wrap:anywhere}
+.msg-notice{display:flex;align-items:flex-start;gap:6px;margin:0;padding:8px 10px;border-radius:12px;background:var(--tone-amber-bg);color:var(--tone-amber-fg);font-size:13px}
+.msg-notice svg{flex:none;width:15px;height:15px;margin-top:1px}
+.msg-composer textarea,.msg-subject{width:100%}
+.msg-composer-bottom{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.msg-composer-bottom .btn svg{width:15px;height:15px}
+
+.inbox{display:grid;grid-template-columns:minmax(260px,340px) minmax(0,1fr);gap:20px;align-items:start}
+.inbox-list,.inbox-thread{min-width:0}
+.inbox-tools{display:flex;gap:8px;margin-bottom:10px}
+.inbox-search{flex:1;display:flex;align-items:center;gap:8px;border:1px solid var(--line-strong);border-radius:999px;padding:0 12px;background:var(--surface)}
+.inbox-search svg{width:16px;height:16px;color:var(--muted)}
+.inbox-search input{border:0;background:transparent;padding:8px 0;width:100%;outline:none;box-shadow:none}
+.inbox-items{list-style:none;margin:0;padding:0;display:grid;gap:4px;max-height:62vh;overflow-y:auto}
+.inbox-item{width:100%;text-align:left;display:grid;gap:3px;padding:10px 12px;border-radius:14px;border:1px solid transparent;background:transparent;color:var(--ink)}
+.inbox-item:hover{background:var(--soft)}
+.inbox-item.active{background:var(--soft);border-color:var(--line-strong)}
+.inbox-item-top{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.inbox-item-top .sub{flex:none;font-size:11.5px}
+.inbox-item-preview{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:13px;min-width:0}
+.inbox-item-preview > span:first-of-type{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0}
+.inbox-item-preview svg{flex:none;width:13px;height:13px}
+.inbox-item.unread b,.inbox-item.unread .inbox-item-preview{color:var(--ink);font-weight:700}
+.inbox-badge{flex:none;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:var(--selected);color:var(--selected-ink);font-size:11.5px;font-weight:700;display:inline-flex;align-items:center;justify-content:center}
+.inbox-hint{padding:8px 4px;margin:0}
+.inbox-thread .card-h{display:flex;align-items:center;gap:10px}
+.inbox-back{display:none}
+.inbox-thread .msg-list{max-height:52vh}
+@media(max-width:900px){
+  .inbox{grid-template-columns:minmax(0,1fr)}
+  .inbox.has-selection .inbox-list{display:none}
+  .inbox:not(.has-selection) .inbox-thread{display:none}
+  .inbox-back{display:inline-flex}
+}

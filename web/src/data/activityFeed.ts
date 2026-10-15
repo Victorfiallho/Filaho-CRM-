@@ -60,7 +60,7 @@ export function useActivityContext(): { ctx: ActivityContext; actorFor: (row: Au
       t,
       locale
     },
-    actorFor: row => (row.entity === "booking_requests" ? t("act.actor.booking") : actorName(row.user_id))
+    actorFor: row => (row.entity === "booking_requests" ? t("act.actor.booking") : row.entity === "messages" ? t("act.actor.message") : actorName(row.user_id))
   };
 }
 

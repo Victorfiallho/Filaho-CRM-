@@ -6,9 +6,9 @@ export interface ProvisionResult {
 }
 
 // Creates or finds the Drive folder for a client or job (tree in
-// web/api/drive-provision.js).
+// web/api/_lib/driveProvision.js).
 export function provisionDriveFolder(companyId: string, entityType: "client" | "job", entityId: string): Promise<ProvisionResult> {
-  return apiFetch<ProvisionResult>("/api/drive-provision", { company_id: companyId, entity_type: entityType, entity_id: entityId });
+  return apiFetch<ProvisionResult>("/api/drive?op=provision", { company_id: companyId, entity_type: entityType, entity_id: entityId });
 }
 
 export interface UploadResult {
@@ -27,7 +27,7 @@ export function uploadFileToDrive(params: {
   category?: string;
   relatedTransactionId?: string | null;
 }): Promise<UploadResult> {
-  return apiFetch<UploadResult>("/api/drive-upload", {
+  return apiFetch<UploadResult>("/api/drive?op=upload", {
     company_id: params.companyId,
     entity_type: params.entityType,
     entity_id: params.entityId,

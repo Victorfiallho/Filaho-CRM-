@@ -1,6 +1,6 @@
 // Uploads a file (base64 in the body) into an entity's Drive folder, which
-// drive-provision.js must have created, and registers it in `files` and
-// `drive_files`. Same server-side token as drive-provision.js.
+// driveProvision.js must have created, and registers it in `files` and
+// `drive_files`. Same server-side token as driveProvision.js.
 //
 // Vercel's ~4.5 MB body limit plus base64 overhead caps a file at a few MB:
 // enough for receipts and PDFs, not for video.

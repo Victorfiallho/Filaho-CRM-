@@ -803,6 +803,7 @@ function bookingClient() {
   if (hv) {
     var clips = (hv.getAttribute("data-clips") || "").split(" ").filter(Boolean), labels = [];
     try { labels = JSON.parse(hv.getAttribute("data-labels") || "[]"); } catch { labels = []; }
+    var play = function () { hv.muted = true; var p = hv.play(); if (p && p.catch) p.catch(function () {}); };
     if (clips.length > 1) {
       var clip = 0;
       hv.loop = false;
@@ -810,10 +811,16 @@ function bookingClient() {
         clip = (clip + 1) % clips.length;
         hv.src = clips[clip];
         if (labels[clip]) hv.setAttribute("aria-label", labels[clip]);
-        var p = hv.play(); if (p && p.catch) p.catch(function () {});
+        play();
       });
     }
-    if (reduce) hv.pause();
+    // Phones can refuse autoplay (iOS Low Power Mode) or leave the clip paused
+    // after the tab comes back, so retry on the first touch and on return.
+    play();
+    ["touchstart", "scroll", "click"].forEach(function (ev) {
+      window.addEventListener(ev, function retry() { if (hv.paused) play(); window.removeEventListener(ev, retry); }, { passive: true });
+    });
+    document.addEventListener("visibilitychange", function () { if (!document.hidden && hv.paused) play(); });
   }
 
   form.addEventListener("submit", function (e) {
@@ -998,7 +1005,7 @@ function heroMedia(clips) {
   if (!clips.length) return "";
   const first = clips[0];
   return `<figure class="hero-media">
-    <video id="hero-video" src="${esc(safeUrl(first.src))}"${first.poster ? ` poster="${esc(safeUrl(first.poster))}"` : ""} autoplay muted loop playsinline preload="metadata" aria-label="${esc(first.alt)}" data-clips="${esc(clips.map(c => safeUrl(c.src)).join(" "))}" data-labels="${esc(JSON.stringify(clips.map(c => c.alt)))}"></video>
+    <video id="hero-video" src="${esc(safeUrl(first.src))}"${first.poster ? ` poster="${esc(safeUrl(first.poster))}"` : ""} autoplay muted loop playsinline webkit-playsinline disablepictureinpicture disableremoteplayback preload="auto" aria-label="${esc(first.alt)}" data-clips="${esc(clips.map(c => safeUrl(c.src)).join(" "))}" data-labels="${esc(JSON.stringify(clips.map(c => c.alt)))}"></video>
     <figcaption><i></i>Recent project</figcaption>
   </figure>`;
 }

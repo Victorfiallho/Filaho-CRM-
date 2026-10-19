@@ -971,8 +971,8 @@ ${topBar(page, base)}
     </div>
     ${heroMedia(clips)}
   </section>`}
-  ${main}
   ${booked ? "" : work}
+  ${main}
   ${booked ? "" : `<section class="section" aria-labelledby="how-h">
     <h2 id="how-h">How it works</h2>
     <ol class="how">

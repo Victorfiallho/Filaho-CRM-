@@ -82,11 +82,8 @@ export function parseBookingForm(form, page, now = new Date()) {
   if (!values.email) errors.email = "Please enter your email.";
   else if (!email) errors.email = "Please enter a valid email address.";
 
-  if (!values.address) errors.address = "Please enter your street address.";
-  if (!values.city) errors.city = "Please enter your city.";
-
-  if (!values.zip) errors.zip = "Please enter your ZIP code.";
-  else if (!/^\d{5}(-\d{4})?$/.test(values.zip)) errors.zip = "Please enter a 5-digit ZIP code.";
+  // The address is optional; the team gets it when confirming the visit.
+  if (values.zip && !/^\d{5}(-\d{4})?$/.test(values.zip)) errors.zip = "Please enter a 5-digit ZIP code.";
 
   const services = activeServices(page);
   const serviceById = new Map(services.map(s => [String(s.id), s]));

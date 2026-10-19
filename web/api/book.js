@@ -37,6 +37,7 @@ function csp(withScript) {
   return [
     "default-src 'none'",
     "img-src 'self' https: data:",
+    "media-src 'self'",
     "style-src 'unsafe-inline' https://fonts.googleapis.com",
     "font-src https://fonts.gstatic.com",
     `script-src ${withScript ? `${sha(headScriptBody())} ${sha(formScriptBody())}` : "'none'"}`,

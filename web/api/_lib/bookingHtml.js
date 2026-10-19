@@ -9,6 +9,7 @@
 // becomes a step-by-step flow with a calendar, a live summary and per-step
 // checks. The server validates everything either way.
 import { HEARD_FROM_OPTIONS, HONEYPOT_FIELD, PERIODS, UTM_FIELDS, activeServices } from "./bookingForm.js";
+import { GENERIC_VIDEOS, showcaseFor } from "./showcase.js";
 
 export function esc(value) {
   return String(value ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -83,6 +84,7 @@ const SERVICE_ICON_RULES = [
   [/refac|refinish|paint|stain/i, "brush"],
   [/custom|build|design/i, "ruler"],
   [/tile|backsplash|carpet|rug/i, "grid"],
+  [/cabinet/i, "cabinet"],
   [/floor|install|lvp|hardwood|laminate/i, "layers"],
   [/cabinet|kitchen|closet|pantry/i, "cabinet"],
   [/clean|deep|maid/i, "sparkles"]
@@ -136,6 +138,13 @@ h1,h2,h3{color:var(--ink);font-weight:600;letter-spacing:-.015em;margin:0}
 .chips{display:flex;flex-wrap:wrap;gap:8px;list-style:none;margin:4px 0 0;padding:0}
 .chips li{display:inline-flex;align-items:center;gap:7px;padding:8px 14px;border-radius:999px;background:var(--surface);font-size:14px;color:var(--ink-soft);box-shadow:var(--shadow-xs)}
 .chips .ic{width:16px;height:16px;color:var(--brand-ink)}
+.hero-copy{display:grid;gap:18px;align-content:center;min-width:0}
+.hero-cta{display:flex;flex-wrap:wrap;gap:10px;margin-top:4px}
+.hero-cta .btn.ghost{background:var(--surface);box-shadow:var(--shadow-xs)}
+.hero-media{position:relative;margin:0;border-radius:32px;overflow:hidden;background:#1d1d1b;box-shadow:var(--shadow-md);aspect-ratio:1/1}
+.hero-media video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.hero-media figcaption{position:absolute;left:14px;bottom:14px;display:inline-flex;align-items:center;gap:8px;padding:7px 14px;border-radius:999px;background:rgba(255,255,255,.92);font-size:13.5px;font-weight:500;color:var(--ink);backdrop-filter:blur(8px)}
+.hero-media figcaption i{width:8px;height:8px;border-radius:999px;background:var(--brand)}
 
 /* Booking card + summary */
 .booker{display:grid;gap:16px;padding:20px 0 8px;align-items:start}
@@ -285,6 +294,35 @@ select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='ht
 .how li:nth-child(3){--how-bg:var(--tone-green-bg);--how-fg:var(--tone-green-fg)}
 .how b{color:var(--ink);font-size:17px;font-weight:600}
 .how span{color:var(--muted)}
+/* Our work: one gallery, a tab per service */
+.work-top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:14px 24px;margin-bottom:18px}
+.work-top h2{margin-bottom:4px}
+.work-top p{margin:0;color:var(--muted)}
+.tabs{display:flex;gap:8px;overflow-x:auto;max-width:100%;padding:2px;margin:-2px;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{flex:0 0 auto}
+.tab{min-height:42px;padding:0 18px;border-radius:999px;border:0;background:var(--surface);box-shadow:var(--shadow-xs);font:inherit;font-size:15px;font-weight:500;color:var(--ink-soft);cursor:pointer;transition:background .15s var(--ease),color .15s var(--ease)}
+.tab:hover{background:#fff}
+.tab[aria-selected=true]{background:var(--ink);color:#fff}
+.no-js .tabs{display:none}
+.work-card{padding:20px;overflow:hidden}
+.work-panel{display:grid;gap:14px}
+.work-panel + .work-panel{margin-top:28px}
+.js .work-panel + .work-panel{margin-top:0}
+.js .work-panel:not(.on){display:none}
+.js .work-panel.on{animation:stepIn .32s var(--ease) both}
+.wp-h{font-size:20px}
+.wp-blurb{margin:-8px 0 0;color:var(--muted);max-width:62ch}
+.gallery{display:grid;grid-auto-flow:column;grid-auto-columns:calc((100% - 10px) / 2);gap:10px;overflow-x:auto;scroll-snap-type:x mandatory;list-style:none;margin:0;padding:0;scrollbar-width:none}
+.gallery::-webkit-scrollbar{display:none}
+.gallery li{scroll-snap-align:start}
+.gallery img{display:block;width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:20px;background:var(--soft)}
+.g-wrap{position:relative}
+.g-nav{position:absolute;top:50%;margin-top:-20px;z-index:1;box-shadow:var(--shadow-sm)}
+.g-nav.prev{left:8px}
+.g-nav.next{right:8px}
+.g-nav:disabled{display:none}
+.no-js .g-nav{display:none}
 details.faq{background:var(--surface);border-radius:20px;padding:4px 18px;margin-bottom:8px}
 details.faq summary{cursor:pointer;font-weight:600;color:var(--ink);padding:14px 0}
 details.faq p{margin:0 0 14px}
@@ -329,11 +367,17 @@ footer a{color:var(--ink-soft)}
   .form-card{padding:30px 30px 26px}
   .how{grid-template-columns:repeat(3,1fr)}
   .stepper .num{display:inline}
+  .work-card{padding:26px}
+  .gallery{grid-auto-columns:calc((100% - 20px) / 3)}
+  .hero-media{aspect-ratio:4/5}
 }
 @media (min-width:960px){
+  .gallery{grid-auto-columns:calc((100% - 30px) / 4)}
   .booker{grid-template-columns:minmax(0,1fr) 340px;gap:20px}
   .summary{position:sticky;top:20px}
   .hero{padding-top:40px}
+  .hero.has-media{grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);align-items:center;gap:48px;padding-bottom:20px}
+  .hero-media{max-height:620px}
 }
 @media (max-width:420px){
   .periods{grid-template-columns:1fr;}
@@ -418,8 +462,8 @@ const FIELD_LABELS = {
 const STEPS = [
   { id: "service", label: "Service", icon: "sparkles" },
   { id: "when", label: "Date & time", icon: "calendar" },
-  { id: "where", label: "Address", icon: "pin" },
-  { id: "you", label: "Contact", icon: "user" }
+  { id: "you", label: "Contact", icon: "user" },
+  { id: "where", label: "Address", icon: "pin" }
 ];
 
 function stepHead(i, title, sub) {
@@ -487,24 +531,24 @@ function bookingForm({ page, base, texts, values = {}, errors = {}, utm = {}, fo
   </fieldset>
 
   <fieldset class="step" data-step="2" aria-labelledby="step-2-h">
-    ${stepHead(2, "Where's the job?", "The address where you'd like the service.")}
-    <div class="grid">
-      ${field({ name: "address", label: "Street address", required: true, value: values.address, error: errors.address, attrs: 'autocomplete="street-address" maxlength="120"' })}
-    </div>
-    <div class="grid two zip" style="margin-top:14px">
-      ${field({ name: "city", label: "City", required: true, value: values.city, error: errors.city, attrs: 'autocomplete="address-level2" maxlength="60"' })}
-      ${field({ name: "zip", label: "ZIP code", required: true, value: values.zip, error: errors.zip, attrs: 'autocomplete="postal-code" inputmode="numeric" maxlength="10" pattern="\\d{5}(-\\d{4})?"' })}
-    </div>
-    ${stepNav(2)}
-  </fieldset>
-
-  <fieldset class="step" data-step="3" aria-labelledby="step-3-h">
-    ${stepHead(3, "How can we reach you?", "We'll text and email to confirm your appointment.")}
+    ${stepHead(2, "How can we reach you?", "We'll text and email to confirm your appointment.")}
     <div class="grid two">
       ${field({ name: "first_name", label: "First name", required: true, value: values.first_name, error: errors.first_name, attrs: 'autocomplete="given-name" maxlength="60"' })}
       ${field({ name: "last_name", label: "Last name", required: true, value: values.last_name, error: errors.last_name, attrs: 'autocomplete="family-name" maxlength="60"' })}
       ${field({ name: "phone", label: "Mobile phone", type: "tel", required: true, value: values.phone, error: errors.phone, attrs: 'autocomplete="tel-national" inputmode="tel" maxlength="20" placeholder="(404) 555-0123"' })}
       ${field({ name: "email", label: "Email", type: "email", required: true, value: values.email, error: errors.email, attrs: 'autocomplete="email" maxlength="254" placeholder="you@example.com"' })}
+    </div>
+    ${stepNav(2)}
+  </fieldset>
+
+  <fieldset class="step" data-step="3" aria-labelledby="step-3-h">
+    ${stepHead(3, "Where's the job?", "Optional. If you skip it, we'll ask when we confirm the visit.")}
+    <div class="grid">
+      ${field({ name: "address", label: "Street address", value: values.address, error: errors.address, attrs: 'autocomplete="street-address" maxlength="120"' })}
+    </div>
+    <div class="grid two zip" style="margin-top:14px">
+      ${field({ name: "city", label: "City", value: values.city, error: errors.city, attrs: 'autocomplete="address-level2" maxlength="60"' })}
+      ${field({ name: "zip", label: "ZIP code", value: values.zip, error: errors.zip, attrs: 'autocomplete="postal-code" inputmode="numeric" maxlength="10" pattern="\\d{5}(-\\d{4})?"' })}
     </div>
     <div class="grid" style="margin-top:14px">
       <div class="field">
@@ -546,7 +590,7 @@ function summaryCard(page) {
     ["services", "sparkles", "Service", "Not chosen yet"],
     ["date", "calendar", "Visit", "Any day"],
     ["period", "clock", "Time", "Flexible"],
-    ["address", "pin", "Address", "Not added yet"]
+    ["address", "pin", "Address", "Optional"]
   ];
   return `<aside class="card summary" aria-labelledby="sum-h">
   <h2 id="sum-h">Your request</h2>
@@ -643,9 +687,7 @@ function bookingClient() {
   }
 
   var CHECKS = {
-    address: function (v) { return v ? "" : "Please enter your street address."; },
-    city: function (v) { return v ? "" : "Please enter your city."; },
-    zip: function (v) { return !v ? "Please enter your ZIP code." : /^\d{5}(-\d{4})?$/.test(v) ? "" : "Please enter a 5-digit ZIP code."; },
+    zip: function (v) { return !v || /^\d{5}(-\d{4})?$/.test(v) ? "" : "Please enter a 5-digit ZIP code."; },
     first_name: function (v) { return v ? "" : "Please enter your first name."; },
     last_name: function (v) { return v ? "" : "Please enter your last name."; },
     phone: function (v) { var d = v.replace(/\D/g, ""); if (d.length === 11 && d[0] === "1") d = d.slice(1); return !v ? "Please enter your mobile number." : d.length === 10 ? "" : "Please enter a valid 10-digit US mobile number."; },
@@ -706,7 +748,72 @@ function bookingClient() {
     if (input.name === "services") { var live = document.getElementById("f_services_live"); if (live && form.querySelector('input[name="services"]:checked')) live.hidden = true; }
     summarize(input.name);
   });
-  form.addEventListener("change", function (e) { summarize(e.target.name); });
+  form.addEventListener("change", function (e) {
+    summarize(e.target.name);
+    if (e.target.name === "services" && e.target.checked) selectWork(e.target.value);
+  });
+
+  // ── Our work gallery ──
+  var work = document.getElementById("work");
+  var tabs = work ? [].slice.call(work.querySelectorAll(".tab")) : [];
+  var panels = work ? [].slice.call(work.querySelectorAll(".work-panel")) : [];
+  // Arrows hide at either end, and both hide when everything fits.
+  function arrows(g) {
+    var w = g.parentNode;
+    w.querySelector(".prev").disabled = g.scrollLeft < 4;
+    w.querySelector(".next").disabled = g.scrollLeft + g.clientWidth >= g.scrollWidth - 4;
+  }
+  function visibleGalleries() { return work ? [].slice.call(work.querySelectorAll(".work-panel.on .gallery")) : []; }
+  function openTab(i, focus) {
+    if (!panels[i] || panels[i].classList.contains("on")) return;
+    panels.forEach(function (p, k) { p.classList.toggle("on", k === i); });
+    tabs.forEach(function (t, k) { t.setAttribute("aria-selected", String(k === i)); t.tabIndex = k === i ? 0 : -1; });
+    if (focus && tabs[i]) tabs[i].focus();
+    var g = panels[i].querySelector(".gallery");
+    if (g) { g.scrollLeft = 0; arrows(g); }
+  }
+  function selectWork(serviceId) {
+    for (var i = 0; i < panels.length; i++) if (panels[i].getAttribute("data-service") === serviceId) return openTab(i);
+  }
+  if (work) {
+    work.addEventListener("click", function (e) {
+      var t = e.target.closest(".tab");
+      if (t) return openTab(tabs.indexOf(t));
+      var b = e.target.closest(".g-nav");
+      if (!b) return;
+      var g = b.parentNode.querySelector(".gallery");
+      g.scrollBy({ left: (b.classList.contains("next") ? 1 : -1) * g.clientWidth, behavior: reduce ? "auto" : "smooth" });
+    });
+    work.addEventListener("keydown", function (e) {
+      var i = tabs.indexOf(e.target);
+      if (i < 0 || (e.key !== "ArrowRight" && e.key !== "ArrowLeft")) return;
+      e.preventDefault();
+      openTab((i + (e.key === "ArrowRight" ? 1 : tabs.length - 1)) % tabs.length, true);
+    });
+    [].forEach.call(work.querySelectorAll(".gallery"), function (g) {
+      g.addEventListener("scroll", function () { arrows(g); }, { passive: true });
+    });
+    window.addEventListener("resize", function () { visibleGalleries().forEach(arrows); });
+    visibleGalleries().forEach(arrows);
+  }
+
+  // ── Hero video: play the clips in turn ──
+  var hv = document.getElementById("hero-video");
+  if (hv) {
+    var clips = (hv.getAttribute("data-clips") || "").split(" ").filter(Boolean), labels = [];
+    try { labels = JSON.parse(hv.getAttribute("data-labels") || "[]"); } catch { labels = []; }
+    if (clips.length > 1) {
+      var clip = 0;
+      hv.loop = false;
+      hv.addEventListener("ended", function () {
+        clip = (clip + 1) % clips.length;
+        hv.src = clips[clip];
+        if (labels[clip]) hv.setAttribute("aria-label", labels[clip]);
+        var p = hv.play(); if (p && p.catch) p.catch(function () {});
+      });
+    }
+    if (reduce) hv.pause();
+  }
 
   form.addEventListener("submit", function (e) {
     for (var i = 0; i < steps.length; i++) {
@@ -832,6 +939,9 @@ export function renderBookingPage({ page, base, texts, values, errors, utm, form
     ...(services.length ? { makesOffer: services.map(s => ({ "@type": "Offer", itemOffered: { "@type": "Service", name: s.name } })) } : {})
   };
 
+  // The clips are cabinet work, so only pages offering a showcased service get them.
+  const clips = services.some(s => showcaseFor(s.name)) ? GENERIC_VIDEOS : [];
+  const work = workSection(services);
   const main = booked
     ? `<div class="booker" style="grid-template-columns:minmax(0,760px);justify-content:center">${successCard(page, booked)}</div>`
     : `<div class="booker" id="book">${bookingForm({ page, base, texts, values, errors, utm, formError, today })}${summaryCard(page)}</div>`;
@@ -839,21 +949,26 @@ export function renderBookingPage({ page, base, texts, values, errors, utm, form
   const body = `<a class="skip" href="#book">Skip to booking form</a>
 ${topBar(page, base)}
 <main class="wrap">
-  ${booked ? "" : `<section class="hero" aria-labelledby="hero-h">
-    <span class="eyebrow"><span class="dot">${icon("calendar")}</span>Free visit</span>
-    <h1 id="hero-h">Schedule a free visit with <em>${esc(name)}</em>.</h1>
-    <p class="lead">${serviceLine ? `${esc(serviceLine)}. ` : ""}Tell us what you need and pick a day for us to visit. You get your quote after the visit.</p>
-    <ul class="chips">
-      <li>${icon("clock")}Takes about a minute</li>
-      <li>${icon("card")}Free, no commitment</li>
-      <li>${icon("shield")}Your info stays private</li>
-    </ul>
+  ${booked ? "" : `<section class="hero${clips.length ? " has-media" : ""}" aria-labelledby="hero-h">
+    <div class="hero-copy">
+      <span class="eyebrow"><span class="dot">${icon("calendar")}</span>Free visit</span>
+      <h1 id="hero-h">Schedule a free visit with <em>${esc(name)}</em>.</h1>
+      <p class="lead">${serviceLine ? `${esc(serviceLine)}. ` : ""}Tell us what you need and pick a day for us to visit. You get your quote after the visit.</p>
+      ${clips.length ? `<div class="hero-cta"><a class="btn" href="#book">Schedule a free visit${icon("arrowRight")}</a>${work ? `<a class="btn ghost" href="#work">See our work</a>` : ""}</div>` : ""}
+      <ul class="chips">
+        <li>${icon("clock")}Takes about a minute</li>
+        <li>${icon("card")}Free, no commitment</li>
+        <li>${icon("shield")}Your info stays private</li>
+      </ul>
+    </div>
+    ${heroMedia(clips)}
   </section>`}
   ${main}
+  ${booked ? "" : work}
   ${booked ? "" : `<section class="section" aria-labelledby="how-h">
     <h2 id="how-h">How it works</h2>
     <ol class="how">
-      <li><b>Schedule a free visit</b><span>Choose what you need, a day and your address.</span></li>
+      <li><b>Schedule a free visit</b><span>Choose what you need and a day for the visit.</span></li>
       <li><b>We visit and send your quote</b><span>We confirm the time by text and email, see the space and send the quote.</span></li>
       <li><b>We schedule the work</b><span>Once you approve the quote, we agree on the date.</span></li>
     </ol>
@@ -874,6 +989,43 @@ ${booked ? "" : `<script>${formScriptBody()}</script>`}`;
     head: `<script>${headScriptBody()}</script><script type="application/ld+json">${jsonLd(ld)}</script>`,
     body
   });
+}
+
+// The hero video plays the clips in turn (bookingClient swaps the source on
+// "ended"); without JavaScript the first one just loops.
+function heroMedia(clips) {
+  if (!clips.length) return "";
+  const first = clips[0];
+  return `<figure class="hero-media">
+    <video id="hero-video" src="${esc(safeUrl(first.src))}"${first.poster ? ` poster="${esc(safeUrl(first.poster))}"` : ""} autoplay muted loop playsinline preload="metadata" aria-label="${esc(first.alt)}" data-clips="${esc(clips.map(c => safeUrl(c.src)).join(" "))}" data-labels="${esc(JSON.stringify(clips.map(c => c.alt)))}"></video>
+    <figcaption><i></i>Recent project</figcaption>
+  </figure>`;
+}
+
+// One gallery with a tab per service that has photos. Picking a service in
+// the form switches the tab (bookingClient). Without JavaScript the tabs
+// hide and every panel shows, one under the other.
+function workSection(services) {
+  const items = services.map(s => ({ id: String(s.id), name: s.name, ...showcaseFor(s.name) })).filter(s => s.photos?.length);
+  if (!items.length) return "";
+  const strip = s => `<div class="g-wrap">
+      <button type="button" class="round g-nav prev" aria-label="Previous photos">${icon("chevronLeft")}</button>
+      <ul class="gallery" tabindex="0" aria-label="${esc(s.name)} photos">${s.photos.map(p => `<li><img src="${esc(safeUrl(p.src))}" alt="${esc(p.alt)}" width="768" height="1024" loading="lazy" decoding="async"></li>`).join("")}</ul>
+      <button type="button" class="round g-nav next" aria-label="More photos">${icon("chevronRight")}</button>
+    </div>`;
+  return `<section class="section" id="work" aria-labelledby="work-h">
+    <div class="work-top">
+      <div><h2 id="work-h">Our work</h2><p>Recent projects from our team.</p></div>
+      ${items.length > 1 ? `<div class="tabs" role="tablist" aria-label="Services">${items.map((s, i) => `<button type="button" class="tab" role="tab" id="wt-${i}" aria-controls="wp-${i}" aria-selected="${i === 0}"${i ? ' tabindex="-1"' : ""}>${esc(s.name)}</button>`).join("")}</div>` : ""}
+    </div>
+    <div class="card work-card">
+      ${items.map((s, i) => `<div class="work-panel${i === 0 ? " on" : ""}" id="wp-${i}"${items.length > 1 ? ` role="tabpanel" aria-labelledby="wt-${i}"` : ""} data-service="${esc(s.id)}">
+        <h3 class="wp-h">${esc(s.name)}</h3>
+        ${s.blurb ? `<p class="wp-blurb">${esc(s.blurb)}</p>` : ""}
+        ${strip(s)}
+      </div>`).join("")}
+    </div>
+  </section>`;
 }
 
 function legalPage({ page, base, title, updated, sections }) {

@@ -69,7 +69,13 @@ describe("parseBookingForm", () => {
   it("reports every missing required field", () => {
     const r = parseBookingForm(form({}), page, NOW);
     expect(r.ok).toBe(false);
-    expect(Object.keys(r.errors).sort()).toEqual(["address", "city", "email", "first_name", "last_name", "phone", "services", "zip"]);
+    expect(Object.keys(r.errors).sort()).toEqual(["email", "first_name", "last_name", "phone", "services"]);
+  });
+
+  it("accepts a booking without an address", () => {
+    const r = parseBookingForm(form({ ...valid, address: "", city: "", zip: "" }), page, NOW);
+    expect(r.ok).toBe(true);
+    expect(r.booking).toMatchObject({ address: "", city: "", state: "", zip: "" });
   });
 
   it("accepts any valid US ZIP (no service-area filter) and rejects malformed ones", () => {

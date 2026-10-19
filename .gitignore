@@ -3,3 +3,10 @@
 # Real customer data (names/phones/emails) — lives in Supabase only, never in git
 supabase/localstorage.db
 supabase/seed_real_customers_leads.sql
+
+# Original photos/videos for the booking page; the page uses the resized copies in web/public/work/
+/Video/
+/cabinetts instalation/
+/custom/
+/Bathroom remodling/
+/kitchen remodeling/

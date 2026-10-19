@@ -405,6 +405,7 @@ function layout({ page, title, description, canonical, body, head = "" }) {
 <title>${esc(title)}</title>
 ${description ? `<meta name="description" content="${esc(description)}">` : ""}
 ${canonical ? `<link rel="canonical" href="${esc(canonical)}">` : ""}
+${safeUrl(page?.logo_url) ? `<link rel="icon" href="${esc(safeUrl(page.logo_url))}">` : ""}
 <meta name="theme-color" content="#f6f4ec">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

@@ -10,6 +10,7 @@
 // checks. The server validates everything either way.
 import { HEARD_FROM_OPTIONS, HONEYPOT_FIELD, PERIODS, UTM_FIELDS, activeServices } from "./bookingForm.js";
 import { GENERIC_VIDEOS, showcaseFor } from "./showcase.js";
+import { QUESTIONS, TOPICS, cleanName, describeService, fieldName, groupServices, questionKeysFor } from "./serviceQuestions.js";
 
 export function esc(value) {
   return String(value ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -66,7 +67,12 @@ const ICON_PATHS = {
   chevronLeft: "M15 18l-6-6 6-6",
   chevronRight: "M9 18l6-6-6-6",
   shield: "M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z M9 12l2 2 4-4",
-  card: "M2 7a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2z M2 10h20"
+  card: "M2 7a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2z M2 10h20",
+  list: "M9 6h12 M9 12h12 M9 18h12 M4 6h.01 M4 12h.01 M4 18h.01",
+  sofa: "M4 11V8a3 3 0 0 1 3-3h10a3 3 0 0 1 3 3v3 M2 13a2 2 0 0 1 4 0v2h12v-2a2 2 0 0 1 4 0v5H2z M5 18v2 M19 18v2",
+  home: "M3 10.5L12 3l9 7.5 M5 9v11h14V9 M10 20v-6h4v6",
+  minus: "M5 12h14",
+  plus: "M12 5v14 M5 12h14"
 };
 
 function icon(name, cls = "") {
@@ -77,7 +83,9 @@ function icon(name, cls = "") {
 // A service's icon, guessed from its name (services are whatever the
 // company typed in the CRM), with a default.
 const SERVICE_ICON_RULES = [
-  [/recurr|weekly|monthly|regular/i, "repeat"],
+  [/recurr|recur|weekly|monthly|regular/i, "repeat"],
+  [/upholst|uphost|sofa|couch/i, "sofa"],
+  [/house|home/i, "home"],
   [/move|moving/i, "box"],
   [/commercial|office|business/i, "building"],
   [/vanit|bath/i, "drop"],
@@ -150,7 +158,7 @@ h1,h2,h3{color:var(--ink);font-weight:600;letter-spacing:-.015em;margin:0}
 .booker{display:grid;gap:16px;padding:20px 0 8px;align-items:start}
 .card{background:var(--surface-solid);border-radius:28px;box-shadow:var(--shadow-md)}
 .form-card{padding:22px 18px 20px;min-width:0}
-.stepper{list-style:none;margin:0 0 6px;padding:0;display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.stepper{list-style:none;margin:0 0 6px;padding:0;display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
 .stepper li{display:grid;gap:8px;font-size:13px;color:var(--muted)}
 .stepper .bar{height:6px;border-radius:999px;background:var(--soft);overflow:hidden}
 .stepper .bar i{display:block;height:100%;width:0;background:var(--brand);border-radius:inherit;transition:width .35s var(--ease)}
@@ -183,6 +191,46 @@ h1,h2,h3{color:var(--ink);font-weight:600;letter-spacing:-.015em;margin:0}
 .tile:has(input:checked){box-shadow:inset 0 0 0 2px var(--ink)}
 .tile:has(input:checked) .t-check{background:var(--ink);color:#fff;transform:scale(1.05)}
 .tile:has(input:focus-visible){outline:3px solid var(--ring);outline-offset:2px}
+.tile .t-sub{font-size:13px;color:var(--muted);line-height:1.35;margin-top:-6px}
+.no-js .tile.g-tile{display:none}
+
+/* A group's options (Carpet Cleaning: Shampoo, Refresh) */
+.variants{border:0;margin:12px 0 0;padding:16px;border-radius:22px;background:var(--soft-2);min-width:0}
+.js .variants[hidden]{display:none}
+.no-js .variants[hidden]{display:block}
+.js .variants.enter{animation:stepIn .28s var(--ease) both}
+.variants legend{float:left;width:100%;padding:0;margin:0 0 12px;font-weight:600;color:var(--ink);font-size:16px}
+.v-list{clear:both;display:grid;gap:8px;grid-template-columns:repeat(auto-fill,minmax(210px,1fr))}
+.variant{position:relative;display:flex;gap:12px;align-items:flex-start;padding:14px;border-radius:16px;background:#fff;cursor:pointer;box-shadow:inset 0 0 0 2px transparent;transition:box-shadow .18s var(--ease)}
+.variant input{position:absolute;opacity:0;inset:0;margin:0;cursor:pointer}
+.variant .v-box{width:22px;height:22px;border-radius:7px;box-shadow:inset 0 0 0 2px var(--muted-soft);display:grid;place-items:center;color:transparent;flex:0 0 auto;margin-top:1px}
+.variant .v-box .ic{width:14px;height:14px}
+.variant b{display:block;color:var(--ink);font-weight:600;font-size:15px;line-height:1.3}
+.variant small{display:block;color:var(--muted);font-size:13px;line-height:1.4;margin-top:2px}
+.variant:has(input:checked){box-shadow:inset 0 0 0 2px var(--ink)}
+.variant:has(input:checked) .v-box{background:var(--ink);box-shadow:none;color:#fff}
+.variant:has(input:focus-visible){outline:3px solid var(--ring);outline-offset:2px}
+
+/* Job questions */
+.q-topic{display:grid;gap:10px}
+.q-topic + .q-topic{margin-top:24px}
+.js .q-topic[hidden],.js .q[hidden]{display:none}
+.q-topic h3{display:flex;align-items:center;gap:8px;font-size:16px;margin:0 0 2px}
+.q-topic h3 .ic{width:18px;height:18px;color:var(--brand-ink)}
+.q{border:0;margin:0;padding:14px 16px;min-width:0;border-radius:18px;background:var(--soft-2)}
+.q legend,.q .q-label{float:left;width:100%;padding:0;margin:0 0 10px;font-weight:500;color:var(--ink);font-size:15px}
+.q .pills{clear:both}
+.pills{display:flex;flex-wrap:wrap;gap:8px}
+.pill-opt{position:relative;display:inline-flex;align-items:center;min-height:44px;padding:0 16px;border-radius:999px;background:#fff;font-size:15px;color:var(--ink-soft);cursor:pointer;transition:background .15s var(--ease),color .15s var(--ease)}
+.pill-opt input{position:absolute;opacity:0;inset:0;margin:0;cursor:pointer}
+.pill-opt:has(input:checked){background:var(--ink);color:#fff}
+.pill-opt:has(input:focus-visible){outline:3px solid var(--ring);outline-offset:2px}
+.q-count{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.q-count .q-label{float:none;width:auto;margin:0;flex:1 1 160px}
+.q-count .err{flex-basis:100%}
+.counter{display:flex;align-items:center;gap:6px}
+.counter input[type=text]{width:64px;min-height:44px;padding:8px;text-align:center;background:#fff;font-weight:600}
+.no-js .counter .round{display:none}
 
 /* Calendar */
 .cal{display:none}
@@ -462,6 +510,7 @@ const FIELD_LABELS = {
 
 const STEPS = [
   { id: "service", label: "Service", icon: "sparkles" },
+  { id: "details", label: "Details", icon: "list" },
   { id: "when", label: "Date & time", icon: "calendar" },
   { id: "you", label: "Contact", icon: "user" },
   { id: "where", label: "Address", icon: "pin" }
@@ -477,12 +526,87 @@ function stepNav(i) {
   return `<div class="step-nav">${back}<button type="button" class="btn dark" data-next>Continue${icon("arrowRight")}</button></div>`;
 }
 
+const TOPIC_ICONS = { carpet: "grid", upholstery: "sofa", home: "home", project: "ruler" };
+
+// Step 1: one tile per group. A group with several options (Carpet Cleaning:
+// Shampoo, Refresh) gets a tile that opens its options below the grid; the
+// options are the real "services" checkboxes. Without JavaScript the group
+// tiles hide and every group's options show.
+function serviceStep(services, selected, errors) {
+  const groups = groupServices(services);
+  const tiles = groups.map((g, i) => {
+    const tone = TONES[i % TONES.length];
+    const style = `--tile-bg:var(--tone-${tone}-bg);--tile-fg:var(--tone-${tone}-fg)`;
+    const invalid = errors.services ? ' aria-invalid="true"' : "";
+    if (g.services.length === 1) {
+      const s = g.services[0];
+      const sub = describeService(s.name);
+      return `<label class="tile" style="${style}">
+        <input type="checkbox" name="services" value="${esc(s.id)}" data-name="${esc(cleanName(s.name))}"${selected.has(String(s.id)) ? " checked" : ""}${invalid}>
+        <span class="t-ic">${icon(serviceIcon(s.name))}</span>
+        <span class="t-name">${esc(g.name)}</span>${sub ? `<span class="t-sub">${esc(sub)}</span>` : ""}
+        <span class="t-check">${icon("check")}</span>
+      </label>`;
+    }
+    const open = g.services.some(s => selected.has(String(s.id)));
+    return `<label class="tile g-tile" style="${style}">
+        <input type="checkbox" class="g-toggle" data-group="${esc(g.key)}" aria-controls="grp_${esc(g.key)}" aria-expanded="${open}"${open ? " checked" : ""}${invalid}>
+        <span class="t-ic">${icon(serviceIcon(g.name))}</span>
+        <span class="t-name">${esc(g.name)}</span><span class="t-sub">${g.services.length} options</span>
+        <span class="t-check">${icon("check")}</span>
+      </label>`;
+  }).join("");
+  const panels = groups.filter(g => g.services.length > 1).map(g => {
+    const open = g.services.some(s => selected.has(String(s.id)));
+    return `<fieldset class="variants" id="grp_${esc(g.key)}" data-group="${esc(g.key)}"${open ? "" : " hidden"}>
+      <legend>Which ${esc(g.name.toLowerCase())}?</legend>
+      <div class="v-list">${g.services.map(s => {
+        const sub = describeService(s.option);
+        return `<label class="variant"><input type="checkbox" name="services" value="${esc(s.id)}" data-name="${esc(cleanName(s.name))}"${selected.has(String(s.id)) ? " checked" : ""}><span class="v-box">${icon("check")}</span><span><b>${esc(s.option)}</b>${sub ? `<small>${esc(sub)}</small>` : ""}</span></label>`;
+      }).join("")}</div>
+      <p class="err group-err" id="grp_${esc(g.key)}_err" hidden>Please choose at least one option.</p>
+    </fieldset>`;
+  }).join("");
+  return `<div class="tiles" id="f_services">${tiles}</div>${panels}`;
+}
+
+// Step 2: the questions every service on the page can ask, by topic. Each
+// one lists the services that ask it (data-svc) and the client shows only
+// those for what's picked. The server reads only the chosen services' ones.
+function detailsStep(services, answers, errors) {
+  const asks = new Map();
+  for (const s of services) for (const key of questionKeysFor(s.name)) asks.set(key, [...(asks.get(key) || []), String(s.id)]);
+  const shown = QUESTIONS.filter(q => asks.has(q.key));
+  const topics = [...new Set(shown.map(q => q.topic))];
+  return topics.map(topic => `<section class="q-topic" data-topic="${esc(topic)}">
+    <h3>${icon(TOPIC_ICONS[topic] || "list")}${esc(TOPICS[topic] || "Details")}</h3>
+    ${shown.filter(q => q.topic === topic).map(q => question(q, asks.get(q.key), answers[q.key], errors[fieldName(q)])).join("")}
+  </section>`).join("");
+}
+
+function question(q, svc, value, error) {
+  const name = fieldName(q), id = `f_${name}`, data = `data-svc="${esc(svc.join(" "))}"`;
+  if (q.type === "count") {
+    return `<div class="q q-count" ${data}>
+      <label class="q-label" for="${id}">${esc(q.label)}</label>
+      <span class="counter"><button type="button" class="round" data-delta="-1" aria-label="${esc(`Fewer: ${q.label}`)}">${icon("minus")}</button><input type="text" id="${id}" name="${name}" class="q-num" inputmode="numeric" pattern="[0-9]*" maxlength="2" placeholder="0" data-max="${q.max}" value="${esc(value)}"${error ? ` aria-invalid="true" aria-describedby="${id}_err"` : ""}><button type="button" class="round" data-delta="1" aria-label="${esc(`More: ${q.label}`)}">${icon("plus")}</button></span>
+      ${error ? `<p class="err" id="${id}_err">${esc(error)}</p>` : ""}
+    </div>`;
+  }
+  const picked = new Set([].concat(value || []));
+  const type = q.type === "multi" ? "checkbox" : "radio";
+  return `<fieldset class="q" ${data} id="${id}">
+    <legend>${esc(q.label)}${q.type === "multi" ? ' <span class="hint">(pick any)</span>' : ""}</legend>
+    <div class="pills">${q.options.map(([label]) => `<label class="pill-opt"><input type="${type}" name="${name}" value="${esc(label)}"${picked.has(label) ? " checked" : ""}>${esc(label)}</label>`).join("")}</div>
+  </fieldset>`;
+}
+
 function bookingForm({ page, base, texts, values = {}, errors = {}, utm = {}, formError, today }) {
   const services = activeServices(page);
   const selected = new Set(values.services || []);
   const errorList = Object.entries(errors);
-  const detailServices = services.filter(s => s.detail_label);
   const period = values.preferred_period || "";
+  const questionLabels = Object.fromEntries(QUESTIONS.map(q => [fieldName(q), q.label]));
 
   return `<form class="card form-card" method="post" action="${esc(base)}" novalidate id="booking-form" data-today="${esc(today)}" aria-labelledby="book-h">
   <h2 id="book-h" class="sr-only">Schedule your free visit</h2>
@@ -490,30 +614,23 @@ function bookingForm({ page, base, texts, values = {}, errors = {}, utm = {}, fo
   <p class="sr-only" id="step-status" role="status" aria-live="polite"></p>
 
   ${formError ? `<div class="alert" role="alert"><h3>We couldn't send your request</h3><p>${esc(formError)} Your answers are still here.${page.phone ? ` You can also call us at <a href="${telHref(page.phone)}">${esc(page.phone)}</a>.` : ""}</p></div>` : ""}
-  ${errorList.length ? `<div class="alert" role="alert" tabindex="-1" id="form-errors"><h3>Please check ${errorList.length === 1 ? "this" : `these ${errorList.length}`}:</h3><ul>${errorList.map(([k, msg]) => `<li><a href="#f_${esc(k)}">${esc(FIELD_LABELS[k] || "This field")}: ${esc(msg)}</a></li>`).join("")}</ul></div>` : ""}
+  ${errorList.length ? `<div class="alert" role="alert" tabindex="-1" id="form-errors"><h3>Please check ${errorList.length === 1 ? "this" : `these ${errorList.length}`}:</h3><ul>${errorList.map(([k, msg]) => `<li><a href="#f_${esc(k)}">${esc(FIELD_LABELS[k] || questionLabels[k] || "This field")}: ${esc(msg)}</a></li>`).join("")}</ul></div>` : ""}
 
   <fieldset class="step" data-step="0" aria-labelledby="step-0-h">
     ${stepHead(0, "What can we help with?", services.length > 1 ? "Pick one or more." : "")}
-    ${services.length ? `<div class="tiles" id="f_services">
-      ${services.map((s, i) => {
-        const tone = TONES[i % TONES.length];
-        return `<label class="tile" style="--tile-bg:var(--tone-${tone}-bg);--tile-fg:var(--tone-${tone}-fg)">
-        <input type="checkbox" name="services" value="${esc(s.id)}" data-name="${esc(s.name)}"${selected.has(String(s.id)) ? " checked" : ""}${errors.services ? ' aria-invalid="true"' : ""}>
-        <span class="t-ic">${icon(serviceIcon(s.name))}</span>
-        <span class="t-name">${esc(s.name)}</span>
-        <span class="t-check">${icon("check")}</span>
-      </label>`;
-      }).join("")}
-    </div>
+    ${services.length ? `${serviceStep(services, selected, errors)}
     ${errors.services ? `<p class="err group-err" id="f_services_err">${esc(errors.services)}</p>` : `<p class="err group-err" id="f_services_live" hidden>Please choose at least one service.</p>`}` : ""}
-    ${detailServices.length ? `<div class="grid two" style="margin-top:14px">
-      ${detailServices.map(s => field({ name: `detail_${s.id}`, label: s.detail_label, type: "text", value: values.details?.[s.id], error: errors[`detail_${s.id}`], hint: "Optional", attrs: 'inputmode="numeric" maxlength="2"' })).join("")}
-    </div>` : ""}
     ${stepNav(0)}
   </fieldset>
 
   <fieldset class="step" data-step="1" aria-labelledby="step-1-h">
-    ${stepHead(1, "When can we visit?", "Pick a day for a free visit. We'll confirm the exact time with you.")}
+    ${stepHead(1, "Tell us about the job", "A few quick taps so we come prepared. Skip anything you're not sure about.")}
+    ${detailsStep(services, values.answers || {}, errors)}
+    ${stepNav(1)}
+  </fieldset>
+
+  <fieldset class="step" data-step="2" aria-labelledby="step-2-h">
+    ${stepHead(2, "When can we visit?", "Pick a day for a free visit. We'll confirm the exact time with you.")}
     <div class="cal" id="cal" aria-label="Choose a date">
       <div class="cal-head"><b id="cal-month"></b><div class="cal-nav"><button type="button" class="round" id="cal-prev" aria-label="Previous month">${icon("chevronLeft")}</button><button type="button" class="round" id="cal-next" aria-label="Next month">${icon("chevronRight")}</button></div></div>
       <div class="cal-grid" id="cal-grid"></div>
@@ -528,22 +645,22 @@ function bookingForm({ page, base, texts, values = {}, errors = {}, utm = {}, fo
     <div class="periods" role="radiogroup" aria-labelledby="period-h">
       ${Object.entries(PERIOD_INFO).map(([v, p]) => `<label class="period"><input type="radio" name="preferred_period" value="${v}"${period === v ? " checked" : ""}>${icon(p.icon)}<b>${esc(p.label)}</b><span>${esc(p.sub)}</span></label>`).join("")}
     </div>
-    ${stepNav(1)}
+    ${stepNav(2)}
   </fieldset>
 
-  <fieldset class="step" data-step="2" aria-labelledby="step-2-h">
-    ${stepHead(2, "How can we reach you?", "We'll text and email to confirm your appointment.")}
+  <fieldset class="step" data-step="3" aria-labelledby="step-3-h">
+    ${stepHead(3, "How can we reach you?", "We'll text and email to confirm your appointment.")}
     <div class="grid two">
       ${field({ name: "first_name", label: "First name", required: true, value: values.first_name, error: errors.first_name, attrs: 'autocomplete="given-name" maxlength="60"' })}
       ${field({ name: "last_name", label: "Last name", required: true, value: values.last_name, error: errors.last_name, attrs: 'autocomplete="family-name" maxlength="60"' })}
       ${field({ name: "phone", label: "Mobile phone", type: "tel", required: true, value: values.phone, error: errors.phone, attrs: 'autocomplete="tel-national" inputmode="tel" maxlength="20" placeholder="(404) 555-0123"' })}
       ${field({ name: "email", label: "Email", type: "email", required: true, value: values.email, error: errors.email, attrs: 'autocomplete="email" maxlength="254" placeholder="you@example.com"' })}
     </div>
-    ${stepNav(2)}
+    ${stepNav(3)}
   </fieldset>
 
-  <fieldset class="step" data-step="3" aria-labelledby="step-3-h">
-    ${stepHead(3, "Where's the job?", "Optional. If you skip it, we'll ask when we confirm the visit.")}
+  <fieldset class="step" data-step="4" aria-labelledby="step-4-h">
+    ${stepHead(4, "Where's the job?", "Optional. If you skip it, we'll ask when we confirm the visit.")}
     <div class="grid">
       ${field({ name: "address", label: "Street address", value: values.address, error: errors.address, attrs: 'autocomplete="street-address" maxlength="120"' })}
     </div>
@@ -684,7 +801,7 @@ function bookingClient() {
     var p = document.createElement("p");
     p.className = "err"; p.id = id; p.textContent = msg;
     input.setAttribute("aria-describedby", id);
-    input.closest(".field").appendChild(p);
+    input.closest(".field, .q").appendChild(p);
   }
 
   var CHECKS = {
@@ -695,16 +812,35 @@ function bookingClient() {
     email: function (v) { return !v ? "Please enter your email." : /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) ? "" : "Please enter a valid email address."; }
   };
 
+  function countCheck(input) {
+    var v = input.value.trim(), max = +input.getAttribute("data-max") || 99;
+    return !v || (/^\d+$/.test(v) && +v <= max) ? "" : "Enter a number from 0 to " + max + ".";
+  }
+
   function validate(i) {
     var step = steps[i], firstBad = null;
     if (i === 0) {
+      // An open group needs one of its options picked.
+      var groupBad = false;
+      [].forEach.call(form.querySelectorAll(".g-toggle"), function (t) {
+        var panel = document.getElementById("grp_" + t.getAttribute("data-group"));
+        var err = document.getElementById("grp_" + t.getAttribute("data-group") + "_err");
+        var bad = t.checked && !panel.querySelector('input[name="services"]:checked');
+        err.hidden = !bad;
+        if (bad) { groupBad = true; if (!firstBad) firstBad = panel.querySelector('input[name="services"]'); }
+      });
       var boxes = step.querySelectorAll('input[name="services"]');
       var live = document.getElementById("f_services_live");
-      if (boxes.length && !step.querySelector('input[name="services"]:checked')) {
+      if (!groupBad && boxes.length && !step.querySelector('input[name="services"]:checked')) {
         if (live) live.hidden = false;
-        firstBad = boxes[0];
+        firstBad = step.querySelector(".tile input");
       } else if (live) live.hidden = true;
     }
+    [].forEach.call(step.querySelectorAll(".q:not([hidden]) .q-num"), function (input) {
+      var msg = countCheck(input);
+      setError(input, msg);
+      if (msg && !firstBad) firstBad = input;
+    });
     [].forEach.call(step.querySelectorAll("input[name]"), function (input) {
       var check = CHECKS[input.name];
       if (!check) return;
@@ -723,6 +859,13 @@ function bookingClient() {
       var target = document.getElementById(link.getAttribute("href").slice(1));
       var step = target && target.closest(".step");
       if (step) { e.preventDefault(); show(steps.indexOf(step)); scrollToForm(); (target.matches("input,select,textarea") ? target : target.querySelector("input")).focus(); }
+      return;
+    }
+    var step = e.target.closest("[data-delta]");
+    if (step) {
+      var num = step.parentNode.querySelector(".q-num"), max = +num.getAttribute("data-max") || 99;
+      num.value = String(Math.max(0, Math.min(max, (parseInt(num.value, 10) || 0) + +step.getAttribute("data-delta"))));
+      if (num.getAttribute("aria-invalid") === "true") setError(num, countCheck(num));
       return;
     }
     var t = e.target.closest("[data-next],[data-back]");
@@ -746,13 +889,55 @@ function bookingClient() {
       if (d.length === 10 && !/[()]/.test(input.value)) input.value = "(" + d.slice(0, 3) + ") " + d.slice(3, 6) + "-" + d.slice(6);
     }
     if (input.getAttribute("aria-invalid") === "true" && CHECKS[input.name]) setError(input, CHECKS[input.name](input.value.trim()));
+    if (input.getAttribute("aria-invalid") === "true" && input.classList.contains("q-num")) setError(input, countCheck(input));
     if (input.name === "services") { var live = document.getElementById("f_services_live"); if (live && form.querySelector('input[name="services"]:checked')) live.hidden = true; }
     summarize(input.name);
   });
   form.addEventListener("change", function (e) {
-    summarize(e.target.name);
-    if (e.target.name === "services" && e.target.checked) selectWork(e.target.value);
+    var t = e.target;
+    if (t.classList.contains("g-toggle")) toggleGroup(t);
+    if (t.name === "services") {
+      var panel = t.closest(".variants");
+      if (panel) { var err = document.getElementById(panel.id + "_err"); if (err && t.checked) err.hidden = true; }
+      refreshDetails();
+    }
+    summarize(t.name);
+    if (t.name === "services" && t.checked) selectWork(t.value);
   });
+
+  // ── Groups: the tile opens its options; closing it clears them ──
+  function toggleGroup(t) {
+    var panel = document.getElementById("grp_" + t.getAttribute("data-group"));
+    t.setAttribute("aria-expanded", String(t.checked));
+    panel.hidden = !t.checked;
+    panel.classList.remove("enter");
+    if (t.checked) {
+      if (!reduce) { void panel.offsetWidth; panel.classList.add("enter"); }
+      // One option means nothing to choose; a single one is picked for them.
+      var opts = panel.querySelectorAll('input[name="services"]');
+      if (opts.length === 1) opts[0].checked = true;
+    } else {
+      [].forEach.call(panel.querySelectorAll('input[name="services"]'), function (i) { i.checked = false; });
+      document.getElementById(panel.id + "_err").hidden = true;
+    }
+    refreshDetails();
+    summarize("services");
+  }
+
+  // ── Details step: only the questions the picked services ask ──
+  function refreshDetails() {
+    var picked = {};
+    [].forEach.call(form.querySelectorAll('input[name="services"]:checked'), function (i) { picked[i.value] = true; });
+    [].forEach.call(form.querySelectorAll(".q-topic"), function (topic) {
+      var any = false;
+      [].forEach.call(topic.querySelectorAll(".q"), function (q) {
+        var on = q.getAttribute("data-svc").split(" ").some(function (id) { return picked[id]; });
+        q.hidden = !on;
+        if (on) any = true;
+      });
+      topic.hidden = !any;
+    });
+  }
 
   // ── Our work gallery ──
   var work = document.getElementById("work");
@@ -904,7 +1089,7 @@ function bookingClient() {
   }
 
   // ── Start ──
-  drawCalendar(); pickLabel(); summarize();
+  drawCalendar(); pickLabel(); summarize(); refreshDetails();
   var bad = form.querySelector('[aria-invalid="true"]');
   var startAt = bad ? steps.indexOf(bad.closest(".step")) : 0;
   show(startAt < 0 ? 0 : startAt);
@@ -930,8 +1115,9 @@ export function renderBookingPage({ page, base, texts, values, errors, utm, form
   const services = activeServices(page);
   const faq = (page.faq || []).filter(f => f && f.question && f.answer);
   const name = page.business_name;
-  const serviceLine = services.length
-    ? services.length <= 3 ? services.map(s => s.name).join(", ").replace(/, ([^,]*)$/, " and $1") : `${services.slice(0, 2).map(s => s.name).join(", ")} and more`
+  const groupNames = groupServices(services).map(g => g.name);
+  const serviceLine = groupNames.length
+    ? groupNames.length <= 3 ? groupNames.join(", ").replace(/, ([^,]*)$/, " and $1") : `${groupNames.slice(0, 2).join(", ")} and more`
     : "";
 
   const ld = {

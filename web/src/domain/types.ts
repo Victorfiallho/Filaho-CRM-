@@ -460,7 +460,9 @@ export interface BookingRequest {
   customer_id: string | null;
   lead_id: string | null;
   services: string[];
-  details: Record<string, number>;
+  // The job questions' answers in the order asked; older bookings have a
+  // { label: count } object instead.
+  details: { label: string; value: string }[] | Record<string, number>;
   preferred_date: string | null;
   preferred_period: "morning" | "afternoon" | null;
   notes: string;

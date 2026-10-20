@@ -33,7 +33,8 @@ export default function ConsentPanel({ companyId, kind, record }: {
             <p><b>{t("consent.bookingRequest")}</b> · {formatDateTime(b.created_at, locale)}</p>
             <dl className="booking-dl">
               {b.services.length > 0 && <Row label={t("consent.services")} value={b.services.join(", ")} />}
-              {Object.entries(b.details || {}).map(([k, v]) => <Row key={k} label={k} value={String(v)} />)}
+              {(Array.isArray(b.details) ? b.details : Object.entries(b.details || {}).map(([label, value]) => ({ label, value: String(value) })))
+                .map((d, i) => <Row key={i} label={d.label} value={d.value} />)}
               {(b.preferred_date || b.preferred_period) && <Row label={t("consent.preferred")} value={[formatDay(b.preferred_date, undefined, locale), b.preferred_period && t(`period.${b.preferred_period}` as MessageKey)].filter(Boolean).join(", ")} />}
               {b.notes && <Row label={t("consent.notes")} value={b.notes} />}
               {b.heard_from && <Row label={t("consent.heardFrom")} value={b.heard_from} />}

@@ -4,6 +4,7 @@
 // or a clean booking object. The handler in ../book.js does the I/O.
 import { normalizeEmail, toE164 } from "./consent.js";
 import { todayIn, zipToState } from "./usTime.js";
+import { parseAnswers } from "./serviceQuestions.js";
 
 export const HEARD_FROM_OPTIONS = [
   "Google", "Facebook or Instagram", "Nextdoor", "Thumbtack", "Yelp",
@@ -16,7 +17,7 @@ export const UTM_FIELDS = ["utm_source", "utm_medium", "utm_campaign", "utm_term
 
 export const HONEYPOT_FIELD = "website";
 
-const MAX = { name: 60, address: 120, city: 60, notes: 2000, utm: 200, detail: 99 };
+const MAX = { name: 60, address: 120, city: 60, notes: 2000, utm: 200 };
 const MAX_DAYS_AHEAD = 365;
 
 const clip = (v, n) => String(v ?? "").trim().slice(0, n);
@@ -61,7 +62,7 @@ export function parseBookingForm(form, page, now = new Date()) {
     city: clip(get("city"), MAX.city),
     zip: clip(get("zip"), 10),
     services: form.getAll("services").map(String),
-    details: {},
+    answers: {},
     preferred_date: clip(get("preferred_date"), 10),
     preferred_period: clip(get("preferred_period"), 20),
     notes: clip(get("notes"), MAX.notes),
@@ -90,14 +91,11 @@ export function parseBookingForm(form, page, now = new Date()) {
   values.services = values.services.filter(id => serviceById.has(id));
   if (services.length && !values.services.length) errors.services = "Please choose at least one service.";
 
-  for (const s of services) {
-    if (!s.detail_label) continue;
-    const raw = clip(get(`detail_${s.id}`), 3);
-    if (!raw) continue;
-    values.details[s.id] = raw;
-    const n = Number(raw);
-    if (!Number.isInteger(n) || n < 0 || n > MAX.detail) errors[`detail_${s.id}`] = `Enter a number from 0 to ${MAX.detail}.`;
-  }
+  // Job questions for the chosen services: all optional, they tell the team
+  // how big the job looks before the visit.
+  const parsedAnswers = parseAnswers(form, values.services.map(id => serviceById.get(id)));
+  values.answers = parsedAnswers.values;
+  Object.assign(errors, parsedAnswers.errors);
 
   const today = todayIn(undefined, now);
   if (values.preferred_date) {
@@ -111,10 +109,6 @@ export function parseBookingForm(form, page, now = new Date()) {
   if (Object.keys(errors).length) return { ok: false, errors, values };
 
   const utm = Object.fromEntries(UTM_FIELDS.map(f => [f, clip(get(f), MAX.utm)]));
-  const details = Object.fromEntries(
-    Object.entries(values.details).map(([id, n]) => [serviceById.get(id)?.detail_label || id, Number(n)])
-  );
-
   return {
     ok: true,
     values,
@@ -129,7 +123,7 @@ export function parseBookingForm(form, page, now = new Date()) {
       state: zipToState(values.zip) || "",
       zip: values.zip.slice(0, 5),
       services: values.services.map(id => serviceById.get(id).name),
-      details,
+      details: parsedAnswers.answers,
       preferred_date: values.preferred_date || null,
       preferred_period: values.preferred_period || null,
       notes: values.notes,

@@ -23,7 +23,7 @@ const page = {
   service_cities: ["Marietta", "Roswell"],
   zip_prefixes: ["300", "3007"],
   services: [
-    { id: "carpet", name: "Carpet cleaning", detail_label: "Number of rooms", position: 0, active: true },
+    { id: "carpet", name: "Carpet cleaning", position: 0, active: true },
     { id: "rug", name: "Rug cleaning", position: 1, active: true },
     { id: "old", name: "Retired service", position: 2, active: false }
   ],
@@ -95,14 +95,20 @@ describe("parseBookingForm", () => {
     expect(parseBookingForm(form({ ...valid, preferred_date: "2026-10-13" }), page, NOW).ok).toBe(true);
   });
 
-  it("keeps only active services and maps detail counts to their labels", () => {
-    const r = parseBookingForm(form({ ...valid, services: ["carpet", "old", "bogus"], detail_carpet: "3" }), page, NOW);
+  it("keeps only active services and stores the job answers in the order asked", () => {
+    const r = parseBookingForm(form({ ...valid, services: ["carpet", "old", "bogus"], q_carpet_rooms: "5", q_carpet_condition: "Heavy: lots of stains or odors", q_carpet_issues: ["Pet stains or odors", "bogus"], q_bedrooms: "3" }), page, NOW);
     expect(r.booking.services).toEqual(["Carpet cleaning"]);
-    expect(r.booking.details).toEqual({ "Number of rooms": 3 });
+    expect(r.booking.details).toEqual([
+      { label: "Rooms or areas with carpet", value: "5" },
+      { label: "How do the carpets look?", value: "Heavy: lots of stains or odors" },
+      { label: "Anything we should plan for?", value: "Pet stains or odors" },
+      { label: "Estimated job size", value: "Medium" }
+    ]);
   });
 
-  it("rejects a non-numeric detail", () => {
-    expect(parseBookingForm(form({ ...valid, detail_carpet: "-1" }), page, NOW).errors.detail_carpet).toBeTruthy();
+  it("rejects a count out of range and needs no answers at all", () => {
+    expect(parseBookingForm(form({ ...valid, services: ["carpet"], q_carpet_rooms: "-1" }), page, NOW).errors.q_carpet_rooms).toBeTruthy();
+    expect(parseBookingForm(form({ ...valid, services: ["carpet"] }), page, NOW).booking.details).toEqual([]);
   });
 
   it("drops an unknown period or heard-from value instead of storing it", () => {
@@ -157,10 +163,10 @@ describe("renderBookingPage", () => {
     expect(html).toContain("1 Main St, Marietta, GA 30060");
   });
 
-  it("is one form with the four steps, so it still works without JavaScript", () => {
+  it("is one form with the five steps, so it still works without JavaScript", () => {
     expect(html.match(/<form /g)).toHaveLength(1);
     expect(html).toContain('action="https://crm.test/book/peach-fresh"');
-    expect(html.match(/<fieldset class="step"/g)).toHaveLength(4);
+    expect(html.match(/<fieldset class="step"/g)).toHaveLength(5);
     expect(html).toContain('<html lang="en" class="no-js">');
     expect(html).toMatch(/name="preferred_date" type="date"/);
   });

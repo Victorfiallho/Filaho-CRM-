@@ -9,7 +9,7 @@
 // becomes a step-by-step flow with a calendar, a live summary and per-step
 // checks. The server validates everything either way.
 import { HEARD_FROM_OPTIONS, HONEYPOT_FIELD, PERIODS, UTM_FIELDS, activeServices } from "./bookingForm.js";
-import { GENERIC_VIDEOS, showcaseFor } from "./showcase.js";
+import { showcaseFor, videosFor } from "./showcase.js";
 import { QUESTIONS, TOPICS, cleanName, describeService, fieldName, groupServices, questionKeysFor } from "./serviceQuestions.js";
 
 export function esc(value) {
@@ -959,7 +959,7 @@ function bookingClient() {
     if (g) { g.scrollLeft = 0; arrows(g); }
   }
   function selectWork(serviceId) {
-    for (var i = 0; i < panels.length; i++) if (panels[i].getAttribute("data-service") === serviceId) return openTab(i);
+    for (var i = 0; i < panels.length; i++) if (panels[i].getAttribute("data-services").split(" ").indexOf(serviceId) >= 0) return openTab(i);
   }
   if (work) {
     work.addEventListener("click", function (e) {
@@ -1133,8 +1133,8 @@ export function renderBookingPage({ page, base, texts, values, errors, utm, form
     ...(services.length ? { makesOffer: services.map(s => ({ "@type": "Offer", itemOffered: { "@type": "Service", name: s.name } })) } : {})
   };
 
-  // The clips are cabinet work, so only pages offering a showcased service get them.
-  const clips = services.some(s => showcaseFor(s.name)) ? GENERIC_VIDEOS : [];
+  // Clips of the kind of work the page offers: cleaning pages never get cabinet videos.
+  const clips = videosFor([...groupNames, ...services.map(s => s.name)]);
   const work = workSection(services);
   const main = booked
     ? `<div class="booker" style="grid-template-columns:minmax(0,760px);justify-content:center">${successCard(page, booked)}</div>`
@@ -1196,11 +1196,14 @@ function heroMedia(clips) {
   </figure>`;
 }
 
-// One gallery with a tab per service that has photos. Picking a service in
-// the form switches the tab (bookingClient). Without JavaScript the tabs
-// hide and every panel shows, one under the other.
+// One gallery with a tab per service group that has photos (Carpet Cleaning,
+// not one tab per option). Picking a service in the form switches to its
+// group's tab (bookingClient). Without JavaScript the tabs hide and every
+// panel shows, one under the other.
 function workSection(services) {
-  const items = services.map(s => ({ id: String(s.id), name: s.name, ...showcaseFor(s.name) })).filter(s => s.photos?.length);
+  const items = groupServices(services)
+    .map(g => ({ ids: g.services.map(s => String(s.id)), name: g.name, ...(showcaseFor(g.name) || g.services.map(s => showcaseFor(s.name)).find(Boolean)) }))
+    .filter(s => s.photos?.length);
   if (!items.length) return "";
   const strip = s => `<div class="g-wrap">
       <button type="button" class="round g-nav prev" aria-label="Previous photos">${icon("chevronLeft")}</button>
@@ -1213,7 +1216,7 @@ function workSection(services) {
       ${items.length > 1 ? `<div class="tabs" role="tablist" aria-label="Services">${items.map((s, i) => `<button type="button" class="tab" role="tab" id="wt-${i}" aria-controls="wp-${i}" aria-selected="${i === 0}"${i ? ' tabindex="-1"' : ""}>${esc(s.name)}</button>`).join("")}</div>` : ""}
     </div>
     <div class="card work-card">
-      ${items.map((s, i) => `<div class="work-panel${i === 0 ? " on" : ""}" id="wp-${i}"${items.length > 1 ? ` role="tabpanel" aria-labelledby="wt-${i}"` : ""} data-service="${esc(s.id)}">
+      ${items.map((s, i) => `<div class="work-panel${i === 0 ? " on" : ""}" id="wp-${i}"${items.length > 1 ? ` role="tabpanel" aria-labelledby="wt-${i}"` : ""} data-services="${esc(s.ids.join(" "))}">
         <h3 class="wp-h">${esc(s.name)}</h3>
         ${s.blurb ? `<p class="wp-blurb">${esc(s.blurb)}</p>` : ""}
         ${strip(s)}

@@ -85,4 +85,18 @@ describe("booking page", () => {
     expect(html).toMatch(/class="q q-count" data-svc="s0 s1"/);
     expect(html).toMatch(/data-svc="s2 s3 s4" id="f_q_bedrooms"/);
   });
+
+  it("plays cleaning clips, never the cabinet ones, and shows one gallery tab per group", () => {
+    expect(html).toContain("/work/videos/cleaning/1.mp4");
+    expect(html).not.toContain('"/work/videos/1.mp4"');
+    expect(html.match(/role="tab"/g)).toHaveLength(3);
+    expect(html).toContain('data-services="s0 s1"');
+    expect(html).toContain("/work/carpet-cleaning/1.jpg");
+  });
+
+  it("keeps the cabinet clips on a cabinet company's page", () => {
+    const wish = renderBookingPage({ page: { ...page, business_name: "Wish", services: [{ id: "k", name: "Kitchen Remodeling", active: true }] }, base: "https://x/book/w", texts, today: "2026-10-20" });
+    expect(wish).toContain("/work/videos/1.mp4");
+    expect(wish).not.toContain("/work/videos/cleaning/");
+  });
 });

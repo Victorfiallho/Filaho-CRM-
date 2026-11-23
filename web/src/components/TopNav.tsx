@@ -1,10 +1,11 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { Bell, ChevronDown, ExternalLink, Languages, LayoutDashboard, LogOut, Menu, MessageCircle, RefreshCw, Repeat, Search, UserRound, X } from "lucide-react";
+import { Bell, ChevronDown, ExternalLink, Languages, LayoutDashboard, LogOut, Menu, MessageCircle, MoreHorizontal, RefreshCw, Repeat, Search, UserRound, X } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { activityWhen, useActivityFeed } from "../data/activityFeed";
 import { bookingPath } from "../domain/booking";
 import { MODULE_ICONS, NAV_GROUPS } from "../domain/constants";
+import { BOTTOM_NAV, splitNav } from "../domain/navigation";
 import { avatarInitials } from "../domain/visual";
 import type { Company } from "../domain/types";
 import { openAssistant } from "./ChatWidget";
@@ -12,9 +13,11 @@ import CompanyLogo from "./CompanyLogo";
 import { useT } from "../i18n/I18nContext";
 import { LANGS, navKey, type MessageKey } from "../i18n/messages";
 
-// Pill navigation. Dashboard is its own pill; each NAV_GROUPS group is a
-// pill with a dropdown. The active item, or its group, is the black pill.
-// Below 900px the pills move into a sheet behind the menu button.
+// Pill navigation. Dashboard and the daily screens (PRIMARY_NAV) are pills
+// of their own; everything else sits under "More", by NAV_GROUPS section.
+// The active item, or "More" when it holds the current page, is the black
+// pill. Below 900px a bottom bar takes over: four screens plus "More",
+// which opens the full menu as a sheet.
 
 const LAST_SEEN_KEY = "fialho_activity_seen_at";
 
@@ -111,6 +114,9 @@ export default function TopNav({ company, canSee, userName, searchText, onSearch
   const groups = NAV_GROUPS
     .map(([name, ids]) => [name, ids.filter(id => id !== "dashboard" && canSee(id))] as const)
     .filter(([, ids]) => ids.length > 0);
+  const { primary, more } = splitNav(canSee);
+  const bottom = BOTTOM_NAV.filter(id => id === "dashboard" || canSee(id));
+  const bottomHasCurrent = bottom.includes(current);
 
   return (
     <div className="topnav-wrap">
@@ -124,9 +130,12 @@ export default function TopNav({ company, canSee, userName, searchText, onSearch
           <button className={`nav-pill${current === "dashboard" ? " active" : ""}`} aria-current={current === "dashboard" ? "page" : undefined} onClick={() => navigate("/dashboard")}>
             <LayoutDashboard aria-hidden="true" />{t("nav.dashboard")}
           </button>
-          {groups.map(([name, ids]) => (
-            <NavGroup key={name} name={name} ids={ids} current={current} onPick={open} />
+          {primary.map(id => (
+            <button key={id} className={`nav-pill${current === id ? " active" : ""}`} aria-current={current === id ? "page" : undefined} onClick={() => open(id)}>
+              <NavLabel id={id} />
+            </button>
           ))}
+          {more.length > 0 && <MoreMenu sections={more} current={current} onPick={open} />}
         </div>
 
         <div className="topnav-tools">
@@ -137,6 +146,17 @@ export default function TopNav({ company, canSee, userName, searchText, onSearch
             <Menu aria-hidden="true" />
           </button>
         </div>
+      </nav>
+
+      <nav className="bottom-nav" aria-label={t("topnav.bottomNav")}>
+        {bottom.map(id => (
+          <button key={id} className={`bottom-nav-item${current === id ? " active" : ""}`} aria-current={current === id ? "page" : undefined} onClick={() => open(id)}>
+            <NavLabel id={id} />
+          </button>
+        ))}
+        <button className={`bottom-nav-item${!bottomHasCurrent ? " active" : ""}`} aria-expanded={sheetOpen} onClick={() => setSheetOpen(true)}>
+          <MoreHorizontal aria-hidden="true" />{t("nav.more")}
+        </button>
       </nav>
 
       {sheetOpen && (
@@ -167,10 +187,10 @@ export default function TopNav({ company, canSee, userName, searchText, onSearch
   );
 }
 
-function NavGroup({ name, ids, current, onPick }: { name: string; ids: string[]; current: string; onPick: (id: string) => void }) {
+function MoreMenu({ sections, current, onPick }: { sections: [string, string[]][]; current: string; onPick: (id: string) => void }) {
   const { open, setOpen, ref } = usePopover();
   const { t } = useT();
-  const active = ids.includes(current);
+  const active = sections.some(([, ids]) => ids.includes(current));
   return (
     <div className="nav-group-pop" ref={ref}>
       <button
@@ -180,16 +200,20 @@ function NavGroup({ name, ids, current, onPick }: { name: string; ids: string[];
         aria-haspopup="true"
         onClick={() => setOpen(v => !v)}
       >
-        {active ? t(navKey(current)) : t(groupKey(name))}
+        {active ? t(navKey(current)) : t("nav.more")}
         <ChevronDown className="nav-pill-chevron" aria-hidden="true" />
       </button>
       {open && (
-        <div className="popover nav-popover">
-          <span className="popover-label">{t(groupKey(name))}</span>
-          {ids.map(id => (
-            <button key={id} className={`popover-item${current === id ? " active" : ""}`} aria-current={current === id ? "page" : undefined} onClick={() => { setOpen(false); onPick(id); }}>
-              <NavLabel id={id} />
-            </button>
+        <div className="popover nav-popover more-popover">
+          {sections.map(([name, ids]) => (
+            <div key={name} className="more-section">
+              <span className="popover-label">{t(groupKey(name))}</span>
+              {ids.map(id => (
+                <button key={id} className={`popover-item${current === id ? " active" : ""}`} aria-current={current === id ? "page" : undefined} onClick={() => { setOpen(false); onPick(id); }}>
+                  <NavLabel id={id} />
+                </button>
+              ))}
+            </div>
           ))}
         </div>
       )}

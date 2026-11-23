@@ -20,6 +20,7 @@ import RecordModal from "./RecordModal";
 import TopNav from "./TopNav";
 import ErrorBoundary from "./ErrorBoundary";
 import QueryErrorBanner from "./QueryErrorBanner";
+import RecordUrlSync from "./RecordUrlSync";
 
 // By the first path segment, so nested routes (/jobs/:id/financials) keep
 // their section's title.
@@ -157,6 +158,7 @@ export default function Shell() {
         </section>
       </main>
       <RecordModal />
+      <RecordUrlSync />
       <ChatWidget />
     </div>
   );

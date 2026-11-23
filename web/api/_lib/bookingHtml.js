@@ -525,8 +525,16 @@ const STEPS = [
   { id: "where", label: "Address", icon: "pin" }
 ];
 
-function stepHead(i, title, sub) {
-  return `<div class="step-h"><span class="badge">${icon(STEPS[i].icon)}</span><div><h2 id="step-${i}-h" tabindex="-1">${esc(title)}</h2>${sub ? `<p>${esc(sub)}</p>` : ""}</div></div>`;
+// Step order per A/B variant (book.js picks it). "where" is always last: it
+// carries the consent boxes and the submit button.
+export const STEP_ORDER = {
+  a: ["service", "details", "when", "you", "where"],
+  b: ["service", "you", "details", "when", "where"]
+};
+const stepById = id => STEPS.find(s => s.id === id);
+
+function stepHead(i, id, title, sub) {
+  return `<div class="step-h"><span class="badge">${icon(stepById(id).icon)}</span><div><h2 id="step-${i}-h" tabindex="-1">${esc(title)}</h2>${sub ? `<p>${esc(sub)}</p>` : ""}</div></div>`;
 }
 
 function stepNav(i) {
@@ -610,36 +618,23 @@ function question(q, svc, value, error) {
   </fieldset>`;
 }
 
-function bookingForm({ page, base, texts, values = {}, errors = {}, utm = {}, formError, today }) {
+function bookingForm({ page, base, texts, values = {}, errors = {}, utm = {}, formError, today, variant = "" }) {
+  const order = STEP_ORDER[variant] || STEP_ORDER.a;
   const services = activeServices(page);
   const selected = new Set(values.services || []);
   const errorList = Object.entries(errors);
   const period = values.preferred_period || "";
   const questionLabels = Object.fromEntries(QUESTIONS.map(q => [fieldName(q), q.label]));
-
-  return `<form class="card form-card" method="post" action="${esc(base)}" novalidate id="booking-form" data-today="${esc(today)}" data-track-key="${esc(page.slug || "")}" aria-labelledby="book-h">
-  <h2 id="book-h" class="sr-only">Schedule your free visit</h2>
-  <ol class="stepper" aria-hidden="true">${STEPS.map((s, i) => `<li data-for="${i}"><span class="bar"><i></i></span><span><span class="num">${i + 1}. </span>${esc(s.label)}</span></li>`).join("")}</ol>
-  <p class="sr-only" id="step-status" role="status" aria-live="polite"></p>
-
-  ${formError ? `<div class="alert" role="alert"><h3>We couldn't send your request</h3><p>${esc(formError)} Your answers are still here.${page.phone ? ` You can also call us at <a href="${telHref(page.phone)}">${esc(page.phone)}</a>.` : ""}</p></div>` : ""}
-  ${errorList.length ? `<div class="alert" role="alert" tabindex="-1" id="form-errors"><h3>Please check ${errorList.length === 1 ? "this" : `these ${errorList.length}`}:</h3><ul>${errorList.map(([k, msg]) => `<li><a href="#f_${esc(k)}">${esc(FIELD_LABELS[k] || questionLabels[k] || "This field")}: ${esc(msg)}</a></li>`).join("")}</ul></div>` : ""}
-
-  <fieldset class="step" data-step="0" aria-labelledby="step-0-h">
-    ${stepHead(0, "What can we help with?", services.length > 1 ? "Pick one or more." : "")}
+  // Steps 1-4 in the variant's order; "where" (last) follows below.
+  const STEP_BODIES = {
+    service: pos => `    ${stepHead(pos, "service", "What can we help with?", services.length > 1 ? "Pick one or more." : "")}
     ${services.length ? `${serviceStep(services, selected, errors)}
     ${errors.services ? `<p class="err group-err" id="f_services_err">${esc(errors.services)}</p>` : `<p class="err group-err" id="f_services_live" hidden>Please choose at least one service.</p>`}` : ""}
-    ${stepNav(0)}
-  </fieldset>
-
-  <fieldset class="step" data-step="1" aria-labelledby="step-1-h">
-    ${stepHead(1, "Tell us about the job", "A few quick taps so we come prepared. Skip anything you're not sure about.")}
+    ${stepNav(pos)}`,
+    details: pos => `    ${stepHead(pos, "details", "Tell us about the job", "A few quick taps so we come prepared. Skip anything you're not sure about.")}
     ${detailsStep(services, values.answers || {}, errors)}
-    ${stepNav(1)}
-  </fieldset>
-
-  <fieldset class="step" data-step="2" aria-labelledby="step-2-h">
-    ${stepHead(2, "When can we visit?", "Pick a day for a free visit. We'll confirm the exact time with you.")}
+    ${stepNav(pos)}`,
+    when: pos => `    ${stepHead(pos, "when", "When can we visit?", "Pick a day for a free visit. We'll confirm the exact time with you.")}
     <div class="cal" id="cal" aria-label="Choose a date">
       <div class="cal-head"><b id="cal-month"></b><div class="cal-nav"><button type="button" class="round" id="cal-prev" aria-label="Previous month">${icon("chevronLeft")}</button><button type="button" class="round" id="cal-next" aria-label="Next month">${icon("chevronRight")}</button></div></div>
       <div class="cal-grid" id="cal-grid"></div>
@@ -654,22 +649,32 @@ function bookingForm({ page, base, texts, values = {}, errors = {}, utm = {}, fo
     <div class="periods" role="radiogroup" aria-labelledby="period-h">
       ${Object.entries(PERIOD_INFO).map(([v, p]) => `<label class="period"><input type="radio" name="preferred_period" value="${v}"${period === v ? " checked" : ""}>${icon(p.icon)}<b>${esc(p.label)}</b><span>${esc(p.sub)}</span></label>`).join("")}
     </div>
-    ${stepNav(2)}
-  </fieldset>
-
-  <fieldset class="step" data-step="3" aria-labelledby="step-3-h">
-    ${stepHead(3, "How can we reach you?", "We'll text and email to confirm your appointment.")}
+    ${stepNav(pos)}`,
+    you: pos => `    ${stepHead(pos, "you", "How can we reach you?", "We'll text and email to confirm your appointment.")}
     <div class="grid two">
       ${field({ name: "first_name", label: "First name", required: true, value: values.first_name, error: errors.first_name, attrs: 'autocomplete="given-name" maxlength="60"' })}
       ${field({ name: "last_name", label: "Last name", required: true, value: values.last_name, error: errors.last_name, attrs: 'autocomplete="family-name" maxlength="60"' })}
       ${field({ name: "phone", label: "Mobile phone", type: "tel", required: true, value: values.phone, error: errors.phone, attrs: 'autocomplete="tel-national" inputmode="tel" maxlength="20" placeholder="(404) 555-0123"' })}
       ${field({ name: "email", label: "Email", type: "email", required: true, value: values.email, error: errors.email, attrs: 'autocomplete="email" maxlength="254" placeholder="you@example.com"' })}
     </div>
-    ${stepNav(3)}
-  </fieldset>
+    ${stepNav(pos)}`
+  };
+  const stepsHtml = order.slice(0, -1).map((id, pos) => `<fieldset class="step" data-step="${pos}" data-step-id="${id}" aria-labelledby="step-${pos}-h">
+${STEP_BODIES[id](pos)}
+  </fieldset>`).join("\n\n  ");
+
+  return `<form class="card form-card" method="post" action="${esc(base)}" novalidate id="booking-form" data-today="${esc(today)}" data-track-key="${esc(page.slug || "")}" aria-labelledby="book-h">
+  <h2 id="book-h" class="sr-only">Schedule your free visit</h2>
+  <ol class="stepper" aria-hidden="true">${order.map(stepById).map((s, i) => `<li data-for="${i}"><span class="bar"><i></i></span><span><span class="num">${i + 1}. </span>${esc(s.label)}</span></li>`).join("")}</ol>
+  <p class="sr-only" id="step-status" role="status" aria-live="polite"></p>
+
+  ${formError ? `<div class="alert" role="alert"><h3>We couldn't send your request</h3><p>${esc(formError)} Your answers are still here.${page.phone ? ` You can also call us at <a href="${telHref(page.phone)}">${esc(page.phone)}</a>.` : ""}</p></div>` : ""}
+  ${errorList.length ? `<div class="alert" role="alert" tabindex="-1" id="form-errors"><h3>Please check ${errorList.length === 1 ? "this" : `these ${errorList.length}`}:</h3><ul>${errorList.map(([k, msg]) => `<li><a href="#f_${esc(k)}">${esc(FIELD_LABELS[k] || questionLabels[k] || "This field")}: ${esc(msg)}</a></li>`).join("")}</ul></div>` : ""}
+
+  ${stepsHtml}
 
   <fieldset class="step" data-step="4" aria-labelledby="step-4-h">
-    ${stepHead(4, "Where's the job?", "Optional. If you skip it, we'll ask when we confirm the visit.")}
+    ${stepHead(4, "where", "Where's the job?", "Optional. If you skip it, we'll ask when we confirm the visit.")}
     <div class="grid">
       ${field({ name: "address", label: "Street address", value: values.address, error: errors.address, attrs: 'autocomplete="street-address" maxlength="120"' })}
     </div>
@@ -702,6 +707,7 @@ function bookingForm({ page, base, texts, values = {}, errors = {}, utm = {}, fo
     <input type="hidden" name="email_text_version" value="${esc(texts.email.version)}">
     <input type="hidden" name="transactional_text_version" value="${esc(texts.transactional.version)}">
     ${TRACKING_FIELDS.map(f => `<input type="hidden" name="${f}" value="${esc(utm[f])}" data-track>`).join("")}
+    ${variant ? `<input type="hidden" name="ab_variant" value="${esc(variant)}">` : ""}
 
     <div class="submit-row">
       <div class="step-nav step-nav-final" style="margin-top:22px"><button type="button" class="btn ghost" data-back>${icon("arrowLeft")}Back</button><span></span></div>
@@ -1170,7 +1176,9 @@ export function pixelScriptBody(slug, booked, leadEventId = "") {
  * @param {string} o.base   absolute URL of the page, e.g. https://host/book/peach-fresh
  * @param {object} o.texts  { sms|email|transactional: { text, version } } rendered
  */
-export function renderBookingPage({ page, base, texts, values, errors, utm, formError, booked, leadEventId, today }) {
+export function renderBookingPage({ page, base, texts, values, errors, utm, formError, booked, leadEventId, today, variant = "" }) {
+  // A/B variant "b": the form sits right under the title; video and photos follow it.
+  const formFirst = variant === "b";
   const services = activeServices(page);
   const pixel = pixelScriptBody(page.slug, !!booked, leadEventId);
   const faq = (page.faq || []).filter(f => f && f.question && f.answer);
@@ -1198,27 +1206,28 @@ export function renderBookingPage({ page, base, texts, values, errors, utm, form
   const work = workSection(services);
   const main = booked
     ? `<div class="booker" style="grid-template-columns:minmax(0,760px);justify-content:center">${successCard(page, booked)}</div>`
-    : `<div class="booker" id="book">${bookingForm({ page, base, texts, values, errors, utm, formError, today })}${summaryCard(page)}</div>`;
+    : `<div class="booker" id="book">${bookingForm({ page, base, texts, values, errors, utm, formError, today, variant })}${summaryCard(page)}</div>`;
 
   const body = `<a class="skip" href="#book">Skip to booking form</a>
 ${topBar(page, base)}
 <main class="wrap">
-  ${booked ? "" : `<section class="hero${clips.length ? " has-media" : ""}" aria-labelledby="hero-h">
+  ${booked ? "" : `<section class="hero${clips.length && !formFirst ? " has-media" : ""}" aria-labelledby="hero-h">
     <div class="hero-copy">
       <span class="eyebrow"><span class="dot">${icon("calendar")}</span>Free visit</span>
       <h1 id="hero-h">Schedule a free visit with <em>${esc(name)}</em>.</h1>
       <p class="lead">${serviceLine ? `${esc(serviceLine)}. ` : ""}Tell us what you need and pick a day for us to visit. You get your quote after the visit.</p>
-      ${clips.length ? `<div class="hero-cta"><a class="btn" href="#book">Schedule a free visit${icon("arrowRight")}</a>${work ? `<a class="text-link" href="#work">See our work${icon("arrowRight")}</a>` : ""}</div>` : ""}
+      ${clips.length && !formFirst ? `<div class="hero-cta"><a class="btn" href="#book">Schedule a free visit${icon("arrowRight")}</a>${work ? `<a class="text-link" href="#work">See our work${icon("arrowRight")}</a>` : ""}</div>` : ""}
       <ul class="chips">
         <li>${icon("clock")}Takes about a minute</li>
         <li>${icon("card")}Free, no commitment</li>
         <li>${icon("shield")}Your info stays private</li>
       </ul>
     </div>
-    ${heroMedia(clips)}
+    ${formFirst ? "" : heroMedia(clips)}
   </section>`}
-  ${booked ? "" : work}
+  ${booked || formFirst ? "" : work}
   ${main}
+  ${!booked && formFirst ? `${clips.length ? `<section class="section after-form-media" aria-label="Our work on video">${heroMedia(clips)}</section>` : ""}${work}` : ""}
   ${booked ? "" : `<section class="section" aria-labelledby="how-h">
     <h2 id="how-h">How it works</h2>
     <ol class="how">

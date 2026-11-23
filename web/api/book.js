@@ -21,6 +21,7 @@ import { createHash } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import { HONEYPOT_FIELD, parseBookingForm, servicesFromCrm } from "./_lib/bookingForm.js";
 import { hasTracking, readTracking } from "./_lib/attribution.js";
+import { AB_TEST, assignVariant, isBot, isVariant, readCookie } from "./_lib/abTest.js";
 import { LEAD_EVENT_ID, headScriptBody, formScriptBody, pixelScriptBody, renderBookingPage, renderMessagePage, renderPrivacyPage, renderSmsTermsPage } from "./_lib/bookingHtml.js";
 import { loadConsentTextVersion, loadLatestConsentTexts, renderTexts } from "./_lib/consentStore.js";
 import { clientIp, origin, query, readForm, sendHtml, userAgent } from "./_lib/http.js";
@@ -90,6 +91,17 @@ async function confirmedLead(supabase, companyId, requestId) {
   return Date.now() - Date.parse(data.created_at) <= LEAD_WINDOW_MS ? data.id : "";
 }
 
+// One more visit of this page and variant today (booking_page_views). A
+// failed count must never cost the visitor the page.
+async function countView(supabase, slug, variant) {
+  try {
+    const { error } = await supabase.rpc("count_booking_view", { p_slug: slug, p_variant: variant });
+    if (error) console.error("count_booking_view failed", error);
+  } catch (err) {
+    console.error("count_booking_view failed", err);
+  }
+}
+
 function render(res, status, { page, base, texts, extra = {}, cache = "no-store" }) {
   const html = renderBookingPage({ page, base, texts, today: todayIn(), ...extra });
   sendHtml(res, status, html, { "cache-control": cache, "content-security-policy": csp(!extra.booked, pixelScriptBody(page.slug, !!extra.booked, extra.leadEventId)) });
@@ -133,7 +145,12 @@ export default async function handler(req, res) {
         return render(res, 200, { page, base, texts, extra: { booked: booked.slice(0, 60), leadEventId } });
       }
       const utm = readTracking(params);
-      return render(res, 200, { page, base, texts, extra: { utm }, cache: hasTracking(utm) ? "no-store" : cache });
+      // While the A/B test runs the page can't be cached: the CDN would hand
+      // one visitor's variant to everyone.
+      const { variant, setCookie } = assignVariant({ cookieHeader: req.headers?.cookie, forced: params.get("ab") });
+      if (setCookie) res.setHeader("set-cookie", setCookie);
+      if (variant && !isBot(userAgent(req))) await countView(supabase, page.slug, variant);
+      return render(res, 200, { page, base, texts, extra: { utm, variant }, cache: hasTracking(utm) || variant ? "no-store" : cache });
     }
 
     // ── POST: a booking ───────────────────────────────────────────────────
@@ -150,6 +167,10 @@ export default async function handler(req, res) {
     if (String(form.get(HONEYPOT_FIELD) || "").trim()) return success(firstName);
 
     const utm = readTracking(form);
+    // The variant the visitor saw: the form's hidden field, else the cookie.
+    const posted = String(form.get("ab_variant") || "");
+    const cookieVariant = readCookie(req.headers?.cookie, AB_TEST.cookie);
+    const variant = isVariant(posted) ? posted : isVariant(cookieVariant) ? cookieVariant : "";
     const ip = clientIp(req);
     const since = new Date(Date.now() - RATE_WINDOW_MS).toISOString();
     const { count, error: countError } = await supabase
@@ -161,10 +182,10 @@ export default async function handler(req, res) {
 
     const parsed = parseBookingForm(form, page);
     if ((count || 0) >= RATE_LIMIT) {
-      return render(res, 429, { page, base, texts, extra: { values: parsed.values, utm, formError: "We've received several requests from your network in the last few minutes. Please wait a bit and try again." } });
+      return render(res, 429, { page, base, texts, extra: { values: parsed.values, utm, variant, formError: "We've received several requests from your network in the last few minutes. Please wait a bit and try again." } });
     }
     if (!parsed.ok) {
-      return render(res, 422, { page, base, texts, extra: { values: parsed.values, errors: parsed.errors, utm } });
+      return render(res, 422, { page, base, texts, extra: { values: parsed.values, errors: parsed.errors, utm, variant } });
     }
 
     // Record the exact wording the visitor saw: the versions in the form's
@@ -197,6 +218,7 @@ export default async function handler(req, res) {
       notes: b.notes,
       heard_from: b.heard_from,
       utm,
+      ab_variant: variant,
       page_url: pageUrl,
       ip,
       user_agent: userAgent(req),
@@ -209,7 +231,7 @@ export default async function handler(req, res) {
     const { error: submitError } = await supabase.rpc("submit_booking", { p: payload });
     if (submitError) {
       console.error("submit_booking failed", submitError);
-      return render(res, 500, { page, base, texts, extra: { values: parsed.values, utm, formError: "Something went wrong on our side and your request wasn't saved." } });
+      return render(res, 500, { page, base, texts, extra: { values: parsed.values, utm, variant, formError: "Something went wrong on our side and your request wasn't saved." } });
     }
     return success(b.first_name, payload.request_id);
   } catch (err) {

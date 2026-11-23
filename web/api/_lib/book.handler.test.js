@@ -178,10 +178,61 @@ describe("GET /book/<slug>", () => {
     expect(res.headers["cache-control"]).toBe("no-store");
   });
 
-  it("caches the plain page with empty tracking fields for the browser to restore", async () => {
+  it("renders empty tracking fields for the browser to restore", async () => {
     const res = await call({ url: "/api/book?slug=peach-fresh" });
     expect(res.body).toContain('name="ad_id" value="" data-track');
-    expect(res.headers["cache-control"]).toMatch(/s-maxage/);
+  });
+});
+
+describe("A/B test", () => {
+  const stepIds = body => [...body.matchAll(/data-step-id="([a-z]+)"/g)].map(m => m[1]);
+
+  it("assigns a variant, remembers it in a cookie and never caches the page", async () => {
+    const res = await call({ url: "/api/book?slug=peach-fresh" });
+    expect(res.headers["set-cookie"]).toMatch(/^fhi_ab=(a|b);/);
+    expect(res.headers["cache-control"]).toBe("no-store");
+    expect(res.body).toMatch(/name="ab_variant" value="(a|b)"/);
+  });
+
+  it("variant a keeps the old order; variant b asks for contact in step 2 and puts the form first", async () => {
+    const a = await call({ url: "/api/book?slug=peach-fresh&ab=a" });
+    const b = await call({ url: "/api/book?slug=peach-fresh&ab=b" });
+    expect(stepIds(a.body)).toEqual(["service", "details", "when", "you"]);
+    expect(stepIds(b.body)).toEqual(["service", "you", "details", "when"]);
+    // b: the form comes before the photos; a: after
+    expect(b.body.indexOf('id="booking-form"')).toBeLessThan(b.body.indexOf('id="work"') === -1 ? Infinity : b.body.indexOf('id="work"'));
+  });
+
+  it("a returning visitor keeps their variant", async () => {
+    const res = await call({ url: "/api/book?slug=peach-fresh", headers: { cookie: "fhi_ab=b" } });
+    expect(res.headers["set-cookie"]).toBeUndefined();
+    expect(res.body).toContain('name="ab_variant" value="b"');
+  });
+
+  it("counts a visit for people, not for link previews and crawlers", async () => {
+    await call({ url: "/api/book?slug=peach-fresh&ab=b" });
+    expect(state.rpcCalls).toEqual([{ name: "count_booking_view", args: { p_slug: "peach-fresh", p_variant: "b" } }]);
+    state.rpcCalls = [];
+    await call({ url: "/api/book?slug=peach-fresh", headers: { "user-agent": "facebookexternalhit/1.1" } });
+    expect(state.rpcCalls).toEqual([]);
+  });
+
+  it("still serves the page when counting fails", async () => {
+    state.rpcError = { message: "down" };
+    const res = await call({ url: "/api/book?slug=peach-fresh" });
+    expect(res.statusCode).toBe(200);
+  });
+
+  it("stores the variant with the booking, and keeps it through a validation error", async () => {
+    await call({ method: "POST", url: "/api/book?slug=peach-fresh", body: { ...validBody, ab_variant: "b" } });
+    expect(state.rpcCalls.find(c => c.name === "submit_booking").args.p.ab_variant).toBe("b");
+    const bad = await call({ method: "POST", url: "/api/book?slug=peach-fresh", body: { ...validBody, email: "", ab_variant: "b" } });
+    expect(stepIds(bad.body)[1]).toBe("you");
+  });
+
+  it("falls back to the cookie, and ignores junk", async () => {
+    await call({ method: "POST", url: "/api/book?slug=peach-fresh", body: { ...validBody, ab_variant: "zzz" }, headers: { cookie: "fhi_ab=a" } });
+    expect(state.rpcCalls.find(c => c.name === "submit_booking").args.p.ab_variant).toBe("a");
   });
 });
 

@@ -133,12 +133,15 @@ describe("GET /book/<slug>", () => {
     const pixel = inline.find(s => s.includes("fbq('init','1821876642427207')"));
     expect(pixel).toBeTruthy();
     expect(pixel).not.toContain("'Lead'");
+    expect(pixel).not.toContain("replaceState");
     expect(csp).toContain(`'sha256-${createHash("sha256").update(pixel).digest("base64")}'`);
     expect(csp).toContain("https://connect.facebook.net");
     expect(csp).toContain("connect-src https://www.facebook.com");
 
     const booked = await call({ url: "/api/book?slug=wish-cabinets&booked=Jane" });
     expect(booked.body).toContain("fbq('track','Lead')");
+    // the visitor's name in ?booked= is stripped before the pixel can send the URL
+    expect(booked.body).toMatch(/<script>history\.replaceState\(null,'',location\.pathname\+location\.hash\);!function\(f,b,e/);
   });
 });
 

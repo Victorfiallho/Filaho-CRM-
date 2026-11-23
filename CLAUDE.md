@@ -21,18 +21,25 @@ a feature or fix, always finish the task by running the full pipeline below, in 
    files, 113 tests, all green.
 5. **Deliver** — only if steps 2–4 are all green:
    - Commit and push to `origin/main` (this repo: `github.com/Victorfiallho/Filaho-CRM-`).
-   - Deploy to production: from `web/`, run `npx vercel --prod --yes`. The directory is already
-     linked (`web/.vercel/project.json`) to the Vercel project **`web`** — that is the canonical,
-     working deployment. Production URL: https://web-one-psi-82.vercel.app
+   - Production deploys **automatically** from that push: the Vercel project **`web`** is
+     GitHub-integrated and builds every push to `main` (Root Directory = `web`). Production URL:
+     https://web-one-psi-82.vercel.app. After pushing, confirm the deployment reached `READY`
+     (Vercel MCP `list_deployments` / `get_deployment`, or the dashboard); if it's `ERROR`, read
+     the build logs and fix it — don't leave production on a stale build.
+   - Don't also run `npx vercel --prod` from `web/`: with Root Directory set to `web`, the CLI
+     resolves `web/web` and fails. If a manual deploy is ever needed, redeploy the commit from the
+     Vercel dashboard/MCP, or run the CLI from the repo root.
    - Never deploy when build, lint (errors), or tests are red. Report the failure and fix it instead.
 
 ## Vercel project state (context, not something to fix blindly)
 
-There are three Vercel projects pointed at this GitHub repo: `web` (canonical, working, deployed via
-the Vercel CLI above — not GitHub-integrated), and `filaho-crm` / `filaho-crm-zg4c` (GitHub-integrated,
-but their Root Directory / Build Command are misconfigured, so every push-triggered build on those two
-fails with `vite: command not found`). Don't try to fix or deploy through those two — use `web` via the
-CLI pipeline above until a human consolidates the projects in the Vercel dashboard.
+`web` is the canonical project. Until 2026-11-23 it was deployed only via the Vercel CLI; it then
+got connected to GitHub with Root Directory unset, so push builds ran at the repo root and failed with
+`vite: command not found` (production silently stayed on the last good build). Fixed by setting Root
+Directory to `web`. If that error ever comes back, check the Root Directory first.
+
+Older notes mention two other projects, `filaho-crm` / `filaho-crm-zg4c`, with the same misconfigured
+push builds. Don't deploy through them; deploy through `web` only.
 
 ## Gotcha: missing static assets don't 404
 

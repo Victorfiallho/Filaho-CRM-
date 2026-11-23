@@ -79,7 +79,7 @@ export default function UserManagement() {
       </div>
 
       {pendingUsers.length > 0 && (
-        <section className="card attention-card" style={{ marginBottom: 20 }}>
+        <section className="card attention-card mb-5">
           <div className="card-h">
             <h3>{t("users.pending")}</h3>
             <span className="badge-tone tone-amber">{t("users.pendingCount", { count: pendingUsers.length })}</span>

@@ -88,7 +88,7 @@ export default function Reports() {
         { label: t("rep.kpi.imports"), value: imports.length, hint: t("rep.kpi.importsHint"), tone: "purple" }
       ]} />
 
-      <div className="grid two" style={{ marginTop: 20 }}>
+      <div className="grid two mt-5">
         <section className="card">
           <div className="card-h"><div><h3>{t("rep.revenueByService")}</h3><span className="sub">{t("rep.revenueByServiceSub")}</span></div></div>
           <div className="card-b">
@@ -113,7 +113,7 @@ export default function Reports() {
         </section>
       </div>
 
-      <section className="card" style={{ marginTop: 20 }}>
+      <section className="card mt-5">
         <div className="card-h"><div><h3>{t("rep.funnel")}</h3><span className="sub">{t("rep.funnelSub")}</span></div></div>
         <div className="card-b">
           {funnel.length === 0 ? (
@@ -155,7 +155,7 @@ export default function Reports() {
         </div>
       </section>
 
-      <div className="grid two" style={{ marginTop: 20 }}>
+      <div className="grid two mt-5">
         <section className="card">
           <div className="card-h">
             <div><h3>{t("rep.roi")}</h3><span className="sub">{t("rep.roiSub")}</span></div>

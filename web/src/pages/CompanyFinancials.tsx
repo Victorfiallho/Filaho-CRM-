@@ -118,7 +118,7 @@ export default function CompanyFinancials() {
         { label: t("fin.cashFree"), value: money(cashFree), hint: t("fin.cashFreeHint"), tone: "teal" }
       ]} />
 
-      <details className="card more-metrics" style={{ marginTop: 16 }}>
+      <details className="card more-metrics mt-4">
         <summary>{t("fin.moreMetrics")}</summary>
         <div className="mini-stats six">
           <div><span className="label">{t("fin.costsPaid")}</span><b>{money(costsPaid)}</b><span className="sub">{t("fin.costsPaidHint")}</span></div>
@@ -130,7 +130,7 @@ export default function CompanyFinancials() {
         </div>
       </details>
 
-      <div className="grid two" style={{ marginTop: 20 }}>
+      <div className="grid two mt-5">
         <section className="card">
           <div className="card-h"><h3>{t("fin.byVendor")}</h3></div>
           <div className="card-b">
@@ -148,7 +148,7 @@ export default function CompanyFinancials() {
       </div>
 
       {belowPolicy.length > 0 && (
-        <section className="card attention-card" style={{ marginTop: 20 }}>
+        <section className="card attention-card mt-5">
           <div className="card-h"><h3><AlertTriangle aria-hidden="true" />{t("fin.belowPolicy")}</h3></div>
           <div className="card-b">
             {belowPolicy.map(r => (
@@ -161,7 +161,7 @@ export default function CompanyFinancials() {
         </section>
       )}
 
-      <section className="card table-card" style={{ marginTop: 20 }}>
+      <section className="card table-card mt-5">
         <div className="card-h"><h3>{t("fin.byProject")}</h3></div>
         {rollups.length === 0 ? (
           <div className="card-b"><EmptyState icon={Briefcase}>{t("fin.noProjects")}</EmptyState></div>
@@ -187,7 +187,7 @@ export default function CompanyFinancials() {
         )}
       </section>
 
-      <section className="card table-card" style={{ marginTop: 20 }}>
+      <section className="card table-card mt-5">
         <div className="card-h"><div><h3>{t("fin.recent")}</h3><span className="sub">{capitalize(periodLabel)}</span></div></div>
         {confirmedInRange.length === 0 ? (
           <div className="card-b"><EmptyState icon={Receipt}>{t("fin.noTransactions")}</EmptyState></div>

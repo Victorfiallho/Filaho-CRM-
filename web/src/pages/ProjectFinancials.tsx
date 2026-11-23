@@ -295,7 +295,7 @@ export default function ProjectFinancials() {
         </div>
       </section>
 
-      <div style={{ marginTop: 16 }}>
+      <div className="mt-4">
         <KpiStrip items={[
           { label: t("pf.kpi.contract"), value: money(summary.revenue), hint: contractNote, tone: "blue" },
           { label: t("pf.kpi.received"), value: money(summary.paymentsReceived), hint: receivedHint, tone: "green" },
@@ -314,7 +314,7 @@ export default function ProjectFinancials() {
         ]} />
       </div>
 
-      <details className="card more-metrics" style={{ marginTop: 16 }}>
+      <details className="card more-metrics mt-4">
         <summary>{t("pf.moreMetrics", { count: moreMetrics.length })}</summary>
         <div className="mini-stats five">
           {moreMetrics.map(m => (
@@ -429,7 +429,7 @@ export default function ProjectFinancials() {
                     onSave={v => handleSaveContract("payments_received_manual", v)}
                   />
                 </div>
-                <p className="sub" style={{ marginTop: 8 }}>
+                <p className="sub mt-2">
                   {summary.paymentsFromLedger ? t("pf.paymentsFromLedger", { amount: money(summary.paymentsReceived) }) : t("pf.paymentsManualHint")}
                 </p>
               </div>
@@ -597,7 +597,7 @@ function ChangeOrdersCard({ jobId, companyId, changeOrders, approverId, onChange
         <div className="field"><label htmlFor="co-desc">{t("pf.col.description")}</label><input id="co-desc" value={description} onChange={e => setDescription(e.target.value)} /></div>
         <div className="field"><label htmlFor="co-amount">{t("pf.col.amount")}</label><div className="input-affix"><span className="affix">$</span><input id="co-amount" type="number" value={amount} onChange={e => setAmount(e.target.value)} /></div></div>
       </div>
-      <button className="btn ghost slim" style={{ marginTop: 8 }} disabled={saving} onClick={add}><Plus />{t("pf.coAdd")}</button>
+      <button className="btn ghost slim mt-2" disabled={saving} onClick={add}><Plus />{t("pf.coAdd")}</button>
     </TableCard>
   );
 }
@@ -749,7 +749,7 @@ function CostLineItemsCard({ jobId, companyId, items, vendors, users, onChanged 
           </div>
         </div>
       </details>
-      <button className="btn slim" style={{ marginTop: 8 }} disabled={saving} onClick={addItem}><Plus />{t("pf.addItem")}</button>
+      <button className="btn slim mt-2" disabled={saving} onClick={addItem}><Plus />{t("pf.addItem")}</button>
     </TableCard>
   );
 }
@@ -902,11 +902,11 @@ function TransactionLedgerCard({ jobId, companyId, clientId, transactions, vendo
         </div>
       </details>
       {showOwnerHint && (
-        <p className="notice-inline" style={{ marginTop: 8 }}>
+        <p className="notice-inline mt-2">
           {t("pf.ownerHint.before")}<b>{labels.txnType("owner_labor_payment")}</b>{t("pf.ownerHint.middle")}<b>{labels.txnType("owner_draw")}</b>{t("pf.ownerHint.after")}
         </p>
       )}
-      <button className="btn ghost slim" style={{ marginTop: 8 }} disabled={saving} onClick={add}><Plus />{t("pf.addTxnDraft")}</button>
+      <button className="btn ghost slim mt-2" disabled={saving} onClick={add}><Plus />{t("pf.addTxnDraft")}</button>
     </TableCard>
   );
 }
@@ -1013,7 +1013,7 @@ function RefundsCard({ jobId, companyId, refunds, costLineItems, onChanged }: {
           />
         </div>
       </div>
-      <button className="btn ghost slim" style={{ marginTop: 8 }} disabled={saving} onClick={add}><Plus />{t("pf.addRefund")}</button>
+      <button className="btn ghost slim mt-2" disabled={saving} onClick={add}><Plus />{t("pf.addRefund")}</button>
     </TableCard>
   );
 }
@@ -1089,7 +1089,7 @@ function ProfitReleaseCard({ jobId, companyId, releases, health, safeToWithdrawA
             <div className="field"><label htmlFor="release-amount">{t("pf.release.amount", { amount: money(safeToWithdrawAmount) })}</label><div className="input-affix"><span className="affix">$</span><input id="release-amount" type="number" value={amount} onChange={e => setAmount(e.target.value)} /></div></div>
             <div className="field"><label htmlFor="release-notes">{t("pf.col.notes")}</label><input id="release-notes" value={notes} onChange={e => setNotes(e.target.value)} /></div>
           </div>
-          <button className="btn ghost slim" style={{ marginTop: 8 }} disabled={saving} onClick={release}><Plus />{t("pf.releaseButton")}</button>
+          <button className="btn ghost slim mt-2" disabled={saving} onClick={release}><Plus />{t("pf.releaseButton")}</button>
         </>
       ) : (
         <p className="notice-inline">{blockedReason}</p>

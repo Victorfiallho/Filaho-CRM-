@@ -410,14 +410,14 @@ export default function ImportCenter() {
                 <FileButton accept=".csv,.ics,.zip,text/csv,text/calendar,application/zip" onFiles={files => loadImportFile(files?.[0] || null)} />
               </div>
             </div>
-            <div className="inline-actions" style={{ marginBottom: 12 }}>
+            <div className="inline-actions mb-3">
               <button className="btn ghost slim" onClick={downloadTemplate}><Download aria-hidden="true" />{t("imp.template")}</button>
               <span className="sub">{t("imp.templateHint")}</span>
             </div>
             <div className="field">
               <label htmlFor="imp-sheet">{t("imp.sheetUrl")}</label>
               <input id="imp-sheet" value={sheetUrl} onChange={e => setSheetUrl(e.target.value)} placeholder={t("imp.sheetPlaceholder")} />
-              <div className="inline-actions" style={{ marginTop: 8 }}>
+              <div className="inline-actions mt-2">
                 <button className="btn ghost slim" onClick={loadGoogleSheetCsv}>{t("imp.loadPublished")}</button>
                 <button className="btn ghost slim" onClick={loadPrivateGoogleSheet} disabled={connectingSheet}>
                   {connectingSheet ? t("imp.connecting") : t("imp.loadPrivate")}
@@ -457,13 +457,13 @@ export default function ImportCenter() {
                     </div>
                   ))}
                 </div>
-                <label className="switch-row" style={{ marginTop: 16 }}>
+                <label className="switch-row mt-4">
                   <input type="checkbox" role="switch" checked={createDeals} onChange={e => setCreateDeals(e.target.checked)} />
                   <span className="switch" aria-hidden="true" />
                   <span>{t("imp.createDeals")}</span>
                 </label>
                 <p className="sub">{t(createDeals ? "imp.createDealsOn" : "imp.createDealsOff")}</p>
-                <button className="btn" style={{ marginTop: 16 }} onClick={buildPreview}>{t("imp.preview")}</button>
+                <button className="btn mt-4" onClick={buildPreview}>{t("imp.preview")}</button>
               </div>
             </section>
             {preview.length > 0 && (
@@ -537,7 +537,7 @@ function ImportResultCard({ result, onView, onAnother }: { result: ImportResult;
             </table>
           </div>
         )}
-        <div className="inline-actions" style={{ marginTop: 16 }}>
+        <div className="inline-actions mt-4">
           <button className="btn" onClick={onView}>{result.calendar ? t("imp.result.viewJobs") : t("imp.result.viewClients")}</button>
           <button className="btn ghost" onClick={onAnother}>{t("imp.result.another")}</button>
         </div>
@@ -588,7 +588,7 @@ function PreviewTable({ preview, isCalendarImport, companies, onAction, onCompan
             <span className="sub">{t("imp.reviewCounts", { personal: reviewCounts.personal || 0, review: reviewCounts.review || 0, job: reviewCounts.job || 0 })}</span>
           </div>
         )}
-        <div className="table-wrap" style={{ marginTop: 12 }}>
+        <div className="table-wrap mt-3">
           <table className="data-table">
             <thead>
               <tr>
@@ -637,7 +637,7 @@ function PreviewTable({ preview, isCalendarImport, companies, onAction, onCompan
             </tbody>
           </table>
         </div>
-        {preview.length > PREVIEW_LIMIT && <p className="sub" style={{ marginTop: 8 }}>{t("imp.showing", { count: PREVIEW_LIMIT })}</p>}
+        {preview.length > PREVIEW_LIMIT && <p className="sub mt-2">{t("imp.showing", { count: PREVIEW_LIMIT })}</p>}
         {progress && (
           <div className="import-progress">
             <ProgressPill value={progress.done} max={progress.total} tone="blue" label={t("imp.progress", { done: progress.done, total: progress.total })} />

@@ -12,7 +12,7 @@ export default function BarRow({ label, magnitude, max, color, valueLabel }: {
 }) {
   const pct = max > 0 ? Math.max(0, Math.min(100, (magnitude / max) * 100)) : 0;
   return (
-    <div className="bar-row" style={{ marginBottom: 12 }}>
+    <div className="bar-row mb-3">
       <div className="between"><b>{label}</b>{valueLabel}</div>
       <div className="bar-row-track" style={{ marginTop: 7 }}>
         <div className="bar-row-fill" style={{ width: `${pct}%`, background: color || "var(--brand)" }} />

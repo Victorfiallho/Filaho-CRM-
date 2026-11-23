@@ -91,7 +91,7 @@ export default function Quotes() {
         { label: t("quotes.kpi.total"), value: latest.length, hint: t("quotes.kpi.totalHint", { count: quotes.length }), tone: "purple" }
       ]} />
 
-      <section className="card" style={{ marginTop: 16 }}>
+      <section className="card mt-4">
         <div className="card-h quotes-toolbar">
           <div className="pf-tabs quotes-tabs" role="tablist" aria-label={t("quotes.filter")}>
             {(["all", "draft", "sent"] as const).map(f => (

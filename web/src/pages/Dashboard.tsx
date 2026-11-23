@@ -128,7 +128,7 @@ export default function Dashboard() {
         { label: t("dash.kpi.pipeline"), value: money(pipelineValue), hint: t("dash.kpi.pipelineHint"), tone: "green", series: weekly(leads, l => l.created_at, l => Number(l.value || 0)), seriesLabel: t("dash.kpi.pipelineTrend") }
       ]} />
 
-      <div className="grid two" style={{ marginTop: 20 }}>
+      <div className="grid two mt-5">
         <MyDayCard leads={leads} jobs={jobs} customers={customers} stages={stages} today={today} myUserId={currentAppUser?.id ?? null} />
         <section className="card">
           <div className="card-h"><h3>{t("dash.needsAttention")}</h3>{alerts.length > 0 && <span className="badge-tone tone-amber">{alerts.length}</span>}</div>
@@ -145,7 +145,7 @@ export default function Dashboard() {
 
       {isOwner && <MoneyCard rollups={rollups} />}
 
-      <section className="card" style={{ marginTop: 20 }}>
+      <section className="card mt-5">
         <div className="card-h">
           <h3>{t("dash.newLeads")}</h3>
           <span className="sub">{t("dash.last12Weeks")}</span>
@@ -155,7 +155,7 @@ export default function Dashboard() {
         </div>
       </section>
 
-      <div className="grid two" style={{ marginTop: 20 }}>
+      <div className="grid two mt-5">
         <section className="card">
           <div className="card-h">
             <h3>{t("dash.upcomingJobs")}</h3>
@@ -297,7 +297,7 @@ function MoneyCard({ rollups }: { rollups: ProjectRollup[] }) {
     .slice(0, 3);
 
   return (
-    <section className="card" style={{ marginTop: 20 }}>
+    <section className="card mt-5">
       <div className="card-h">
         <div><h3>{t("dash.money")}</h3><span className="sub">{tn("dash.moneySub", rollups.length)}</span></div>
         <Link className="link-btn" to="/company-financials">{t("nav.company-financials")}</Link>
@@ -334,7 +334,7 @@ function MoneyCard({ rollups }: { rollups: ProjectRollup[] }) {
                   </Link>
                 ))}
               </>
-            ) : priced.length > 0 && <p className="sub" style={{ marginTop: 12 }}>{t("dash.allAboveMargin")}</p>}
+            ) : priced.length > 0 && <p className="sub mt-3">{t("dash.allAboveMargin")}</p>}
           </>
         )}
       </div>
@@ -347,7 +347,7 @@ function ActivityCard() {
   const { items } = useActivityFeed(ACTIVITY_SHOWN);
   const { t, locale } = useT();
   return (
-    <section className="card" style={{ marginTop: 20 }}>
+    <section className="card mt-5">
       <div className="card-h">
         <h3>{t("dash.activity")}</h3>
         <Link className="link-btn" to="/audit-log">{t("dash.fullAuditLog")}</Link>

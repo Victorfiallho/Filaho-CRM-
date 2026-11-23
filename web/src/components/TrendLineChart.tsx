@@ -244,7 +244,7 @@ export default function TrendLineChart({ data, valueFormat = String, unit }: {
           <button className="link-btn" onClick={() => setShowTable(v => !v)} aria-expanded={showTable}>{showTable ? t("common.hideTable") : t("common.viewAsTable")}</button>
         </div>
         {showTable && (
-          <div className="table-wrap" style={{ marginTop: 8 }}>
+          <div className="table-wrap mt-2">
             <table>
               <thead><tr><th>{t("chart.weekEndingCol")}</th><th>{t("common.value")}</th></tr></thead>
               <tbody>

@@ -124,7 +124,7 @@ export default function Jobs() {
         { label: t("jobs.kpi.value"), value: money(totalValue), hint: t("jobs.kpi.valueHint"), tone: "green" }
       ]} />
 
-      <section className="card table-card" style={{ marginTop: 20 }}>
+      <section className="card table-card mt-5">
         <div className="table-toolbar">
           <div className="table-toolbar-filters">
             <SearchField placeholder={t("search.jobs")} />

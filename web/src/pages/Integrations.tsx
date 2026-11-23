@@ -208,7 +208,7 @@ export default function Integrations() {
 
   return (
     <>
-      <section className="card" style={{ marginBottom: 20 }}>
+      <section className="card mb-5">
         <div className="card-h">
           <h3>{t("int.oauth")}</h3>
           <span className={`badge-tone tone-${oauthState === "notConfigured" ? "slate" : "green"}`}>{t(`int.status.${oauthState}` as MessageKey)}</span>
@@ -298,7 +298,7 @@ export default function Integrations() {
         </IntegrationCard>
       </div>
 
-      <section className="card" style={{ marginTop: 20 }}>
+      <section className="card mt-5">
         <div className="card-h"><h3>{t("int.overview")}</h3></div>
         <div className="card-b">
           <ul className="status-list">

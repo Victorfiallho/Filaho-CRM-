@@ -126,7 +126,7 @@ export default function Login() {
             </div>
             {errors.password && <p className="field-error" id="login-password-err">{errors.password}</p>}
           </div>
-          <div className="between" style={{ marginTop: 16 }}>
+          <div className="between mt-4">
             <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
               <input type="checkbox" checked={rememberMe} onChange={e => setRememberMe(e.target.checked)} />
               <span className="sub" style={{ fontWeight: 500 }}>{t("login.remember")}</span>

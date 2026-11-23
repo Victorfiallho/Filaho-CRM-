@@ -3,7 +3,7 @@
 // - the Maps JavaScript API: Google reports key problems only through
 //   window.gm_authFailure and a console error naming the cause
 //   (e.g. "RefererNotAllowedMapError"), so both are watched briefly;
-// - the Geocoding API: a real lookup, whose response says why it's refused.
+// - the Geocoding API: a real lookup through the same Geocoder the app uses.
 import type { MapsCheck } from "../domain/integrationHealth";
 import { loadGoogleMapsScript } from "./googleMaps";
 
@@ -45,18 +45,21 @@ async function checkMapScript(apiKey: string): Promise<MapsCheck["map"]> {
   }
 }
 
+// Same path the app uses (data/geocoding.ts): the Maps JavaScript Geocoder.
 async function checkGeocode(apiKey: string): Promise<MapsCheck["geocode"]> {
   try {
-    const res = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent("Atlanta, GA")}&key=${encodeURIComponent(apiKey)}`);
-    const data = await res.json().catch(() => ({}));
-    if (data.status === "OK") return { ok: true, status: "OK" };
-    return { ok: false, status: data.status || `HTTP ${res.status}`, message: data.error_message || "" };
+    await loadGoogleMapsScript(apiKey);
+    const { results } = await new window.google.maps.Geocoder().geocode({ address: "Atlanta, GA" });
+    return results?.length ? { ok: true, status: "OK" } : { ok: false, status: "ZERO_RESULTS", message: "" };
   } catch (err) {
-    return { ok: false, status: "NETWORK", message: err instanceof Error ? err.message : "" };
+    const e = err as { code?: string; message?: string };
+    return { ok: false, status: e?.code || "ERROR", message: e?.message || "" };
   }
 }
 
 export async function checkGoogleMaps(apiKey: string): Promise<MapsCheck> {
-  const [map, geocode] = await Promise.all([checkMapScript(apiKey), checkGeocode(apiKey)]);
+  const map = await checkMapScript(apiKey);
+  // Without the map script there's no Geocoder to try.
+  const geocode = map.ok ? await checkGeocode(apiKey) : { ok: true };
   return { map, geocode };
 }

@@ -4,6 +4,7 @@
 // reuses coordinates already saved on another record at the same address,
 // and a browser cache remembers every lookup.
 import { normAddress, normZip } from "../domain/format";
+import { loadGoogleMapsScript } from "../lib/googleMaps";
 import type { MapKind } from "../domain/types";
 import { supabase } from "../lib/supabaseClient";
 import { updateCustomer } from "./customers";
@@ -51,23 +52,27 @@ function rememberGeocodeResult(key: string, value: CachedCoord) {
   }
 }
 
+// Through the Maps JavaScript API's Geocoder, not the REST endpoint: that
+// one refuses keys restricted to websites ("API keys with referer
+// restrictions cannot be used with this API"), which is what a browser key
+// should be. Needs the Geocoding API enabled for the key.
 async function googleGeocode(query: string, apiKey: string): Promise<{ lat: string; lon: string } | null> {
-  const res = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(query)}&key=${encodeURIComponent(apiKey)}`);
-  if (!res.ok) {
-    console.error(`[geocoding] Google Geocoding HTTP ${res.status} for "${query}"`);
+  try {
+    await loadGoogleMapsScript(apiKey);
+    const { results } = await new window.google.maps.Geocoder().geocode({ address: query });
+    const loc = results?.[0]?.geometry?.location;
+    if (!loc) {
+      console.warn(`[geocoding] No Google match for "${query}"`);
+      return null;
+    }
+    return { lat: String(loc.lat()), lon: String(loc.lng()) };
+  } catch (err) {
+    // ZERO_RESULTS also lands here; REQUEST_DENIED / OVER_QUERY_LIMIT say why in the message.
+    const code = (err as { code?: string })?.code || "";
+    if (code === "ZERO_RESULTS") console.warn(`[geocoding] No Google match for "${query}"`);
+    else console.error(`[geocoding] Google Geocoder failed for "${query}"`, err);
     return null;
   }
-  const data = await res.json();
-  if (data.status === "REQUEST_DENIED") {
-    console.error(`[geocoding] Google Geocoding request denied: ${data.error_message || "check API key/enabled APIs"}`);
-    return null;
-  }
-  const loc = data?.results?.[0]?.geometry?.location;
-  if (!loc) {
-    console.warn(`[geocoding] No Google match for "${query}" (status: ${data.status})`);
-    return null;
-  }
-  return { lat: String(loc.lat), lon: String(loc.lng) };
 }
 
 // An already-geocoded record (any of the 3 tables) at the same address in

@@ -2018,3 +2018,36 @@ tr:hover td{background:rgba(255,255,255,.55)}
   .app-shell{padding-bottom:calc(92px + env(safe-area-inset-bottom))}
   .toast{bottom:calc(84px + env(safe-area-inset-bottom))}
 }
+
+/* ── Dashboard sections (Today / How we're doing) ── */
+.dash-section-label{
+  margin:var(--space-6) 0 var(--space-3);font-size:var(--fs-xs);font-weight:600;
+  letter-spacing:.06em;text-transform:uppercase;color:var(--muted)
+}
+.dash-section-label:first-child{margin-top:var(--space-2)}
+
+/* ── Calendar week view ── */
+.calendar-nav{flex-wrap:wrap}
+.week-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:var(--space-2)}
+.week-day{display:flex;flex-direction:column;gap:var(--space-2);min-width:0;padding:var(--space-2);border-radius:var(--radius-sm);background:var(--surface-muted);min-height:180px}
+.week-day.today{box-shadow:inset 0 0 0 2px var(--accent)}
+.week-day.past{opacity:.72}
+.week-day-h{display:flex;align-items:baseline;gap:6px;background:transparent;padding:4px 6px;border-radius:var(--radius-xs);color:var(--muted);text-align:left}
+.week-day-h b{font-size:var(--fs-lg);color:var(--ink);font-weight:600}
+.week-day-h span{font-size:var(--fs-xs);text-transform:capitalize}
+.week-day-add{width:14px;height:14px;margin-left:auto;opacity:0;transition:opacity var(--dur) var(--ease)}
+.week-day-h:hover .week-day-add,.week-day-h:focus-visible .week-day-add{opacity:1}
+.week-day-h:hover{background:var(--surface-solid)}
+.week-day-jobs{display:flex;flex-direction:column;gap:6px}
+.week-job{display:grid;gap:3px;justify-items:start;text-align:left;padding:8px 10px;border-radius:var(--radius-xs);background:var(--tone-bg);color:var(--tone-fg);font-size:var(--fs-xs);min-width:0}
+.week-job b{font-size:var(--fs-sm);font-weight:600;line-height:1.25;max-width:100%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:anywhere}
+.week-job > span:not(.pill){overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;opacity:.85}
+.week-job .pill{font-size:var(--fs-3xs)}
+@media(max-width:1100px){
+  /* Seven columns get too narrow beside the upcoming list: one day per row. */
+  .week-grid{grid-template-columns:1fr}
+  .week-day{min-height:0;flex-direction:row;align-items:flex-start}
+  .week-day-h{flex-direction:column;align-items:center;gap:0;min-width:52px}
+  .week-day-add{display:none}
+  .week-day-jobs{flex:1;min-width:0}
+}

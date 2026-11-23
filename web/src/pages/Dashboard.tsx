@@ -50,6 +50,7 @@ const statusLabel = (t: (k: MessageKey) => string, status: string) =>
 // (same rules as the finance screens) and the activity feed.
 export default function Dashboard() {
   const { activeCompanyId, stages } = useCompany();
+  const { openRecordModal } = useModal();
   const { isOwner } = useIsOwner();
   const ownerCompanyId = isOwner ? activeCompanyId : null; // non-owners never fetch finance data
   const { data: customers = [], isLoading: customersLoading } = useCustomers(activeCompanyId);
@@ -121,14 +122,8 @@ export default function Dashboard() {
 
   return (
     <div className="view-enter">
-      <KpiStrip items={[
-        { label: t("dash.kpi.clients"), value: customers.length, hint: t("dash.kpi.clientsHint"), tone: "amber", series: weekly(customers, c => c.created_at), seriesLabel: t("dash.kpi.clientsTrend") },
-        { label: t("dash.kpi.openLeads"), value: openLeads.length, hint: t("dash.kpi.openLeadsHint", { count: won.length }), tone: "blue", series: weekly(leads, l => l.created_at), seriesLabel: t("dash.kpi.openLeadsTrend") },
-        { label: t("dash.kpi.activeJobs"), value: activeJobs.length, hint: t("dash.kpi.activeJobsHint", { count: scheduledJobs.length }), tone: "coral", series: weekly(jobs, j => j.created_at), seriesLabel: t("dash.kpi.activeJobsTrend") },
-        { label: t("dash.kpi.pipeline"), value: money(pipelineValue), hint: t("dash.kpi.pipelineHint"), tone: "green", series: weekly(leads, l => l.created_at, l => Number(l.value || 0)), seriesLabel: t("dash.kpi.pipelineTrend") }
-      ]} />
-
-      <div className="grid two mt-5">
+      <h2 className="dash-section-label">{t("dash.section.today")}</h2>
+      <div className="grid two">
         <MyDayCard leads={leads} jobs={jobs} customers={customers} stages={stages} today={today} myUserId={currentAppUser?.id ?? null} />
         <section className="card">
           <div className="card-h"><h3>{t("dash.needsAttention")}</h3>{alerts.length > 0 && <span className="badge-tone tone-amber">{alerts.length}</span>}</div>
@@ -142,6 +137,14 @@ export default function Dashboard() {
           </div>
         </section>
       </div>
+
+      <h2 className="dash-section-label">{t("dash.section.overview")}</h2>
+      <KpiStrip items={[
+        { label: t("dash.kpi.clients"), value: customers.length, hint: t("dash.kpi.clientsHint"), tone: "amber", series: weekly(customers, c => c.created_at), seriesLabel: t("dash.kpi.clientsTrend") },
+        { label: t("dash.kpi.openLeads"), value: openLeads.length, hint: t("dash.kpi.openLeadsHint", { count: won.length }), tone: "blue", series: weekly(leads, l => l.created_at), seriesLabel: t("dash.kpi.openLeadsTrend") },
+        { label: t("dash.kpi.activeJobs"), value: activeJobs.length, hint: t("dash.kpi.activeJobsHint", { count: scheduledJobs.length }), tone: "coral", series: weekly(jobs, j => j.created_at), seriesLabel: t("dash.kpi.activeJobsTrend") },
+        { label: t("dash.kpi.pipeline"), value: money(pipelineValue), hint: t("dash.kpi.pipelineHint"), tone: "green", series: weekly(leads, l => l.created_at, l => Number(l.value || 0)), seriesLabel: t("dash.kpi.pipelineTrend") }
+      ]} />
 
       {isOwner && <MoneyCard rollups={rollups} />}
 
@@ -170,7 +173,7 @@ export default function Dashboard() {
                     {upcoming.map(job => {
                       const status = job.status || "planned";
                       return (
-                        <tr key={job.id} className="row-clickable" onClick={() => navigate("/calendar")}>
+                        <tr key={job.id} className="row-clickable" onClick={() => openRecordModal("job", job)}>
                           <td>{formatDay(job.scheduled_date, undefined, locale)}</td>
                           <td>{job.customer_name || "—"}</td>
                           <td>{job.title}</td>

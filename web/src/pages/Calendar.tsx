@@ -1,8 +1,10 @@
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Download, MapPin, Navigation, Plus, User } from "lucide-react";
+import { useState } from "react";
 import EmptyState from "../components/EmptyState";
 import KpiStrip from "../components/KpiStrip";
 import PageSkeleton from "../components/PageSkeleton";
 import { buildCompanyIcsCalendar, googleCalendarCreateUrl } from "../domain/calendarExport";
+import { shiftDays, weekDays, weekLabel } from "../domain/calendarWeek";
 import { useCustomers, useJobs } from "../data/hooks";
 import { localToday, upcomingJobs } from "../domain/jobFilters";
 import { TONES, type Tone } from "../domain/visual";
@@ -16,6 +18,18 @@ import { useCompany } from "../state/CompanyContext";
 import { useModal } from "../state/ModalContext";
 
 const UPCOMING_SHOWN = 10;
+const VIEW_KEY = "fialho_calendar_view";
+type View = "month" | "week";
+
+// Phones open on the week (a day-by-day list reads better than a 7-column
+// month there); after that, the last choice sticks on this device.
+function initialView(): View {
+  try {
+    const saved = localStorage.getItem(VIEW_KEY);
+    if (saved === "month" || saved === "week") return saved;
+  } catch { /* no storage: fall through */ }
+  return typeof window !== "undefined" && window.matchMedia?.("(max-width: 760px)").matches ? "week" : "month";
+}
 
 // Same service, same tone, so jobs of a kind group visually (by job id when
 // there's no service).
@@ -32,7 +46,8 @@ function mapsSearchUrl(job: Job) {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
 }
 
-// Month grid and upcoming list side by side, month totals in the KPI strip.
+// Month grid (or week columns) and upcoming list side by side, month totals
+// in the KPI strip.
 export default function Calendar() {
   const { activeCompanyId, activeCompany } = useCompany();
   const { t, tn, locale } = useT();
@@ -40,6 +55,11 @@ export default function Calendar() {
   const { data: customers = [] } = useCustomers(activeCompanyId);
   const { calendarDate, setCalendarDate } = useCalendar();
   const { openRecordModal } = useModal();
+  const [view, setViewState] = useState<View>(initialView);
+  const setView = (v: View) => {
+    setViewState(v);
+    try { localStorage.setItem(VIEW_KEY, v); } catch { /* not persisting is fine */ }
+  };
 
   if (isLoading) return <PageSkeleton kpis={3} cards={2} />;
 
@@ -60,7 +80,10 @@ export default function Calendar() {
   const clientName = new Map(customers.map(c => [c.id, c.name]));
 
   const cells = Array.from({ length: daysInMonth }, (_, i) => ({ day: i + 1, date: `${monthPrefix}${String(i + 1).padStart(2, "0")}` }));
-  const moveCalendar = (delta: number) => setCalendarDate(new Date(year, month + delta, 1));
+  const moveCalendar = (delta: number) =>
+    setCalendarDate(view === "week" ? shiftDays(calendarDate, delta * 7) : new Date(year, month + delta, 1));
+  const week = weekDays(calendarDate);
+  const title = view === "week" ? weekLabel(calendarDate, locale) : monthName;
   const openQuickJob = (date: string) => openRecordModal("job", undefined, { scheduled_date: date });
 
   const downloadCompanyIcs = () => {
@@ -86,15 +109,54 @@ export default function Calendar() {
       <div className="calendar-layout">
         <section className="card">
           <div className="card-h calendar-head">
-            <h3 className="calendar-month">{monthName}</h3>
+            <h3 className="calendar-month">{title}</h3>
             <div className="calendar-nav">
-              <button className="round-btn" onClick={() => moveCalendar(-1)} aria-label={t("cal.prev")}><ChevronLeft aria-hidden="true" /></button>
+              <div className="seg" role="group" aria-label={t("cal.viewLabel")}>
+                <button type="button" className={view === "month" ? "active" : ""} aria-pressed={view === "month"} onClick={() => setView("month")}>{t("cal.view.month")}</button>
+                <button type="button" className={view === "week" ? "active" : ""} aria-pressed={view === "week"} onClick={() => setView("week")}>{t("cal.view.week")}</button>
+              </div>
+              <button className="round-btn" onClick={() => moveCalendar(-1)} aria-label={t(view === "week" ? "cal.prevWeek" : "cal.prev")}><ChevronLeft aria-hidden="true" /></button>
               <button className="btn ghost slim" onClick={() => setCalendarDate(new Date())}>{t("cal.today")}</button>
-              <button className="round-btn" onClick={() => moveCalendar(1)} aria-label={t("cal.next")}><ChevronRight aria-hidden="true" /></button>
+              <button className="round-btn" onClick={() => moveCalendar(1)} aria-label={t(view === "week" ? "cal.nextWeek" : "cal.next")}><ChevronRight aria-hidden="true" /></button>
               <button className="btn ghost slim" onClick={downloadCompanyIcs}><Download aria-hidden="true" />{t("cal.export")}</button>
             </div>
           </div>
           <div className="card-b">
+            {view === "week" ? (
+              <div className="week-grid" aria-label={title}>
+                {week.map(date => {
+                  const d = new Date(`${date}T00:00:00`);
+                  const dayJobs = jobs.filter(job => job.scheduled_date === date);
+                  return (
+                    <div className={`week-day${date === today ? " today" : ""}${date < today ? " past" : ""}`} key={date}>
+                      <button
+                        type="button"
+                        className="week-day-h"
+                        onClick={() => openQuickJob(date)}
+                        aria-label={dayJobs.length ? tn("cal.dayJobs", dayJobs.length, { day: d.getDate() }) : t("cal.dayAdd", { day: d.getDate() })}
+                      >
+                        <span>{d.toLocaleDateString(locale, { weekday: "short" }).replace(".", "")}</span>
+                        <b>{d.getDate()}</b>
+                        <Plus className="week-day-add" aria-hidden="true" />
+                      </button>
+                      <div className="week-day-jobs">
+                        {dayJobs.map(job => {
+                          const status = job.status || "planned";
+                          const client = job.customer_name || clientName.get(job.customer_id || "") || "";
+                          return (
+                            <button type="button" className={`week-job tone-${toneFor(job)}`} key={job.id} onClick={() => openRecordModal("job", job)}>
+                              <b>{job.title}</b>
+                              {(client || job.city) && <span>{[client, job.city].filter(Boolean).join(" · ")}</span>}
+                              <span className={`pill status-${status.replace(/\s+/g, "-")}`}>{statusLabel(status)}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
             <div className="calendar-grid" role="grid" aria-label={monthName}>
               {weekdays.map(d => <div className="cal-head" role="columnheader" key={d}>{d}</div>)}
               {Array.from({ length: startPad }).map((_, i) => <div className="cal-cell pad" key={`pad${i}`} aria-hidden="true" />)}
@@ -127,6 +189,7 @@ export default function Calendar() {
                 );
               })}
             </div>
+            )}
           </div>
         </section>
 

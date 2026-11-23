@@ -1,5 +1,6 @@
 // End-to-end through the real handler with Supabase faked: what the visitor
 // gets back, and exactly what reaches submit_booking().
+import { createHash } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const state = { page: null, company: null, services: [], versions: [], recentCount: 0, rpcCalls: [], rpcError: null };
@@ -121,6 +122,23 @@ describe("GET /book/<slug>", () => {
     expect(csp).toContain("font-src https://fonts.gstatic.com");
     expect(csp.match(/'sha256-/g)).toHaveLength(2);
     expect(csp).toContain("default-src 'none'");
+    expect(csp).not.toContain("facebook");
+  });
+
+  it("loads the Meta pixel only on wish-cabinets, allowed by its CSP hash, with Lead on success", async () => {
+    state.page.slug = "wish-cabinets";
+    const res = await call({ url: "/api/book?slug=wish-cabinets" });
+    const csp = res.headers["content-security-policy"];
+    const inline = [...res.body.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]);
+    const pixel = inline.find(s => s.includes("fbq('init','1821876642427207')"));
+    expect(pixel).toBeTruthy();
+    expect(pixel).not.toContain("'Lead'");
+    expect(csp).toContain(`'sha256-${createHash("sha256").update(pixel).digest("base64")}'`);
+    expect(csp).toContain("https://connect.facebook.net");
+    expect(csp).toContain("connect-src https://www.facebook.com");
+
+    const booked = await call({ url: "/api/book?slug=wish-cabinets&booked=Jane" });
+    expect(booked.body).toContain("fbq('track','Lead')");
   });
 });
 

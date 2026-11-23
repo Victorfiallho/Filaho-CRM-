@@ -20,7 +20,7 @@
 import { createHash } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import { HONEYPOT_FIELD, UTM_FIELDS, parseBookingForm, servicesFromCrm } from "./_lib/bookingForm.js";
-import { headScriptBody, formScriptBody, renderBookingPage, renderMessagePage, renderPrivacyPage, renderSmsTermsPage } from "./_lib/bookingHtml.js";
+import { headScriptBody, formScriptBody, pixelScriptBody, renderBookingPage, renderMessagePage, renderPrivacyPage, renderSmsTermsPage } from "./_lib/bookingHtml.js";
 import { loadConsentTextVersion, loadLatestConsentTexts, renderTexts } from "./_lib/consentStore.js";
 import { clientIp, origin, query, readForm, sendHtml, userAgent } from "./_lib/http.js";
 import { todayIn } from "./_lib/usTime.js";
@@ -33,14 +33,19 @@ const formatUsPhone = e164 => e164.replace(/^\+1(\d{3})(\d{3})(\d{4})$/, "($1) $
 
 const sha = body => `'sha256-${createHash("sha256").update(body).digest("base64")}'`;
 
-function csp(withScript) {
+function csp(withScript, pixel = "") {
+  const scripts = [
+    ...(withScript ? [sha(headScriptBody()), sha(formScriptBody())] : []),
+    ...(pixel ? [sha(pixel), "https://connect.facebook.net"] : [])
+  ];
   return [
     "default-src 'none'",
     "img-src 'self' https: data:",
     "media-src 'self'",
     "style-src 'unsafe-inline' https://fonts.googleapis.com",
     "font-src https://fonts.gstatic.com",
-    `script-src ${withScript ? `${sha(headScriptBody())} ${sha(formScriptBody())}` : "'none'"}`,
+    `script-src ${scripts.join(" ") || "'none'"}`,
+    ...(pixel ? ["connect-src https://www.facebook.com https://connect.facebook.net"] : []),
     "form-action 'self'",
     "base-uri 'none'",
     "frame-ancestors 'self'"
@@ -73,7 +78,7 @@ async function loadPage(supabase, slug) {
 
 function render(res, status, { page, base, texts, extra = {}, cache = "no-store" }) {
   const html = renderBookingPage({ page, base, texts, today: todayIn(), ...extra });
-  sendHtml(res, status, html, { "cache-control": cache, "content-security-policy": csp(!extra.booked) });
+  sendHtml(res, status, html, { "cache-control": cache, "content-security-policy": csp(!extra.booked, pixelScriptBody(page.slug, !!extra.booked)) });
 }
 
 export default async function handler(req, res) {

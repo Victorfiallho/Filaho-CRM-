@@ -1105,6 +1105,16 @@ export function formScriptBody() {
   return `(${bookingClient.toString().replace(/\r\n?/g, "\n")})();`;
 }
 
+// ponytail: pixel IDs hardcoded per slug; move to a booking_pages column when more companies need one.
+const META_PIXELS = { "wish-cabinets": "1821876642427207" };
+
+// Meta (Facebook) pixel: PageView on the page, plus Lead on the "booked" success view. "" = no pixel.
+export function pixelScriptBody(slug, booked) {
+  const id = META_PIXELS[slug];
+  if (!id) return "";
+  return `!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');fbq('init','${id}');fbq('track','PageView');${booked ? "fbq('track','Lead');" : ""}`;
+}
+
 /**
  * @param {object} o
  * @param {object} o.page   booking_pages row merged with the company (book.js)
@@ -1113,6 +1123,7 @@ export function formScriptBody() {
  */
 export function renderBookingPage({ page, base, texts, values, errors, utm, formError, booked, today }) {
   const services = activeServices(page);
+  const pixel = pixelScriptBody(page.slug, !!booked);
   const faq = (page.faq || []).filter(f => f && f.question && f.answer);
   const name = page.business_name;
   const groupNames = groupServices(services).map(g => g.name);
@@ -1180,7 +1191,7 @@ ${booked ? "" : `<script>${formScriptBody()}</script>`}`;
     title: `${name} | Schedule a free visit`,
     description: `Schedule a free visit with ${name}${serviceLine ? ` for ${serviceLine.toLowerCase()}` : ""}. Your quote comes after the visit.`,
     canonical: base,
-    head: `<script>${headScriptBody()}</script><script type="application/ld+json">${jsonLd(ld)}</script>`,
+    head: `<script>${headScriptBody()}</script><script type="application/ld+json">${jsonLd(ld)}</script>${pixel ? `<script>${pixel}</script>` : ""}`,
     body
   });
 }

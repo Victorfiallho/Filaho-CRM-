@@ -2093,3 +2093,17 @@ tr:hover td{background:rgba(255,255,255,.55)}
   .msg{max-width:86%}
   .msg-hint{display:none}
 }
+
+/* ── Load errors and crashes (QueryErrorBanner, ErrorBoundary) ── */
+.load-error{
+  display:flex;align-items:center;gap:var(--space-3);flex-wrap:wrap;
+  margin:0 0 var(--space-4);padding:var(--space-3) var(--space-4);
+  border-radius:var(--radius-sm);background:var(--tone-amber-bg);color:var(--tone-amber-fg);font-weight:500;
+}
+.load-error > svg{width:18px;height:18px;flex:0 0 auto}
+.load-error > span{flex:1 1 220px}
+.load-error-retry{padding:6px 12px}
+.spin-icon{animation:load-error-spin .8s linear infinite}
+@keyframes load-error-spin{to{transform:rotate(360deg)}}
+.crash-screen{max-width:520px;margin:var(--space-8) auto;padding:var(--space-8);text-align:center;display:grid;gap:var(--space-3);justify-items:center}
+.crash-screen > svg{width:28px;height:28px;color:var(--tone-amber-dot)}

@@ -18,6 +18,8 @@ import PageHeader from "./PageHeader";
 import PageSkeleton from "./PageSkeleton";
 import RecordModal from "./RecordModal";
 import TopNav from "./TopNav";
+import ErrorBoundary from "./ErrorBoundary";
+import QueryErrorBanner from "./QueryErrorBanner";
 
 // By the first path segment, so nested routes (/jobs/:id/financials) keep
 // their section's title.
@@ -143,11 +145,14 @@ export default function Shell() {
           subtitle={topbarSubtitle}
           actions={hasPermission("create") ? <NewRecordMenu onPick={type => openRecordModal(type)} /> : undefined}
         />
+        <QueryErrorBanner />
         <section className="content" id="view">
           {/* Keyed on the route so this div actually remounts on every
               navigation, replaying .view-enter's fade+rise. */}
           <div key={location.pathname} className="view-enter">
-            <Outlet />
+            <ErrorBoundary resetKey={location.pathname}>
+              <Outlet />
+            </ErrorBoundary>
           </div>
         </section>
       </main>

@@ -4,6 +4,7 @@ import { createRoot } from "react-dom/client";
 import { registerSW } from "virtual:pwa-register";
 import { BrowserRouter } from "react-router-dom";
 import App from "./App";
+import ErrorBoundary from "./components/ErrorBoundary";
 import SessionTimeoutGuard from "./components/SessionTimeoutGuard";
 import { I18nProvider } from "./i18n/I18nContext";
 import { ConfirmProvider } from "./state/ConfirmContext";
@@ -35,7 +36,9 @@ createRoot(document.getElementById("root")!).render(
               <CalendarProvider>
                 <MapFiltersProvider>
                   <BrowserRouter>
-                    <App />
+                    <ErrorBoundary>
+                      <App />
+                    </ErrorBoundary>
                   </BrowserRouter>
                 </MapFiltersProvider>
               </CalendarProvider>

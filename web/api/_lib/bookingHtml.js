@@ -149,7 +149,9 @@ h1,h2,h3{color:var(--ink);font-weight:600;letter-spacing:-.015em;margin:0}
 .chips .ic{width:16px;height:16px;color:var(--brand-ink)}
 .hero-copy{display:grid;gap:18px;align-content:center;min-width:0}
 .hero-cta{display:flex;flex-wrap:wrap;gap:10px;margin-top:4px}
-.hero-cta .btn.ghost{background:var(--surface);box-shadow:var(--shadow-xs)}
+.hero-cta{align-items:center;column-gap:18px}
+.text-link{display:inline-flex;align-items:center;gap:6px;min-height:44px;color:var(--ink);font-weight:600;text-decoration:underline;text-decoration-color:rgba(17,17,17,.25);text-underline-offset:4px}
+.text-link .ic{width:16px;height:16px}
 .hero-media{position:relative;margin:0;border-radius:32px;overflow:hidden;background:#1d1d1b;box-shadow:var(--shadow-md);aspect-ratio:1/1}
 .hero-media video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .hero-media figcaption{position:absolute;left:14px;bottom:14px;display:inline-flex;align-items:center;gap:8px;padding:7px 14px;border-radius:999px;background:rgba(255,255,255,.92);font-size:13.5px;font-weight:500;color:var(--ink);backdrop-filter:blur(8px)}
@@ -427,6 +429,12 @@ footer a{color:var(--ink-soft)}
   .hero{padding-top:40px}
   .hero.has-media{grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);align-items:center;gap:48px;padding-bottom:20px}
   .hero-media{max-height:620px}
+}
+@media (max-width:639px){
+  /* Ad traffic lands on phones: keep the reassurance to one or two short
+     lines so the form starts higher. */
+  .chips{gap:6px 14px}
+  .chips li{padding:0;background:none;box-shadow:none;font-size:13px;color:var(--muted)}
 }
 @media (max-width:420px){
   .periods{grid-template-columns:1fr;}
@@ -1200,7 +1208,7 @@ ${topBar(page, base)}
       <span class="eyebrow"><span class="dot">${icon("calendar")}</span>Free visit</span>
       <h1 id="hero-h">Schedule a free visit with <em>${esc(name)}</em>.</h1>
       <p class="lead">${serviceLine ? `${esc(serviceLine)}. ` : ""}Tell us what you need and pick a day for us to visit. You get your quote after the visit.</p>
-      ${clips.length ? `<div class="hero-cta"><a class="btn" href="#book">Schedule a free visit${icon("arrowRight")}</a>${work ? `<a class="btn ghost" href="#work">See our work</a>` : ""}</div>` : ""}
+      ${clips.length ? `<div class="hero-cta"><a class="btn" href="#book">Schedule a free visit${icon("arrowRight")}</a>${work ? `<a class="text-link" href="#work">See our work${icon("arrowRight")}</a>` : ""}</div>` : ""}
       <ul class="chips">
         <li>${icon("clock")}Takes about a minute</li>
         <li>${icon("card")}Free, no commitment</li>

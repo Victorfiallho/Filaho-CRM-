@@ -2051,3 +2051,14 @@ tr:hover td{background:rgba(255,255,255,.55)}
   .week-day-add{display:none}
   .week-day-jobs{flex:1;min-width:0}
 }
+
+/* ── Integrations: what each integration is really doing ── */
+.health-line{display:flex;align-items:flex-start;gap:var(--space-2);margin-bottom:var(--space-3);padding:var(--space-2) var(--space-3);border-radius:var(--radius-sm);font-size:var(--fs-sm);line-height:1.4}
+.health-line > svg{width:16px;height:16px;flex:0 0 auto;margin-top:2px}
+.health-line > span{flex:1;min-width:0;overflow-wrap:anywhere}
+.health-ok{background:var(--tone-green-bg);color:var(--tone-green-fg)}
+.health-warn{background:var(--tone-amber-bg);color:var(--tone-amber-fg)}
+.health-error{background:var(--tone-coral-bg);color:var(--tone-coral-fg)}
+.health-off{background:var(--soft);color:var(--muted)}
+.health-recheck{width:28px;height:28px;flex:0 0 auto;margin:-4px -6px -4px 0}
+.health-recheck svg{width:14px;height:14px}

@@ -3,7 +3,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { getIntegrationSettings, saveIntegrationSettings } from "../data/integrationSettings";
-import { useIntegrationSettings, useMessagingStatus } from "../data/hooks";
+import { useIntegrationHealth, useIntegrationSettings, useMapsCheck, useMessagingStatus } from "../data/hooks";
+import { calendarHealth, driveHealth, mapsHealth, messagingHealth, metaHealth, sheetsHealth, type Health } from "../domain/integrationHealth";
 import { now } from "../domain/format";
 import type { IntegrationSettings } from "../domain/types";
 import { errorMessage } from "../lib/errorMessage";
@@ -12,7 +13,7 @@ import { toast, toastError } from "../lib/toast";
 import { useAuth } from "../state/AuthContext";
 import { useCompany } from "../state/CompanyContext";
 import FileButton from "../components/FileButton";
-import { Eye, EyeOff } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Eye, EyeOff, MinusCircle, RotateCw, XCircle } from "lucide-react";
 import { useT } from "../i18n/I18nContext";
 import type { MessageKey } from "../i18n/messages";
 
@@ -24,6 +25,9 @@ export default function Integrations() {
   const { t } = useT();
   const { data: settings } = useIntegrationSettings();
   const { data: messaging } = useMessagingStatus(activeCompanyId);
+  const { data: facts } = useIntegrationHealth(activeCompanyId);
+  const mapsKey = settings?.google_maps.api_key || "";
+  const { data: mapsCheck, refetch: recheckMaps, isFetching: checkingMaps } = useMapsCheck(mapsKey);
   const queryClient = useQueryClient();
   const [connectingService, setConnectingService] = useState<string | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
@@ -239,7 +243,9 @@ export default function Integrations() {
       </section>
 
       <div className="integration-grid">
-        <IntegrationCard title={t("int.maps")} description={t("int.mapsText")} enabled={settings.google_maps.enabled} onToggle={() => toggleIntegration("google_maps")}>
+        <IntegrationCard title={t("int.maps")} description={t("int.mapsText")} enabled={settings.google_maps.enabled} onToggle={() => toggleIntegration("google_maps")}
+          health={checkingMaps ? { state: "off", key: "health.checking" } : mapsHealth(Boolean(mapsKey), mapsCheck ?? null, facts ?? null)}
+          onRecheck={mapsKey ? () => { void recheckMaps(); } : undefined}>
           <div className="field">
             <label htmlFor="int-maps-key">{t("int.mapsKey")}</label>
             <SecretField id="int-maps-key" value={settings.google_maps.api_key || ""} onCommit={v => saveIntegrationSetting("google_maps", v)} />
@@ -247,7 +253,7 @@ export default function Integrations() {
           </div>
         </IntegrationCard>
 
-        <IntegrationCard title={t("int.calendar")} description={t("int.calendarText")} enabled={settings.google_calendar.enabled} onToggle={() => toggleIntegration("google_calendar")}>
+        <IntegrationCard title={t("int.calendar")} description={t("int.calendarText")} enabled={settings.google_calendar.enabled} onToggle={() => toggleIntegration("google_calendar")} health={calendarHealth(facts ?? null)}>
           <div className="field">
             <label htmlFor="int-cal-id">{t("int.calendarId")}</label>
             <DebouncedField id="int-cal-id" value={settings.google_calendar.calendar_ids?.[companyId] || ""} onCommit={v => saveCompanyIntegrationValue("google_calendar", "calendar_ids", v)} placeholder="primary" />
@@ -256,14 +262,14 @@ export default function Integrations() {
           <button className="btn ghost slim" onClick={startCalendarOAuth}>{t("int.calendarConnect")}</button>
         </IntegrationCard>
 
-        <IntegrationCard title={t("int.sheets")} description={t("int.sheetsText")} enabled={settings.google_sheets.enabled} onToggle={() => toggleIntegration("google_sheets")}>
+        <IntegrationCard title={t("int.sheets")} description={t("int.sheetsText")} enabled={settings.google_sheets.enabled} onToggle={() => toggleIntegration("google_sheets")} health={sheetsHealth(facts ?? null)}>
           <div className="field">
             <label htmlFor="int-sheet">{t("int.sheetUrl", { company: activeCompany?.name || "" })}</label>
             <DebouncedField id="int-sheet" value={settings.google_sheets.source_urls?.[companyId] || ""} onCommit={v => saveCompanyIntegrationValue("google_sheets", "source_urls", v)} />
           </div>
         </IntegrationCard>
 
-        <IntegrationCard title={t("int.drive")} description={t("int.driveText")} enabled={settings.google_drive.enabled} onToggle={() => toggleIntegration("google_drive")}>
+        <IntegrationCard title={t("int.drive")} description={t("int.driveText")} enabled={settings.google_drive.enabled} onToggle={() => toggleIntegration("google_drive")} health={driveHealth(facts ?? null)}>
           <div className="field">
             <label htmlFor="int-drive">{t("int.driveRoot")}</label>
             <DebouncedField id="int-drive" value={settings.google_drive.folder_urls?.[companyId] || ""} onCommit={v => saveCompanyIntegrationValue("google_drive", "folder_urls", v)} />
@@ -278,7 +284,7 @@ export default function Integrations() {
           </div>
         </IntegrationCard>
 
-        <IntegrationCard title={t("int.emailSms")} description={t("int.emailSmsText")} enabled={settings.email_sms.enabled} onToggle={() => toggleIntegration("email_sms")}>
+        <IntegrationCard title={t("int.emailSms")} description={t("int.emailSmsText")} enabled={settings.email_sms.enabled} onToggle={() => toggleIntegration("email_sms")} health={messagingHealth(messaging)}>
           <div className="field">
             <label>{t("int.gmail")}</label>
             <p className="sub">{messaging?.email_via === "gmail" ? t("int.gmailOn", { account: messaging.email_account || "Gmail" }) : t("int.gmailOff")}</p>
@@ -289,7 +295,8 @@ export default function Integrations() {
           <p className="sub">{t("int.serverKeys")}</p>
         </IntegrationCard>
 
-        <IntegrationCard title={t("int.meta")} description={t("int.metaText")} enabled={settings.meta_ads.enabled} onToggle={() => toggleIntegration("meta_ads")}>
+        <IntegrationCard title={t("int.meta")} description={t("int.metaText")} enabled={settings.meta_ads.enabled} onToggle={() => toggleIntegration("meta_ads")}
+          health={metaHealth(settings.meta_ads.enabled, Boolean(settings.meta_ads.ad_account_ids?.[companyId]), facts ?? null)}>
           <div className="field">
             <label htmlFor="int-meta">{t("int.adAccount", { company: activeCompany?.name || "" })}</label>
             <DebouncedField id="int-meta" value={settings.meta_ads.ad_account_ids?.[companyId] || ""} onCommit={saveMetaAdAccountId} placeholder="act_1234567890" />
@@ -355,21 +362,39 @@ function SecretField({ id, value, onCommit }: { id: string; value: string; onCom
   );
 }
 
-function IntegrationCard({ title, description, enabled, onToggle, children }: {
+const HEALTH_ICON = { ok: CheckCircle2, warn: AlertTriangle, error: XCircle, off: MinusCircle } as const;
+const HEALTH_TONE = { ok: "green", warn: "amber", error: "coral", off: "slate" } as const;
+
+// The badge and the line under the title come from what was actually
+// observed (domain/integrationHealth.ts); the switch below only turns the
+// feature on in the CRM.
+function IntegrationCard({ title, description, enabled, onToggle, health, onRecheck, children }: {
   title: string;
   description: string;
   enabled: boolean;
   onToggle: () => void;
+  health?: Health;
+  onRecheck?: () => void;
   children?: React.ReactNode;
 }) {
   const { t } = useT();
+  const Icon = health ? HEALTH_ICON[health.state] : null;
   return (
     <section className="card integration-card">
       <div className="card-h">
         <h3>{title}</h3>
-        <span className={`badge-tone tone-${enabled ? "green" : "slate"}`}>{enabled ? t("int.status.ready") : t("int.status.planned")}</span>
+        {health
+          ? <span className={`badge-tone tone-${HEALTH_TONE[health.state]}`}>{t(`health.state.${health.state}` as MessageKey)}</span>
+          : <span className={`badge-tone tone-${enabled ? "green" : "slate"}`}>{enabled ? t("int.status.ready") : t("int.status.planned")}</span>}
       </div>
       <div className="card-b">
+        {health && Icon && (
+          <div className={`health-line health-${health.state}`} role="status">
+            <Icon aria-hidden="true" />
+            <span>{t(health.key as MessageKey, { ...health.vars, origin: window.location.host })}</span>
+            {onRecheck && <button type="button" className="round-btn health-recheck" onClick={onRecheck} aria-label={t("health.recheck")} title={t("health.recheck")}><RotateCw aria-hidden="true" /></button>}
+          </div>
+        )}
         <p className="sub">{description}</p>
         {children}
         <label className="switch-row">

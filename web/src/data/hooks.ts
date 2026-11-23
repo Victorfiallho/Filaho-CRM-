@@ -11,7 +11,8 @@ import { listCustomers } from "./customers";
 import { getFinanceSettings } from "./financeSettings";
 import { listFiles } from "./files";
 import { getFunnelSummary } from "./funnel";
-import { getIntegrationSettings } from "./integrationSettings";
+import { getIntegrationHealth, getIntegrationSettings } from "./integrationSettings";
+import { checkGoogleMaps } from "../lib/mapsCheck";
 import { listImports } from "./imports";
 import { listJobs } from "./jobs";
 import { getStagnantLeads } from "./leadInsights";
@@ -64,6 +65,27 @@ export function useIntegrationSettings() {
   return useQuery({
     queryKey: ["integration_settings"],
     queryFn: getIntegrationSettings
+  });
+}
+
+export function useIntegrationHealth(companyId: string | null) {
+  return useQuery({
+    queryKey: ["integration_health", companyId],
+    queryFn: () => getIntegrationHealth(companyId!),
+    enabled: Boolean(companyId),
+    staleTime: 60 * 1000
+  });
+}
+
+// Live check of the Maps key from this browser (loads the map script and
+// makes one geocoding call), re-run when the key changes or on demand.
+export function useMapsCheck(apiKey: string) {
+  return useQuery({
+    queryKey: ["maps_check", apiKey],
+    queryFn: () => checkGoogleMaps(apiKey),
+    enabled: Boolean(apiKey),
+    staleTime: 10 * 60 * 1000,
+    retry: false
   });
 }
 

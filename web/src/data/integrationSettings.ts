@@ -1,5 +1,6 @@
 import { supabase } from "../lib/supabaseClient";
 import type { IntegrationSettings } from "../domain/types";
+import type { IntegrationFacts } from "../domain/integrationHealth";
 
 const DEFAULTS: IntegrationSettings = {
   google_oauth: { enabled: false, client_id: "", project_id: "", javascript_origins: [], scopes: "", connected_at: "", granted_scopes: "", notes: "Import a Google OAuth web client JSON. The client_secret is never stored." },
@@ -37,4 +38,13 @@ export async function getIntegrationSettings(): Promise<IntegrationSettings> {
 export async function saveIntegrationSettings(settings: IntegrationSettings): Promise<void> {
   const { error } = await supabase.rpc("save_my_integration_settings", { p_settings: settings });
   if (error) throw error;
+}
+
+// What each integration is really doing (get_integration_health): the Google
+// connection and its permissions, calendar-synced jobs, Drive folders, map
+// coordinates and the last Meta sync. Never includes a token.
+export async function getIntegrationHealth(companyId: string): Promise<IntegrationFacts> {
+  const { data, error } = await supabase.rpc("get_integration_health", { p_company_id: companyId });
+  if (error) throw error;
+  return data as IntegrationFacts;
 }

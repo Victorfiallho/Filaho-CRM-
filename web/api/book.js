@@ -3,7 +3,7 @@
 //   GET  /book/<slug>            the page
 //   GET  /book/<slug>/privacy    privacy policy
 //   GET  /book/<slug>/sms-terms  SMS terms
-//   POST /book/<slug>            submit, then 303 to ?booked=<first name>
+//   POST /book/<slug>            submit, then 303 to ?booked=<first name>&r=<request id>
 //
 // Every company has a page (migration 12), built from the company and its
 // CRM services. Rendered server-side (_lib/bookingHtml.js): fast, indexable,
@@ -19,14 +19,17 @@
 // per IP per RATE_WINDOW_MS, counted from booking_requests.
 import { createHash } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
-import { HONEYPOT_FIELD, UTM_FIELDS, parseBookingForm, servicesFromCrm } from "./_lib/bookingForm.js";
-import { headScriptBody, formScriptBody, pixelScriptBody, renderBookingPage, renderMessagePage, renderPrivacyPage, renderSmsTermsPage } from "./_lib/bookingHtml.js";
+import { HONEYPOT_FIELD, parseBookingForm, servicesFromCrm } from "./_lib/bookingForm.js";
+import { hasTracking, readTracking } from "./_lib/attribution.js";
+import { LEAD_EVENT_ID, headScriptBody, formScriptBody, pixelScriptBody, renderBookingPage, renderMessagePage, renderPrivacyPage, renderSmsTermsPage } from "./_lib/bookingHtml.js";
 import { loadConsentTextVersion, loadLatestConsentTexts, renderTexts } from "./_lib/consentStore.js";
 import { clientIp, origin, query, readForm, sendHtml, userAgent } from "./_lib/http.js";
 import { todayIn } from "./_lib/usTime.js";
 
 const RATE_LIMIT = 5;
 const RATE_WINDOW_MS = 10 * 60 * 1000;
+// How long after the booking its success view may still report the Lead.
+const LEAD_WINDOW_MS = 30 * 60 * 1000;
 
 const uid = prefix => `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 const formatUsPhone = e164 => e164.replace(/^\+1(\d{3})(\d{3})(\d{4})$/, "($1) $2-$3");
@@ -76,9 +79,20 @@ async function loadPage(supabase, slug) {
   };
 }
 
+// The ?r= on a success view, if it names a booking this company saved in the
+// last LEAD_WINDOW_MS: that's the Lead to report. Anything else (no r, a typed
+// URL, the honeypot's fake success, an old link) gets the page without it.
+async function confirmedLead(supabase, companyId, requestId) {
+  const id = String(requestId || "");
+  if (!LEAD_EVENT_ID.test(id)) return "";
+  const { data, error } = await supabase.from("booking_requests").select("id, created_at").eq("id", id).eq("company_id", companyId).maybeSingle();
+  if (error || !data) return "";
+  return Date.now() - Date.parse(data.created_at) <= LEAD_WINDOW_MS ? data.id : "";
+}
+
 function render(res, status, { page, base, texts, extra = {}, cache = "no-store" }) {
   const html = renderBookingPage({ page, base, texts, today: todayIn(), ...extra });
-  sendHtml(res, status, html, { "cache-control": cache, "content-security-policy": csp(!extra.booked, pixelScriptBody(page.slug, !!extra.booked)) });
+  sendHtml(res, status, html, { "cache-control": cache, "content-security-policy": csp(!extra.booked, pixelScriptBody(page.slug, !!extra.booked, extra.leadEventId)) });
 }
 
 export default async function handler(req, res) {
@@ -114,25 +128,28 @@ export default async function handler(req, res) {
 
     if (req.method === "GET") {
       const booked = params.get("booked");
-      if (booked) return render(res, 200, { page, base, texts, extra: { booked: booked.slice(0, 60) } });
-      const utm = Object.fromEntries(UTM_FIELDS.map(f => [f, String(params.get(f) || "").slice(0, 200)]));
-      const hasUtm = UTM_FIELDS.some(f => utm[f]);
-      return render(res, 200, { page, base, texts, extra: { utm }, cache: hasUtm ? "no-store" : cache });
+      if (booked) {
+        const leadEventId = await confirmedLead(supabase, page.company_id, params.get("r"));
+        return render(res, 200, { page, base, texts, extra: { booked: booked.slice(0, 60), leadEventId } });
+      }
+      const utm = readTracking(params);
+      return render(res, 200, { page, base, texts, extra: { utm }, cache: hasTracking(utm) ? "no-store" : cache });
     }
 
     // ── POST: a booking ───────────────────────────────────────────────────
     const form = await readForm(req);
     const firstName = String(form.get("first_name") || "").trim().slice(0, 60);
-    const success = name => {
+    // requestId only when submit_booking saved it: the success view reports the Lead for it.
+    const success = (name, requestId = "") => {
       res.statusCode = 303;
-      res.setHeader("location", `${base}?booked=${encodeURIComponent(name || "there")}#booked`);
+      res.setHeader("location", `${base}?booked=${encodeURIComponent(name || "there")}${requestId ? `&r=${encodeURIComponent(requestId)}` : ""}#booked`);
       res.setHeader("cache-control", "no-store");
       res.end();
     };
 
     if (String(form.get(HONEYPOT_FIELD) || "").trim()) return success(firstName);
 
-    const utm = Object.fromEntries(UTM_FIELDS.map(f => [f, String(form.get(f) || "").slice(0, 200)]));
+    const utm = readTracking(form);
     const ip = clientIp(req);
     const since = new Date(Date.now() - RATE_WINDOW_MS).toISOString();
     const { count, error: countError } = await supabase
@@ -194,7 +211,7 @@ export default async function handler(req, res) {
       console.error("submit_booking failed", submitError);
       return render(res, 500, { page, base, texts, extra: { values: parsed.values, utm, formError: "Something went wrong on our side and your request wasn't saved." } });
     }
-    return success(b.first_name);
+    return success(b.first_name, payload.request_id);
   } catch (err) {
     console.error("book handler failed", err);
     sendHtml(res, 500, renderMessagePage({ title: "Something went wrong", message: "We couldn't load this page. Please try again in a moment." }), { "cache-control": "no-store" });

@@ -3,6 +3,7 @@ import { formatDateTime, formatDay } from "../domain/format";
 import { useT } from "../i18n/I18nContext";
 import { en, type MessageKey } from "../i18n/messages";
 import type { ConsentState } from "../domain/types";
+import { leadOrigin, type LeadOrigin } from "../domain/leadOrigin";
 
 // Where the person came from, what they asked for on the booking page, and
 // their marketing consent with its full history. Read-only: consent records
@@ -23,8 +24,18 @@ export default function ConsentPanel({ companyId, kind, record }: {
   const { data: statuses = [] } = useConsentStatuses(companyId);
   const status = statuses.find(s => s.contact_id === contactId);
 
+  // A deal comes from one request (newest first, so a re-booked client's
+  // latest visit request); a client shows each request's origin in its card.
+  const origin = kind === "lead" ? leadOrigin(requests[0]) : null;
+
   return (
     <div className="record-consent">
+      {kind === "lead" && (
+        <div className="field">
+          <label>{t("origin.title")}</label>
+          {origin ? <OriginList origin={origin} /> : <p className="sub">{t("origin.unknown")}</p>}
+        </div>
+      )}
       <div className="field">
         <label>{t("consent.origin")}</label>
         <p className="sub">{t("consent.source")}: <b>{record.source || "—"}</b></p>
@@ -38,8 +49,11 @@ export default function ConsentPanel({ companyId, kind, record }: {
               {(b.preferred_date || b.preferred_period) && <Row label={t("consent.preferred")} value={[formatDay(b.preferred_date, undefined, locale), b.preferred_period && t(`period.${b.preferred_period}` as MessageKey)].filter(Boolean).join(", ")} />}
               {b.notes && <Row label={t("consent.notes")} value={b.notes} />}
               {b.heard_from && <Row label={t("consent.heardFrom")} value={b.heard_from} />}
-              {(b.utm_source || b.utm_campaign) && <Row label={t("consent.campaign")} value={[b.utm_source, b.utm_medium, b.utm_campaign].filter(Boolean).join(" / ")} />}
             </dl>
+            {kind === "customer" && (() => {
+              const o = leadOrigin(b);
+              return o ? <OriginList origin={o} /> : <p className="sub">{t("origin.source")}: {t("origin.unknown")}</p>;
+            })()}
           </div>
         ))}
       </div>
@@ -82,6 +96,22 @@ export default function ConsentPanel({ companyId, kind, record }: {
         )}
       </div>
     </div>
+  );
+}
+
+// "Instagram · Paid traffic", then whatever else the ad link carried.
+function OriginList({ origin: o }: { origin: LeadOrigin }) {
+  const { t } = useT();
+  const medium = o.medium ? t(`origin.medium.${o.medium}` as MessageKey) : o.mediumRaw;
+  const source = [o.platform, medium].filter(Boolean).join(" · ");
+  return (
+    <dl className="booking-dl">
+      {source && <Row label={t("origin.source")} value={source} />}
+      {o.campaign && <Row label={t("origin.campaign")} value={o.campaign} />}
+      {o.ad && <Row label={t("origin.ad")} value={o.ad} />}
+      {o.adId && <Row label={t("origin.adId")} value={o.adId} />}
+      {o.placement && <Row label={t("origin.placement")} value={o.placement} />}
+    </dl>
   );
 }
 

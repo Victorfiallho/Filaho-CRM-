@@ -472,6 +472,13 @@ export interface BookingRequest {
   utm_campaign: string;
   utm_term: string;
   utm_content: string;
+  // Meta ad IDs, as text (15-20 digits). Empty on rows from before tracking.
+  campaign_id?: string;
+  adset_id?: string;
+  ad_id?: string;
+  placement?: string;
+  // Every deal the request created; lead_id is the first.
+  lead_ids?: string[];
   page_url: string;
   created_at: string;
 }

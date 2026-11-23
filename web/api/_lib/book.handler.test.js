@@ -3,7 +3,7 @@
 import { createHash } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const state = { page: null, company: null, services: [], versions: [], recentCount: 0, rpcCalls: [], rpcError: null };
+const state = { page: null, company: null, services: [], versions: [], recentCount: 0, rpcCalls: [], rpcError: null, savedRequests: [] };
 
 function builder(table) {
   const filters = {};
@@ -19,6 +19,9 @@ function builder(table) {
         return { data: hit ? p : null, error: null };
       }
       if (table === "companies") return { data: state.company, error: null };
+      if (table === "booking_requests") {
+        return { data: state.savedRequests.find(r => r.id === filters.id && r.company_id === filters.company_id) || null, error: null };
+      }
       if (table === "consent_text_versions") {
         return { data: state.versions.find(v => v.kind === filters.kind && v.version === filters.version) || null, error: null };
       }
@@ -87,6 +90,7 @@ beforeEach(() => {
   state.recentCount = 0;
   state.rpcCalls = [];
   state.rpcError = null;
+  state.savedRequests = [];
 });
 
 describe("GET /book/<slug>", () => {
@@ -138,10 +142,46 @@ describe("GET /book/<slug>", () => {
     expect(csp).toContain("https://connect.facebook.net");
     expect(csp).toContain("connect-src https://www.facebook.com");
 
-    const booked = await call({ url: "/api/book?slug=wish-cabinets&booked=Jane" });
-    expect(booked.body).toContain("fbq('track','Lead')");
+    state.savedRequests = [{ id: "book_abc_123", company_id: "peach_fresh", created_at: new Date().toISOString() }];
+    const booked = await call({ url: "/api/book?slug=wish-cabinets&booked=Jane&r=book_abc_123" });
+    const bookedPixel = [...booked.body.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]).find(s => s.includes("fbq('init'"));
+    expect(bookedPixel).toContain("fbq('track','Lead',{},{eventID:'book_abc_123'})");
+    // once per booking: a reload or back-navigation finds the flag and skips it
+    expect(bookedPixel).toContain("fhi_lead:book_abc_123");
+    expect(booked.headers["content-security-policy"]).toContain(`'sha256-${createHash("sha256").update(bookedPixel).digest("base64")}'`);
     // the visitor's name in ?booked= is stripped before the pixel can send the URL
     expect(booked.body).toMatch(/<script>history\.replaceState\(null,'',location\.pathname\+location\.hash\);!function\(f,b,e/);
+  });
+
+  it("reports Lead only for a booking the server saved, recently, for this company", async () => {
+    state.page.slug = "wish-cabinets";
+    const lead = async url => (await call({ url })).body.includes("'Lead'");
+    // the success screen without proof: typed URL, honeypot's fake success
+    expect(await lead("/api/book?slug=wish-cabinets&booked=Jane")).toBe(false);
+    // an id that was never saved, or not in this shape
+    expect(await lead("/api/book?slug=wish-cabinets&booked=Jane&r=book_nope_1")).toBe(false);
+    expect(await lead("/api/book?slug=wish-cabinets&booked=Jane&r=x');alert(1)//")).toBe(false);
+    // another company's booking
+    state.savedRequests = [{ id: "book_other_1", company_id: "someone_else", created_at: new Date().toISOString() }];
+    expect(await lead("/api/book?slug=wish-cabinets&booked=Jane&r=book_other_1")).toBe(false);
+    // an old success link opened again later
+    state.savedRequests = [{ id: "book_old_1", company_id: "peach_fresh", created_at: new Date(Date.now() - 2 * 3600e3).toISOString() }];
+    expect(await lead("/api/book?slug=wish-cabinets&booked=Jane&r=book_old_1")).toBe(false);
+  });
+
+  it("puts an ad link's parameters in the form, IDs untouched, and never caches that page", async () => {
+    const res = await call({ url: "/api/book?slug=peach-fresh&utm_source=ig&utm_medium=paid_social&utm_campaign=Teste+Georgia&utm_content=VID+02+-+Cozinha+branca&campaign_id=120000000000001&adset_id=120000000000002&ad_id=120000000000003&placement=Instagram_Reels" });
+    expect(res.body).toContain('name="ad_id" value="120000000000003" data-track');
+    expect(res.body).toContain('name="utm_content" value="VID 02 - Cozinha branca" data-track');
+    expect(res.body).toContain('name="placement" value="Instagram_Reels" data-track');
+    expect(res.body).toContain('data-track-key="peach-fresh"');
+    expect(res.headers["cache-control"]).toBe("no-store");
+  });
+
+  it("caches the plain page with empty tracking fields for the browser to restore", async () => {
+    const res = await call({ url: "/api/book?slug=peach-fresh" });
+    expect(res.body).toContain('name="ad_id" value="" data-track');
+    expect(res.headers["cache-control"]).toMatch(/s-maxage/);
   });
 });
 
@@ -149,7 +189,9 @@ describe("POST /book/<slug>", () => {
   it("submits one booking with both consent records, the shown text version, and server-side IP/UA", async () => {
     const res = await call({ method: "POST", url: "/api/book?slug=peach-fresh", body: validBody });
     expect(res.statusCode).toBe(303);
-    expect(res.headers.location).toBe("https://crm.test/book/peach-fresh?booked=Jane#booked");
+    expect(res.headers.location).toMatch(/^https:\/\/crm\.test\/book\/peach-fresh\?booked=Jane&r=book_[a-z0-9_]+#booked$/);
+    // r is the request submit_booking saved: the success view's Lead is tied to it
+    expect(res.headers.location).toContain(`r=${state.rpcCalls[0].args.p.request_id}#`);
 
     expect(state.rpcCalls).toHaveLength(1);
     const { name, args: { p } } = state.rpcCalls[0];
@@ -165,6 +207,37 @@ describe("POST /book/<slug>", () => {
       { channel: "email", value: "jane@example.com", granted: false, text_shown: "Email v1.", text_version: 1 }
     ]);
     expect(p).not.toHaveProperty("created_at");
+  });
+
+  it("sends the ad origin with the booking, IDs as exact text, junk IDs dropped", async () => {
+    await call({ method: "POST", url: "/api/book?slug=peach-fresh", body: {
+      ...validBody, utm_source: "ig", utm_medium: "paid_social", utm_campaign: "Teste Georgia", utm_content: "VID 02 - Cozinha branca",
+      campaign_id: "120000000000001", adset_id: "{{adset.id}}", ad_id: "120212345678901234", placement: "Instagram_Reels"
+    } });
+    expect(state.rpcCalls[0].args.p.utm).toEqual({
+      utm_source: "ig", utm_medium: "paid_social", utm_campaign: "Teste Georgia", utm_term: "", utm_content: "VID 02 - Cozinha branca",
+      campaign_id: "120000000000001", adset_id: "", ad_id: "120212345678901234", placement: "Instagram_Reels"
+    });
+  });
+
+  it("books normally with no tracking at all", async () => {
+    const { utm_source: _drop, ...plain } = validBody;
+    const res = await call({ method: "POST", url: "/api/book?slug=peach-fresh", body: plain });
+    expect(res.statusCode).toBe(303);
+    expect(Object.values(state.rpcCalls[0].args.p.utm).every(v => v === "")).toBe(true);
+  });
+
+  it("keeps the origin through a validation error so the retry still carries it", async () => {
+    const res = await call({ method: "POST", url: "/api/book?slug=peach-fresh", body: { ...validBody, email: "", ad_id: "120000000000003" } });
+    expect(res.statusCode).toBe(422);
+    expect(res.body).toContain('name="ad_id" value="120000000000003" data-track');
+  });
+
+  it("gives no Lead proof when the save fails", async () => {
+    state.rpcError = { message: "boom" };
+    const res = await call({ method: "POST", url: "/api/book?slug=peach-fresh", body: validBody });
+    expect(res.statusCode).toBe(500);
+    expect(res.headers.location).toBeUndefined();
   });
 
   it("records granted=true only for the box that was checked", async () => {

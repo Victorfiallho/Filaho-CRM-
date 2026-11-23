@@ -5,6 +5,7 @@
 import { normalizeEmail, toE164 } from "./consent.js";
 import { todayIn, zipToState } from "./usTime.js";
 import { parseAnswers } from "./serviceQuestions.js";
+import { readTracking } from "./attribution.js";
 
 export const HEARD_FROM_OPTIONS = [
   "Google", "Facebook or Instagram", "Nextdoor", "Thumbtack", "Yelp",
@@ -13,11 +14,9 @@ export const HEARD_FROM_OPTIONS = [
 
 export const PERIODS = { morning: "Morning", afternoon: "Afternoon" };
 
-export const UTM_FIELDS = ["utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content"];
-
 export const HONEYPOT_FIELD = "website";
 
-const MAX = { name: 60, address: 120, city: 60, notes: 2000, utm: 200 };
+const MAX = { name: 60, address: 120, city: 60, notes: 2000 };
 const MAX_DAYS_AHEAD = 365;
 
 const clip = (v, n) => String(v ?? "").trim().slice(0, n);
@@ -108,7 +107,7 @@ export function parseBookingForm(form, page, now = new Date()) {
 
   if (Object.keys(errors).length) return { ok: false, errors, values };
 
-  const utm = Object.fromEntries(UTM_FIELDS.map(f => [f, clip(get(f), MAX.utm)]));
+  const utm = readTracking(form);
   return {
     ok: true,
     values,

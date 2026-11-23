@@ -8,7 +8,8 @@
 // stacked and it submits like any form; with it (bookingClient below) it
 // becomes a step-by-step flow with a calendar, a live summary and per-step
 // checks. The server validates everything either way.
-import { HEARD_FROM_OPTIONS, HONEYPOT_FIELD, PERIODS, UTM_FIELDS, activeServices } from "./bookingForm.js";
+import { HEARD_FROM_OPTIONS, HONEYPOT_FIELD, PERIODS, activeServices } from "./bookingForm.js";
+import { TRACKING_FIELDS } from "./attribution.js";
 import { showcaseFor, videosFor } from "./showcase.js";
 import { QUESTIONS, TOPICS, cleanName, describeService, fieldName, groupServices, questionKeysFor } from "./serviceQuestions.js";
 
@@ -608,7 +609,7 @@ function bookingForm({ page, base, texts, values = {}, errors = {}, utm = {}, fo
   const period = values.preferred_period || "";
   const questionLabels = Object.fromEntries(QUESTIONS.map(q => [fieldName(q), q.label]));
 
-  return `<form class="card form-card" method="post" action="${esc(base)}" novalidate id="booking-form" data-today="${esc(today)}" aria-labelledby="book-h">
+  return `<form class="card form-card" method="post" action="${esc(base)}" novalidate id="booking-form" data-today="${esc(today)}" data-track-key="${esc(page.slug || "")}" aria-labelledby="book-h">
   <h2 id="book-h" class="sr-only">Schedule your free visit</h2>
   <ol class="stepper" aria-hidden="true">${STEPS.map((s, i) => `<li data-for="${i}"><span class="bar"><i></i></span><span><span class="num">${i + 1}. </span>${esc(s.label)}</span></li>`).join("")}</ol>
   <p class="sr-only" id="step-status" role="status" aria-live="polite"></p>
@@ -692,7 +693,7 @@ function bookingForm({ page, base, texts, values = {}, errors = {}, utm = {}, fo
     <input type="hidden" name="sms_text_version" value="${esc(texts.sms.version)}">
     <input type="hidden" name="email_text_version" value="${esc(texts.email.version)}">
     <input type="hidden" name="transactional_text_version" value="${esc(texts.transactional.version)}">
-    ${UTM_FIELDS.map(f => `<input type="hidden" name="${f}" value="${esc(utm[f])}">`).join("")}
+    ${TRACKING_FIELDS.map(f => `<input type="hidden" name="${f}" value="${esc(utm[f])}" data-track>`).join("")}
 
     <div class="submit-row">
       <div class="step-nav step-nav-final" style="margin-top:22px"><button type="button" class="btn ghost" data-back>${icon("arrowLeft")}Back</button><span></span></div>
@@ -752,6 +753,35 @@ export function headScriptBody() {
 function bookingClient() {
   var form = document.getElementById("booking-form");
   if (!form) return;
+
+  // ── Ad attribution ──
+  // Last identified entry of the session wins, kept per company. An entry
+  // with tracking parameters replaces the whole saved set (a link with only
+  // utm_source must not inherit the previous ad_id); a visit or reload
+  // without them restores the saved set into the hidden fields.
+  (function () {
+    var inputs = [].slice.call(form.querySelectorAll("input[data-track]"));
+    if (!inputs.length) return;
+    var key = "fhi_attr:" + (form.getAttribute("data-track-key") || "");
+    var store = null;
+    try { store = window.sessionStorage; } catch { store = null; }
+    var params = null;
+    try { params = new URLSearchParams(location.search); } catch { params = null; }
+    var urlHasTracking = !!params && inputs.some(function (i) { return params.get(i.name); });
+    var filled = inputs.some(function (i) { return i.value; });
+    if (urlHasTracking && filled) {
+      // The server already put this entry's cleaned values in the fields.
+      var set = {};
+      inputs.forEach(function (i) { set[i.name] = i.value; });
+      try { if (store) store.setItem(key, JSON.stringify(set)); } catch { /* private mode: the fields still post */ }
+      return;
+    }
+    if (filled) return; // a re-rendered submission already carries its origin
+    var saved = null;
+    try { saved = store ? JSON.parse(store.getItem(key) || "null") : null; } catch { saved = null; }
+    if (!saved || typeof saved !== "object") return;
+    inputs.forEach(function (i) { i.value = typeof saved[i.name] === "string" ? saved[i.name] : ""; });
+  })();
   var steps = [].slice.call(form.querySelectorAll(".step"));
   var stepper = [].slice.call(form.querySelectorAll(".stepper li"));
   var status = document.getElementById("step-status");
@@ -1108,13 +1138,22 @@ export function formScriptBody() {
 // ponytail: pixel IDs hardcoded per slug; move to a booking_pages column when more companies need one.
 const META_PIXELS = { "wish-cabinets": "1821876642427207" };
 
-// Meta (Facebook) pixel: PageView on the page, plus Lead on the "booked" success view. "" = no pixel.
-export function pixelScriptBody(slug, booked) {
+// Meta (Facebook) pixel: PageView on every view; Lead only on a success view
+// the server confirmed (book.js checks the booking request exists before
+// passing its id). The id is the eventID, so Meta dedupes on it, and a
+// localStorage flag keeps a reload or back-navigation from sending it twice.
+// "" = no pixel.
+export const LEAD_EVENT_ID = /^book_[a-z0-9_]{1,60}$/;
+export function pixelScriptBody(slug, booked, leadEventId = "") {
   const id = META_PIXELS[slug];
   if (!id) return "";
-  // ?booked=<first name> must never reach Meta (the pixel sends the page URL): drop the query first.
+  // ?booked=<first name>&r=<id> must never reach Meta (the pixel sends the page URL): drop the query first.
   const scrub = booked ? "history.replaceState(null,'',location.pathname+location.hash);" : "";
-  return `${scrub}!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');fbq('init','${id}');fbq('track','PageView');${booked ? "fbq('track','Lead');" : ""}`;
+  const ev = booked && LEAD_EVENT_ID.test(leadEventId) ? leadEventId : "";
+  const lead = ev
+    ? `(function(){var k='fhi_lead:${ev}',t=function(){fbq('track','Lead',{},{eventID:'${ev}'});};try{if(localStorage.getItem(k))return;localStorage.setItem(k,'1');}catch(e){}t();})();`
+    : "";
+  return `${scrub}!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');fbq('init','${id}');fbq('track','PageView');${lead}`;
 }
 
 /**
@@ -1123,9 +1162,9 @@ export function pixelScriptBody(slug, booked) {
  * @param {string} o.base   absolute URL of the page, e.g. https://host/book/peach-fresh
  * @param {object} o.texts  { sms|email|transactional: { text, version } } rendered
  */
-export function renderBookingPage({ page, base, texts, values, errors, utm, formError, booked, today }) {
+export function renderBookingPage({ page, base, texts, values, errors, utm, formError, booked, leadEventId, today }) {
   const services = activeServices(page);
-  const pixel = pixelScriptBody(page.slug, !!booked);
+  const pixel = pixelScriptBody(page.slug, !!booked, leadEventId);
   const faq = (page.faq || []).filter(f => f && f.question && f.answer);
   const name = page.business_name;
   const groupNames = groupServices(services).map(g => g.name);

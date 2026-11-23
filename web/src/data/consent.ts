@@ -16,8 +16,12 @@ export async function listConsentRecords(companyId: string, contactId: string): 
 
 export async function listBookingRequests(companyId: string, by: { leadId?: string; customerId?: string }): Promise<BookingRequest[]> {
   let q = supabase.from("booking_requests").select("*").eq("company_id", companyId);
-  if (by.leadId) q = q.eq("lead_id", by.leadId);
-  else if (by.customerId) q = q.eq("customer_id", by.customerId);
+  // A request with several services made one deal each: match any of them.
+  // Quoted so an id with a comma or brace can't break the filter.
+  if (by.leadId) {
+    const id = `"${by.leadId.replace(/["\\]/g, "\\$&")}"`;
+    q = q.or(`lead_id.eq.${id},lead_ids.cs.{${id}}`);
+  } else if (by.customerId) q = q.eq("customer_id", by.customerId);
   else return [];
   const { data, error } = await q.order("created_at", { ascending: false });
   if (error) throw error;

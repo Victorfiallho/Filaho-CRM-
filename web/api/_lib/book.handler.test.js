@@ -134,7 +134,7 @@ describe("GET /book/<slug>", () => {
     const res = await call({ url: "/api/book?slug=wish-cabinets" });
     const csp = res.headers["content-security-policy"];
     const inline = [...res.body.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]);
-    const pixel = inline.find(s => s.includes("fbq('init','1821876642427207')"));
+    const pixel = inline.find(s => s.includes("fbq('init','1458243099101208')"));
     expect(pixel).toBeTruthy();
     expect(pixel).not.toContain("'Lead'");
     expect(pixel).not.toContain("replaceState");

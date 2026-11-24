@@ -1150,7 +1150,7 @@ export function formScriptBody() {
 }
 
 // ponytail: pixel IDs hardcoded per slug; move to a booking_pages column when more companies need one.
-const META_PIXELS = { "wish-cabinets": "1821876642427207" };
+const META_PIXELS = { "wish-cabinets": "1458243099101208" };
 
 // Meta (Facebook) pixel: PageView on every view; Lead only on a success view
 // the server confirmed (book.js checks the booking request exists before

@@ -477,7 +477,7 @@ dialog.quiz[open]{animation:pop .35s var(--ease)}
         <label class="field"><span>First name</span><input name="first_name" autocomplete="given-name" required><span class="err">Required.</span></label>
         <label class="field"><span>Last name</span><input name="last_name" autocomplete="family-name" required><span class="err">Required.</span></label>
       </div>
-      <label class="field"><span>Phone number</span><input name="phone" type="tel" inputmode="tel" autocomplete="tel-national" placeholder="(404) 555-0123" required><span class="err">Enter a 10-digit US phone number.</span></label>
+      <label class="field"><span>Phone number</span><input name="phone" type="tel" inputmode="tel" autocomplete="tel-national" placeholder="(404) 555-0123" required><span class="err">Please enter a valid US phone number, like (404) 555-0123.</span></label>
       <label class="field"><span>Email address</span><input name="email" type="email" autocomplete="email" placeholder="you@example.com" required><span class="err">Enter a valid email.</span></label>
       <input name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px">
       <p class="form-err" id="q-error" role="alert" hidden></p>
@@ -547,7 +547,8 @@ dialog.quiz[open]{animation:pop .35s var(--ease)}
     city: v => v.trim().length >= 2,
     first_name: v => v.trim().length > 0,
     last_name: v => v.trim().length > 0,
-    phone: v => digits(v).length === 10,
+    // Same rule as the server's toE164 (api/_lib/consent.js): a valid US number only.
+    phone: v => /^[2-9]\d{2}[2-9]\d{6}$/.test(digits(v)),
     email: v => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim())
   };
   function valid(step) {
@@ -612,7 +613,9 @@ dialog.quiz[open]{animation:pop .35s var(--ease)}
     } catch (err) {
       formErr.textContent = err.message === "429"
         ? "We've received several requests from your network in the last few minutes. Please wait a bit and try again."
-        : "Something went wrong and your request wasn't sent. Please check your info and try again.";
+        : err.message === "422"
+        ? "We couldn't send your request. Please check your phone number (US only) and email, then try again."
+        : "Something went wrong and your request wasn't sent. Please try again in a moment.";
       formErr.hidden = false;
     } finally {
       sending = false; submitBtn.disabled = false;

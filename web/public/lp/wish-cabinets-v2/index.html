@@ -479,7 +479,9 @@ dialog.quiz[open]{animation:pop .35s var(--ease)}
       </div>
       <label class="field"><span>Phone number</span><input name="phone" type="tel" inputmode="tel" autocomplete="tel-national" placeholder="(404) 555-0123" required><span class="err">Please enter a valid US phone number, like (404) 555-0123.</span></label>
       <label class="field"><span>Email address</span><input name="email" type="email" autocomplete="email" placeholder="you@example.com" required><span class="err">Enter a valid email.</span></label>
-      <input name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px">
+      <!-- Anti-spam trap: bots fill it, people never see it. Password managers are told to skip it,
+           since one autofilling it makes the server fake a success and save nothing. -->
+      <input name="website" tabindex="-1" autocomplete="off" aria-hidden="true" data-bwignore="true" data-1p-ignore="true" data-lpignore="true" data-form-type="other" style="position:absolute;left:-9999px;width:1px;height:1px">
       <p class="form-err" id="q-error" role="alert" hidden></p>
       <div class="q-actions"><button class="btn btn-cta btn-lg" type="submit">Send my request<svg><use href="#i-arrow"/></svg></button></div>
       <p class="legal">By sending, you agree that Wish Cabinets may call or text you about your project. See our <a href="/book/wish-cabinets/privacy" target="_blank">Privacy Policy</a>.</p>
@@ -607,10 +609,15 @@ dialog.quiz[open]{animation:pop .35s var(--ease)}
     try {
       const res = await fetch("/book/wish-cabinets", { method: "POST", body });
       if (!res.ok || !res.redirected) throw new Error(String(res.status));
+      // A saved booking comes back with its request id (r). Without one the server faked a success
+      // (its spam trap was filled), so nothing was saved: say so instead of showing the check.
       const r = new URL(res.url).searchParams.get("r") || "";
-      if (window.fbq && /^book_[a-z0-9_]{1,60}$/.test(r)) fbq("track", "Lead", {}, { eventID: r });
+      if (!/^book_[a-z0-9_]{1,60}$/.test(r)) throw new Error("not-saved");
+      console.info("Wish Cabinets: request saved", r);
+      if (window.fbq) fbq("track", "Lead", {}, { eventID: r });
       show(LAST_Q + 1);
     } catch (err) {
+      console.warn("Wish Cabinets: request not saved", err.message);
       formErr.textContent = err.message === "429"
         ? "We've received several requests from your network in the last few minutes. Please wait a bit and try again."
         : err.message === "422"

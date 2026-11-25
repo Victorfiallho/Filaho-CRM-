@@ -5,6 +5,10 @@
       "destination": "/api/book?slug=:slug&page=:page"
     },
     {
+      "source": "/book/wish-cabinets-v2",
+      "destination": "/lp/wish-cabinets-v2/index.html"
+    },
+    {
       "source": "/book/:slug",
       "destination": "/api/book?slug=:slug"
     },

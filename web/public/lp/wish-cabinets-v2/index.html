@@ -1,0 +1,637 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wish Cabinets | Kitchens, custom cabinets & installation</title>
+<meta name="description" content="Kitchen remodels, custom cabinets and cabinet installation. Free in-home estimate, clear quote and timeline.">
+<link rel="icon" href="/logos/wish_cabinets.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap">
+<meta name="robots" content="noindex">
+<!-- Landing v2 da Wish Cabinets, servida em /book/wish-cabinets-v2 (rewrite em web/vercel.json).
+     Página estática, mesmo estilo de /book/wish-cabinets. O formulário posta no mesmo handler
+     (POST /book/wish-cabinets), então o lead entra no CRM igual ao da v1. -->
+<script>
+// ponytail: pixel ID repeated from META_PIXELS in api/_lib/bookingHtml.js; keep both in sync.
+!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');
+fbq('init','1458243099101208');fbq('track','PageView');
+</script>
+<style>
+:root{
+  --brand:#315c7c;--brand-ink:#1f3d54;--brand-soft:#e4ecf2;
+  --accent:#f0a93b;--accent-ink:#2a1a00;--accent-glow:rgba(240,169,59,.45);
+  --bg:#f6f4ec;--soft:#efebe0;--ink:#111;--ink-soft:#2a2a2a;--muted:#6f6b62;--line:rgba(17,17,17,.08);
+  --surface:#fff;--danger:#b4232f;
+  --shadow-sm:0 1px 2px rgba(40,32,10,.04),0 6px 20px -8px rgba(40,32,10,.12);
+  --shadow-md:0 2px 6px rgba(40,32,10,.05),0 18px 44px -18px rgba(40,32,10,.22);
+  --ease:cubic-bezier(.2,0,0,1);
+}
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{margin:0;font-family:"Outfit",ui-sans-serif,system-ui,sans-serif;font-size:17px;line-height:1.55;color:var(--ink-soft);background:var(--bg);
+  background-image:radial-gradient(1100px 560px at 95% -10%,rgba(49,92,124,.16),transparent 60%),radial-gradient(900px 500px at -10% 0%,rgba(255,255,255,.9),transparent 60%);background-attachment:fixed}
+img{max-width:100%;display:block}
+a{color:inherit}
+h1,h2,h3{color:var(--ink);margin:0;letter-spacing:-.02em;line-height:1.1}
+h2{font-size:clamp(30px,4.2vw,46px);font-weight:700}
+.wrap{max-width:1160px;margin:0 auto;padding:0 16px}
+.section{padding:72px 0}
+.kicker{display:inline-flex;align-items:center;gap:8px;font-size:14px;font-weight:600;color:var(--brand);background:var(--brand-soft);padding:6px 12px;border-radius:999px}
+.lead{font-size:clamp(17px,1.6vw,20px);color:var(--muted);max-width:56ch}
+.sec-head{display:flex;justify-content:space-between;align-items:end;gap:24px;flex-wrap:wrap;margin-bottom:32px}
+.sec-head p{margin:10px 0 0}
+:focus-visible{outline:3px solid var(--brand);outline-offset:3px}
+
+/* Buttons */
+.btn{--h:56px;display:inline-flex;align-items:center;justify-content:center;gap:10px;height:var(--h);padding:0 28px;border:0;border-radius:999px;font:inherit;font-weight:700;font-size:17px;cursor:pointer;text-decoration:none;transition:transform .2s var(--ease),box-shadow .2s var(--ease),background .2s}
+.btn svg{width:20px;height:20px;transition:transform .2s var(--ease)}
+.btn:hover svg{transform:translateX(3px)}
+.btn-cta{background:var(--accent);color:var(--accent-ink);box-shadow:0 10px 30px -8px var(--accent-glow),inset 0 -2px 0 rgba(0,0,0,.12)}
+.btn-cta:hover{transform:translateY(-2px);box-shadow:0 16px 38px -8px var(--accent-glow),inset 0 -2px 0 rgba(0,0,0,.12)}
+.btn-lg{--h:64px;font-size:19px;padding:0 34px}
+.btn-ghost{background:rgba(255,255,255,.75);color:var(--ink);box-shadow:inset 0 0 0 1px var(--line)}
+.btn-ghost:hover{background:#fff}
+.btn-dark{background:var(--ink);color:#fff}
+.micro{display:flex;flex-wrap:wrap;gap:8px 18px;margin:18px 0 0;padding:0;list-style:none;font-size:15px;color:var(--muted)}
+.micro li{display:flex;align-items:center;gap:6px}
+.micro svg{width:18px;height:18px;color:var(--brand)}
+
+/* Top bar */
+.top{position:sticky;top:0;z-index:20;padding:12px 0}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;background:rgba(255,255,255,.8);backdrop-filter:blur(14px);border-radius:999px;padding:8px 8px 8px 10px;box-shadow:var(--shadow-sm)}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;font-weight:700;color:var(--ink);font-size:18px}
+.brand-mark{width:40px;height:40px;border-radius:999px;background:#fff;display:grid;place-items:center;box-shadow:0 0 0 1px var(--line)}
+.brand-mark img{width:70%}
+.nav{display:flex;gap:4px}
+.nav a{text-decoration:none;font-weight:500;font-size:15px;padding:8px 14px;border-radius:999px;color:var(--muted)}
+.nav a:hover{background:var(--soft);color:var(--ink)}
+.topbar .btn{--h:44px;font-size:15px;padding:0 18px}
+
+/* Hero */
+.hero{display:grid;grid-template-columns:1.05fr 1fr;gap:48px;align-items:center;padding-top:40px;padding-bottom:64px}
+.hero h1{font-size:clamp(40px,5.6vw,68px);font-weight:800;margin:18px 0 18px}
+.hero h1 em{font-style:normal;color:var(--brand)}
+.hero .cta-row{display:flex;flex-wrap:wrap;gap:12px;margin-top:30px}
+.hero-media{position:relative}
+.hero-media>img{width:100%;aspect-ratio:4/4.3;object-fit:cover;border-radius:32px;box-shadow:var(--shadow-md)}
+.float{position:absolute;display:flex;align-items:center;gap:12px;background:rgba(255,255,255,.92);backdrop-filter:blur(10px);border-radius:20px;padding:12px 16px;box-shadow:var(--shadow-md);font-size:14px;line-height:1.3}
+.float b{display:block;color:var(--ink);font-size:16px}
+.float .ic{width:42px;height:42px;border-radius:14px;display:grid;place-items:center;flex:none}
+.float .ic svg{width:22px;height:22px}
+.f1{left:-24px;bottom:40px}.f1 .ic{background:#fdf0d5;color:#8a5a00}
+.f2{right:-16px;top:28px}.f2 .ic{background:var(--brand-soft);color:var(--brand)}
+
+/* Proof strip */
+.proof{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.proof div{background:var(--surface);border-radius:24px;padding:22px 24px;box-shadow:var(--shadow-sm);display:flex;gap:14px;align-items:flex-start}
+.proof svg{width:26px;height:26px;color:var(--brand);flex:none;margin-top:2px}
+.proof b{display:block;color:var(--ink);font-size:18px}
+.proof span{color:var(--muted);font-size:15px}
+
+/* Projects */
+.projects{display:grid;grid-template-columns:repeat(2,1fr);gap:24px}
+.card{background:var(--surface);border-radius:28px;overflow:hidden;box-shadow:var(--shadow-sm);display:flex;flex-direction:column}
+.card .media{position:relative;aspect-ratio:4/3;background:var(--soft)}
+.card .media img{width:100%;height:100%;object-fit:cover}
+.time{position:absolute;left:14px;top:14px;display:inline-flex;align-items:center;gap:6px;background:var(--ink);color:#fff;font-weight:700;font-size:14px;padding:7px 12px;border-radius:999px}
+.time svg{width:16px;height:16px;color:var(--accent)}
+.thumbs{display:flex;gap:8px;padding:12px 16px 0}
+.thumbs button{width:64px;height:48px;padding:0;border:0;border-radius:12px;overflow:hidden;cursor:pointer;opacity:.55;outline-offset:2px;transition:opacity .2s}
+.thumbs button[aria-pressed=true],.thumbs button:hover{opacity:1;box-shadow:0 0 0 2px var(--brand)}
+.thumbs img{width:100%;height:100%;object-fit:cover}
+.card .body{padding:16px 22px 24px}
+.tag{font-size:13px;font-weight:600;color:var(--brand);text-transform:uppercase;letter-spacing:.06em}
+.card h3{font-size:22px;margin:6px 0 8px}
+.card p{margin:0;color:var(--muted);font-size:16px}
+.feature{grid-column:1/-1;display:grid;grid-template-columns:1.25fr 1fr}
+.feature .media{aspect-ratio:auto;min-height:440px}
+.feature .body{padding:36px;display:flex;flex-direction:column;justify-content:center}
+.feature h3{font-size:30px}
+.big-time{display:flex;align-items:baseline;gap:10px;margin:18px 0 8px}
+.big-time b{font-size:56px;font-weight:800;color:var(--ink);letter-spacing:-.03em;line-height:1}
+.big-time span{color:var(--muted)}
+.feature .btn{margin-top:22px;align-self:flex-start}
+
+/* Before / after */
+.ba{position:absolute;inset:0;--pos:50%;user-select:none}
+.ba img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.ba .after{clip-path:inset(0 0 0 var(--pos))}
+.ba .line{position:absolute;top:0;bottom:0;left:var(--pos);width:3px;margin-left:-1.5px;background:#fff;pointer-events:none}
+.ba .knob{position:absolute;top:50%;left:var(--pos);width:48px;height:48px;margin:-24px 0 0 -24px;border-radius:999px;background:#fff;box-shadow:var(--shadow-md);display:grid;place-items:center;pointer-events:none;color:var(--ink)}
+.ba .knob svg{width:24px;height:24px}
+.ba input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:ew-resize;margin:0}
+.ba .lbl{position:absolute;bottom:14px;font-size:13px;font-weight:700;background:rgba(17,17,17,.75);color:#fff;padding:6px 12px;border-radius:999px;pointer-events:none}
+.ba .lb{left:14px}.ba .la{right:14px}
+.feature .time{z-index:2}
+
+/* CTA band */
+.band{background:var(--brand-ink);color:#fff;border-radius:36px;padding:56px;display:grid;grid-template-columns:1.4fr auto;gap:32px;align-items:center;position:relative;overflow:hidden}
+.band::after{content:"";position:absolute;right:-120px;top:-120px;width:360px;height:360px;border-radius:999px;background:radial-gradient(circle,rgba(240,169,59,.35),transparent 70%)}
+.band h2{color:#fff}
+.band p{color:rgba(255,255,255,.75);margin:12px 0 0;font-size:18px}
+.band .btn{position:relative;z-index:1}
+
+/* Steps */
+.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;counter-reset:s;list-style:none;padding:0;margin:0}
+.steps li{background:var(--surface);border-radius:24px;padding:24px;box-shadow:var(--shadow-sm)}
+.steps li::before{counter-increment:s;content:counter(s);display:grid;place-items:center;width:40px;height:40px;border-radius:14px;background:var(--brand-soft);color:var(--brand);font-weight:800;margin-bottom:14px}
+.steps b{display:block;color:var(--ink);font-size:18px;margin-bottom:4px}
+.steps span{color:var(--muted);font-size:15px}
+
+/* FAQ */
+.faq{max-width:780px}
+.faq details{background:var(--surface);border-radius:20px;padding:4px 22px;margin-bottom:10px;box-shadow:var(--shadow-sm)}
+.faq summary{cursor:pointer;font-weight:600;color:var(--ink);padding:16px 0;list-style:none;display:flex;justify-content:space-between;gap:12px}
+.faq summary::after{content:"+";font-size:22px;line-height:1;color:var(--brand)}
+.faq details[open] summary::after{content:"–"}
+.faq p{margin:0 0 18px;color:var(--muted)}
+
+footer{padding:40px 0 120px;color:var(--muted);font-size:14px;text-align:center}
+
+/* Sticky mobile CTA */
+.mbar{display:none}
+
+/* ── Form dialog ─────────────────────────────────────────────── */
+dialog.quiz{border:0;padding:0;width:min(640px,100% - 24px);max-height:min(760px,100dvh - 24px);border-radius:32px;background:var(--bg);box-shadow:0 40px 120px -20px rgba(0,0,0,.45);color:var(--ink-soft);overflow:hidden}
+dialog.quiz::backdrop{background:rgba(17,24,32,.55);backdrop-filter:blur(6px)}
+dialog.quiz[open]{animation:pop .35s var(--ease)}
+@keyframes pop{from{opacity:0;transform:translateY(16px) scale(.98)}}
+.q-head{display:flex;align-items:center;gap:12px;padding:18px 18px 0}
+.q-head .brand-mark{width:36px;height:36px}
+.q-progress{flex:1;height:8px;background:rgba(17,17,17,.08);border-radius:999px;overflow:hidden}
+.q-progress i{display:block;height:100%;width:var(--p,0%);background:linear-gradient(90deg,var(--brand),#4f86ad);border-radius:inherit;transition:width .4s var(--ease)}
+.icon-btn{width:40px;height:40px;border-radius:999px;border:0;background:rgba(255,255,255,.8);box-shadow:inset 0 0 0 1px var(--line);display:grid;place-items:center;cursor:pointer;color:var(--ink)}
+.icon-btn svg{width:20px;height:20px}
+.icon-btn[hidden]{display:none}
+.q-body{padding:24px 28px 28px;overflow:auto;max-height:calc(min(760px,100dvh - 24px) - 60px)}
+.q-meta{font-size:14px;font-weight:600;color:var(--brand);margin:0 0 8px}
+.q-step{border:0;padding:0;margin:0;min-width:0;outline:0}
+.q-step[hidden]{display:none}
+.q-step.in{animation:slide .35s var(--ease)}
+@keyframes slide{from{opacity:0;transform:translateX(24px)}}
+.q-step legend,.q-title{padding:0;font-size:clamp(24px,4vw,30px);font-weight:700;color:var(--ink);letter-spacing:-.02em;line-height:1.15;margin:0 0 6px}
+.q-sub{color:var(--muted);margin:0 0 20px;font-size:16px}
+.opts{display:grid;gap:10px}
+.opt{position:relative;display:flex;align-items:center;gap:14px;background:#fff;border-radius:20px;padding:16px 18px;cursor:pointer;box-shadow:inset 0 0 0 1.5px var(--line);transition:box-shadow .15s,transform .15s}
+.opt:hover{box-shadow:inset 0 0 0 1.5px var(--brand);transform:translateY(-1px)}
+.opt input{position:absolute;opacity:0;pointer-events:none}
+.opt .oi{width:44px;height:44px;border-radius:14px;display:grid;place-items:center;background:var(--brand-soft);color:var(--brand);flex:none}
+.opt .oi svg{width:22px;height:22px}
+.opt b{display:block;color:var(--ink);font-weight:600;line-height:1.25}
+.opt small{color:var(--muted);font-size:14px}
+.opt .chk{margin-left:auto;width:24px;height:24px;border-radius:999px;box-shadow:inset 0 0 0 2px rgba(17,17,17,.15);flex:none;display:grid;place-items:center;color:#fff}
+.opt .chk svg{width:14px;height:14px;opacity:0}
+.opt:has(input:checked){box-shadow:inset 0 0 0 2px var(--brand);background:#f7fafc}
+.opt:has(input:checked) .chk{background:var(--brand);box-shadow:none}
+.opt:has(input:checked) .chk svg{opacity:1}
+.opt:has(input:focus-visible){outline:3px solid var(--brand);outline-offset:2px}
+.field{display:block;margin-bottom:14px}
+.field span{display:block;font-size:14px;font-weight:600;color:var(--ink);margin-bottom:6px}
+.field input{width:100%;height:56px;border-radius:16px;border:0;box-shadow:inset 0 0 0 1.5px var(--line);background:#fff;padding:0 16px;font:inherit;font-size:17px;color:var(--ink);transition:box-shadow .15s}
+.field input:focus{outline:0;box-shadow:inset 0 0 0 2px var(--brand),0 0 0 4px rgba(49,92,124,.15)}
+.field input[aria-invalid=true]{box-shadow:inset 0 0 0 2px var(--danger)}
+.field .err{color:var(--danger);font-size:14px;margin-top:6px;display:none}
+.field input[aria-invalid=true]+.err{display:block}
+.hint{font-size:14px;color:var(--muted);margin:-4px 0 0}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.q-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:22px}
+.q-actions .btn{flex:1}
+.form-err{background:#fbe4e8;color:#7a1a26;border-radius:14px;padding:12px 14px;font-size:15px;margin:8px 0 0}
+.btn:disabled{opacity:.7;cursor:progress;transform:none}
+.legal{font-size:13px;color:var(--muted);margin:14px 0 0;line-height:1.45}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 16px;padding:0;list-style:none}
+.chips li{font-size:13px;font-weight:600;background:#fff;color:var(--brand);padding:5px 10px;border-radius:999px;box-shadow:inset 0 0 0 1px var(--line)}
+.done{text-align:center;padding:12px 0 4px}
+.done .ok{width:76px;height:76px;margin:0 auto 18px;border-radius:999px;background:#e0f3e6;color:#1f6b3a;display:grid;place-items:center}
+.done .ok svg{width:38px;height:38px}
+.done p{color:var(--muted);max-width:46ch;margin:10px auto 22px}
+
+@media (max-width:900px){
+  .hero{grid-template-columns:1fr;gap:32px;padding-top:16px}
+  .hero-media>img{aspect-ratio:4/3.4}
+  .f1{left:12px;bottom:12px}.f2{right:12px;top:12px}
+  .nav{display:none}
+  .proof{grid-template-columns:1fr}
+  .projects{grid-template-columns:1fr}
+  .feature{grid-template-columns:1fr}
+  .feature .media{min-height:0;aspect-ratio:3/4}
+  .feature .body{padding:24px}
+  .band{grid-template-columns:1fr;padding:36px 24px}
+  .steps{grid-template-columns:1fr 1fr}
+  .section{padding:52px 0}
+}
+@media (max-width:600px){
+  body{font-size:16px}
+  .topbar .btn{display:none}
+  .hero .cta-row .btn{width:100%}
+  .f2{display:none}
+  .steps{grid-template-columns:1fr}
+  .row2{grid-template-columns:1fr}
+  .big-time b{font-size:44px}
+  .mbar{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:30;padding:12px 16px calc(12px + env(safe-area-inset-bottom));background:linear-gradient(to top,var(--bg) 60%,transparent);transform:translateY(110%);transition:transform .3s var(--ease)}
+  .mbar.show{transform:none}
+  .mbar .btn{width:100%}
+  dialog.quiz{width:100%;max-width:100%;height:100dvh;max-height:100dvh;border-radius:0;margin:0}
+  .q-body{max-height:calc(100dvh - 60px);padding:20px 18px 32px}
+}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 18l-6-6 6-6"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+  <symbol id="i-ruler" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 17L17 3l4 4L7 21z"/><path d="M7 13l2 2M10 10l2 2M13 7l2 2"/></symbol>
+  <symbol id="i-doc" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M6 3h8l4 4v14H6z"/><path d="M9 12h6M9 16h6"/></symbol>
+  <symbol id="i-kitchen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="10" width="18" height="11" rx="1.5"/><path d="M3 15h18M12 10v11M5 3h14v4H5z"/></symbol>
+  <symbol id="i-shelf" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="1.5"/><path d="M4 9h16M4 15h16"/></symbol>
+  <symbol id="i-drill" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><path d="M4 7h11v6H4zM15 9h3M18 8v3h3M8 13l-1 8h4l1-8"/></symbol>
+  <symbol id="i-help" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14M12 17.5v.01"/></symbol>
+  <symbol id="i-bolt" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></symbol>
+  <symbol id="i-cal" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/><path d="M8.5 12l2.5 2.5 4.5-5"/></symbol>
+  <symbol id="i-swap" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l-6 6 6 6M15 6l6 6-6 6"/></symbol>
+</svg>
+
+<header class="top">
+  <div class="wrap">
+    <div class="topbar">
+      <a class="brand" href="#"><span class="brand-mark"><img src="/logos/wish_cabinets.svg" alt=""></span>Wish Cabinets</a>
+      <nav class="nav" aria-label="Sections">
+        <a href="#projects">Projects</a><a href="#how">How it works</a><a href="#faq">FAQ</a>
+      </nav>
+      <button class="btn btn-cta" data-open>Free estimate<svg><use href="#i-arrow"/></svg></button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section class="wrap hero">
+    <div>
+      <span class="kicker"><svg width="16" height="16"><use href="#i-kitchen"/></svg>Kitchens · Custom cabinets · Installation</span>
+      <h1>The kitchen you want, <em>built and installed right.</em></h1>
+      <p class="lead">Full kitchen remodels, custom built-ins and cabinet installation. We measure your space, show you the plan and tell you upfront how long the job takes.</p>
+      <div class="cta-row">
+        <button class="btn btn-cta btn-lg" data-open>Get my free estimate<svg><use href="#i-arrow"/></svg></button>
+        <a class="btn btn-ghost btn-lg" href="#projects">See our projects</a>
+      </div>
+      <ul class="micro">
+        <li><svg><use href="#i-clock"/></svg>Takes 60 seconds</li>
+        <li><svg><use href="#i-shield"/></svg>Free, no commitment</li>
+        <li><svg><use href="#i-ruler"/></svg>We come to measure</li>
+      </ul>
+    </div>
+    <div class="hero-media">
+      <img src="/lp/wish-cabinets-v2/img/hero-navy.jpg" alt="Navy shaker kitchen with marble island and gold hardware" fetchpriority="high">
+      <div class="float f1"><span class="ic"><svg><use href="#i-bolt"/></svg></span><span><b>Cabinet swap in 1 day</b>Old out, new in, same day</span></div>
+      <div class="float f2"><span class="ic"><svg><use href="#i-ruler"/></svg></span><span><b>Free in-home visit</b>Quote after we measure</span></div>
+    </div>
+  </section>
+
+  <section class="wrap">
+    <div class="proof">
+      <div><svg><use href="#i-clock"/></svg><span><b>Clear timelines</b>You know how long it takes before we start.</span></div>
+      <div><svg><use href="#i-ruler"/></svg><span><b>Measured, not guessed</b>We visit, measure and plan your exact space.</span></div>
+      <div><svg><use href="#i-drill"/></svg><span><b>Already have cabinets?</b>We install them square, level and secure.</span></div>
+    </div>
+  </section>
+
+  <!-- Prazos: só o "1 day" tem base (fotos de antes/depois tiradas no mesmo dia, ~8h de diferença).
+       Os demais são EXEMPLOS: confirmar com a Wish Cabinets antes de publicar. -->
+  <section class="section" id="projects">
+    <div class="wrap">
+      <div class="sec-head">
+        <div>
+          <span class="kicker"><svg width="16" height="16"><use href="#i-clock"/></svg>Real jobs, real timelines</span>
+          <h2 style="margin-top:14px">Our work, and how long it took.</h2>
+          <p class="lead">Every project below is ours. Drag, tap and see the details.</p>
+        </div>
+        <button class="btn btn-cta" data-open>Start my project<svg><use href="#i-arrow"/></svg></button>
+      </div>
+
+      <div class="projects">
+        <article class="card feature">
+          <div class="media">
+            <span class="time"><svg><use href="#i-clock"/></svg>1 day</span>
+            <div class="ba">
+              <img src="/lp/wish-cabinets-v2/img/before-1.jpg" alt="Before: old oak kitchen cabinets">
+              <img class="after" src="/lp/wish-cabinets-v2/img/after-1.jpg" alt="After: new white shaker cabinets">
+              <span class="line"></span><span class="knob"><svg><use href="#i-swap"/></svg></span>
+              <span class="lbl lb">Before</span><span class="lbl la">After</span>
+              <input type="range" min="0" max="100" value="50" aria-label="Drag to compare before and after">
+            </div>
+          </div>
+          <div class="body">
+            <span class="tag">Cabinet replacement</span>
+            <h3>Old oak out, white shaker in. Same day.</h3>
+            <div class="big-time"><b>1 day</b><span>from tear-out to new cabinets</span></div>
+            <p>Dated oak cabinets removed and replaced with clean white shaker boxes, ready for hardware and finishing.</p>
+            <button class="btn btn-cta" data-open data-service="cabinets-installation">I want this for my kitchen<svg><use href="#i-arrow"/></svg></button>
+          </div>
+        </article>
+
+        <article class="card" data-gallery>
+          <div class="media"><span class="time"><svg><use href="#i-clock"/></svg>3 weeks</span><img src="/lp/wish-cabinets-v2/img/navy-1.jpg" alt="Navy kitchen remodel" loading="lazy"></div>
+          <div class="thumbs">
+            <button aria-pressed="true"><img src="/lp/wish-cabinets-v2/img/navy-1.jpg" alt="View 1" loading="lazy"></button>
+            <button aria-pressed="false"><img src="/lp/wish-cabinets-v2/img/hero-navy.jpg" alt="View 2" loading="lazy"></button>
+            <button aria-pressed="false"><img src="/lp/wish-cabinets-v2/img/navy-2.jpg" alt="View 3" loading="lazy"></button>
+          </div>
+          <div class="body"><span class="tag">Full kitchen remodel</span><h3>Navy & gold kitchen</h3><p>Navy shaker cabinets, gold hardware, marble-look island and a matching built-in hutch.</p></div>
+        </article>
+
+        <article class="card" data-gallery>
+          <div class="media"><span class="time"><svg><use href="#i-clock"/></svg>4 weeks</span><img src="/lp/wish-cabinets-v2/img/white-1.jpg" alt="White kitchen with large island" loading="lazy"></div>
+          <div class="thumbs">
+            <button aria-pressed="true"><img src="/lp/wish-cabinets-v2/img/white-1.jpg" alt="View 1" loading="lazy"></button>
+            <button aria-pressed="false"><img src="/lp/wish-cabinets-v2/img/white-2.jpg" alt="View 2" loading="lazy"></button>
+            <button aria-pressed="false"><img src="/lp/wish-cabinets-v2/img/white-3.jpg" alt="View 3" loading="lazy"></button>
+          </div>
+          <div class="body"><span class="tag">Full kitchen remodel</span><h3>Bright kitchen, waterfall island</h3><p>Light shaker cabinets floor to ceiling, a waterfall island and a pro range wall.</p></div>
+        </article>
+
+        <article class="card" data-gallery>
+          <div class="media"><span class="time"><svg><use href="#i-clock"/></svg>3 weeks</span><img src="/lp/wish-cabinets-v2/img/wood-1.jpg" alt="Modern wood and stone kitchen" loading="lazy"></div>
+          <div class="thumbs">
+            <button aria-pressed="true"><img src="/lp/wish-cabinets-v2/img/wood-1.jpg" alt="View 1" loading="lazy"></button>
+            <button aria-pressed="false"><img src="/lp/wish-cabinets-v2/img/wood-2.jpg" alt="View 2" loading="lazy"></button>
+            <button aria-pressed="false"><img src="/lp/wish-cabinets-v2/img/wood-3.jpg" alt="View 3" loading="lazy"></button>
+          </div>
+          <div class="body"><span class="tag">Custom cabinets</span><h3>Modern wood & stone</h3><p>Flat-panel wood-grain cabinets, open shelving and a stone accent wall.</p></div>
+        </article>
+
+        <article class="card" data-gallery>
+          <div class="media"><span class="time"><svg><use href="#i-clock"/></svg>2 weeks</span><img src="/lp/wish-cabinets-v2/img/gray-1.jpg" alt="Gray kitchen with marble island" loading="lazy"></div>
+          <div class="thumbs">
+            <button aria-pressed="true"><img src="/lp/wish-cabinets-v2/img/gray-1.jpg" alt="View 1" loading="lazy"></button>
+            <button aria-pressed="false"><img src="/lp/wish-cabinets-v2/img/gray-2.jpg" alt="View 2" loading="lazy"></button>
+          </div>
+          <div class="body"><span class="tag">Cabinet installation</span><h3>Gray shaker with a stone island</h3><p>New gray cabinets up to the ceiling around a big marble-look island.</p></div>
+        </article>
+
+        <article class="card" data-gallery>
+          <div class="media"><span class="time"><svg><use href="#i-clock"/></svg>2 days</span><img src="/lp/wish-cabinets-v2/img/bath-1.jpg" alt="Dark double vanity" loading="lazy"></div>
+          <div class="thumbs">
+            <button aria-pressed="true"><img src="/lp/wish-cabinets-v2/img/bath-1.jpg" alt="View 1" loading="lazy"></button>
+            <button aria-pressed="false"><img src="/lp/wish-cabinets-v2/img/bath-2.jpg" alt="View 2" loading="lazy"></button>
+            <button aria-pressed="false"><img src="/lp/wish-cabinets-v2/img/mudroom-1.jpg" alt="View 3" loading="lazy"></button>
+          </div>
+          <div class="body"><span class="tag">Built-ins & vanities</span><h3>Vanities, mudrooms, built-ins</h3><p>Double vanities and custom built-ins for baths, laundry rooms and entryways.</p></div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="wrap">
+    <div class="band">
+      <div>
+        <h2>Tell us what you have in mind.</h2>
+        <p>Four quick questions. We call or text you, visit to measure, and you get a clear quote and timeline.</p>
+      </div>
+      <button class="btn btn-cta btn-lg" data-open>Get my free estimate<svg><use href="#i-arrow"/></svg></button>
+    </div>
+  </section>
+
+  <section class="section" id="how">
+    <div class="wrap">
+      <div class="sec-head"><h2>How it works</h2></div>
+      <ol class="steps">
+        <li><b>Tell us about it</b><span>Answer 4 quick questions. It takes about a minute.</span></li>
+        <li><b>We call or text you</b><span>We learn more about your project and set up a visit.</span></li>
+        <li><b>Free visit & measure</b><span>We see the space, measure and talk options.</span></li>
+        <li><b>Quote & timeline</b><span>You get the price and how long it takes before anything starts.</span></li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="section" id="faq" style="padding-top:0">
+    <div class="wrap">
+      <div class="sec-head"><h2>Questions</h2></div>
+      <div class="faq">
+        <details><summary>Is the estimate really free?</summary><p>Yes. The visit and the quote are free, with no commitment.</p></details>
+        <details><summary>I already bought my cabinets. Can you install them?</summary><p>Yes. We install cabinets you already have: square, level and secure, with fillers, trim and hardware.</p></details>
+        <details><summary>How long will my project take?</summary><p>It depends on the job. A cabinet swap can be done in a day, while a full remodel takes a few weeks. You get the timeline with your quote, before anything starts.</p></details>
+        <details><summary>Should I send photos?</summary><p>Yes, please. Photos, measurements or inspiration images help us understand your project when we connect.</p></details>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>© 2026 Wish Cabinets · <a href="/book/wish-cabinets/privacy">Privacy Policy</a></footer>
+
+<div class="mbar" id="mbar"><button class="btn btn-cta btn-lg" data-open>Get my free estimate<svg><use href="#i-arrow"/></svg></button></div>
+
+<!-- ── The form ───────────────────────────────────────────── -->
+<dialog class="quiz" id="quiz" aria-labelledby="q-heading">
+  <div class="q-head">
+    <button class="icon-btn" id="q-back" aria-label="Back" hidden><svg><use href="#i-back"/></svg></button>
+    <span class="brand-mark"><img src="/logos/wish_cabinets.svg" alt=""></span>
+    <div class="q-progress" role="progressbar" aria-label="Progress" aria-valuemin="0" aria-valuemax="100"><i></i></div>
+    <button class="icon-btn" id="q-close" aria-label="Close"><svg><use href="#i-x"/></svg></button>
+  </div>
+  <form class="q-body" id="q-form" novalidate>
+    <p class="q-meta" id="q-meta"></p>
+    <h2 class="sr-only" id="q-heading" style="position:absolute;left:-9999px">Tell us about your project</h2>
+    <ul class="chips" id="q-chips"></ul>
+
+    <fieldset class="q-step" data-step="0">
+      <legend>What can Wish Cabinets help you with?</legend>
+      <p class="q-sub">Tell us a little about what you have in mind. Pick one.</p>
+      <div class="opts">
+        <label class="opt"><input type="radio" name="service" value="kitchen-remodeling" data-chip="Full kitchen remodel"><span class="oi"><svg><use href="#i-kitchen"/></svg></span><span><b>Full kitchen remodel</b></span><span class="chk"><svg><use href="#i-check"/></svg></span></label>
+        <label class="opt"><input type="radio" name="service" value="custom-cabinetry" data-chip="Custom cabinets / built-ins"><span class="oi"><svg><use href="#i-shelf"/></svg></span><span><b>Custom cabinets or built-ins</b><small>Laundry rooms, home offices or TV walls</small></span><span class="chk"><svg><use href="#i-check"/></svg></span></label>
+        <label class="opt"><input type="radio" name="service" value="cabinets-installation" data-chip="Installation only"><span class="oi"><svg><use href="#i-drill"/></svg></span><span><b>Cabinet installation only</b></span><span class="chk"><svg><use href="#i-check"/></svg></span></label>
+        <label class="opt"><input type="radio" name="service" value="kitchen-remodeling" data-unsure data-chip="Needs guidance"><span class="oi"><svg><use href="#i-help"/></svg></span><span><b>I'm not sure yet</b><small>I'd like some guidance</small></span><span class="chk"><svg><use href="#i-check"/></svg></span></label>
+      </div>
+    </fieldset>
+
+    <fieldset class="q-step" data-step="1" hidden>
+      <legend>When would you like to start your project?</legend>
+      <p class="q-sub">No pressure, it just helps us plan.</p>
+      <div class="opts">
+        <label class="opt"><input type="radio" name="timeline" value="30d" data-chip="Within 30 days"><span class="oi"><svg><use href="#i-bolt"/></svg></span><span><b>Within the next 30 days</b></span><span class="chk"><svg><use href="#i-check"/></svg></span></label>
+        <label class="opt"><input type="radio" name="timeline" value="1-3m" data-chip="In 1–3 months"><span class="oi"><svg><use href="#i-cal"/></svg></span><span><b>In 1–3 months</b></span><span class="chk"><svg><use href="#i-check"/></svg></span></label>
+        <label class="opt"><input type="radio" name="timeline" value="3m+" data-chip="3+ months"><span class="oi"><svg><use href="#i-clock"/></svg></span><span><b>More than 3 months from now</b></span><span class="chk"><svg><use href="#i-check"/></svg></span></label>
+        <label class="opt"><input type="radio" name="timeline" value="exploring" data-chip="Just exploring"><span class="oi"><svg><use href="#i-search"/></svg></span><span><b>I'm just exploring my options</b></span><span class="chk"><svg><use href="#i-check"/></svg></span></label>
+      </div>
+    </fieldset>
+
+    <fieldset class="q-step" data-step="2" hidden>
+      <legend>What city is your project in?</legend>
+      <p class="q-sub">If you know the ZIP code, you can include it too.</p>
+      <label class="field"><span>City</span><input name="city" autocomplete="address-level2" placeholder="e.g. Marietta, 30062" required><span class="err">Please tell us the city.</span></label>
+      <div class="q-actions"><button class="btn btn-cta" type="button" data-next>Continue<svg><use href="#i-arrow"/></svg></button></div>
+    </fieldset>
+
+    <fieldset class="q-step" data-step="3" hidden>
+      <legend>How can we reach you about your project?</legend>
+      <p class="q-sub">We'll call or text you to learn more.</p>
+      <div class="row2">
+        <label class="field"><span>First name</span><input name="first_name" autocomplete="given-name" required><span class="err">Required.</span></label>
+        <label class="field"><span>Last name</span><input name="last_name" autocomplete="family-name" required><span class="err">Required.</span></label>
+      </div>
+      <label class="field"><span>Phone number</span><input name="phone" type="tel" inputmode="tel" autocomplete="tel-national" placeholder="(404) 555-0123" required><span class="err">Enter a 10-digit US phone number.</span></label>
+      <label class="field"><span>Email address</span><input name="email" type="email" autocomplete="email" placeholder="you@example.com" required><span class="err">Enter a valid email.</span></label>
+      <input name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px">
+      <p class="form-err" id="q-error" role="alert" hidden></p>
+      <div class="q-actions"><button class="btn btn-cta btn-lg" type="submit">Send my request<svg><use href="#i-arrow"/></svg></button></div>
+      <p class="legal">By sending, you agree that Wish Cabinets may call or text you about your project. See our <a href="/book/wish-cabinets/privacy" target="_blank">Privacy Policy</a>.</p>
+    </fieldset>
+
+    <div class="q-step done" data-step="4" hidden>
+      <div class="ok"><svg><use href="#i-check"/></svg></div>
+      <h2 class="q-title">Thanks for reaching out to Wish Cabinets!</h2>
+      <p>We'll call or text you to learn more about your project. If you have photos, measurements, or inspiration images, we'd love to see them when we connect.</p>
+      <button class="btn btn-dark" type="button" id="q-finish">Back to the site</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+(() => {
+  // Galleries: thumbnails swap the main photo.
+  document.querySelectorAll("[data-gallery]").forEach(card => {
+    const main = card.querySelector(".media img");
+    card.querySelectorAll(".thumbs button").forEach(b => b.addEventListener("click", () => {
+      main.src = b.querySelector("img").src;
+      card.querySelectorAll(".thumbs button").forEach(x => x.setAttribute("aria-pressed", x === b));
+    }));
+  });
+
+  // Before / after slider (a native range input drives a CSS variable).
+  document.querySelectorAll(".ba").forEach(ba => {
+    const r = ba.querySelector("input");
+    r.addEventListener("input", () => ba.style.setProperty("--pos", r.value + "%"));
+  });
+
+  // Sticky mobile CTA once the hero button scrolls away.
+  const heroBtn = document.querySelector(".hero [data-open]"), mbar = document.getElementById("mbar");
+  new IntersectionObserver(([e]) => mbar.classList.toggle("show", !e.isIntersecting && e.boundingClientRect.top < 0)).observe(heroBtn);
+
+  // ── Quiz form ──
+  const dlg = document.getElementById("quiz"), form = document.getElementById("q-form");
+  const steps = [...form.querySelectorAll(".q-step")], LAST_Q = 3;
+  steps.forEach(s => s.tabIndex = -1);
+  const bar = dlg.querySelector(".q-progress"), meta = document.getElementById("q-meta"), chips = document.getElementById("q-chips");
+  const back = document.getElementById("q-back");
+  let cur = 0;
+
+  function show(i) {
+    cur = i;
+    steps.forEach((s, j) => { s.hidden = j !== i; s.classList.toggle("in", j === i); });
+    const pct = Math.round((Math.min(i, LAST_Q + 1) / (LAST_Q + 1)) * 100);
+    bar.style.setProperty("--p", pct + "%"); bar.setAttribute("aria-valuenow", pct);
+    meta.textContent = i <= LAST_Q ? `Step ${i + 1} of ${LAST_Q + 1}` : "";
+    back.hidden = i === 0 || i > LAST_Q;
+    chips.innerHTML = i > LAST_Q ? "" : [...form.querySelectorAll("input[type=radio]:checked")].map(r => `<li>${r.dataset.chip}</li>`).join("");
+    // Text steps focus their first field; choice steps focus the step itself, so no option looks pre-picked.
+    const target = steps[i].querySelector("input:not([type=radio])") || steps[i];
+    setTimeout(() => target.focus({ preventScroll: true }), 60);
+    form.scrollTop = 0;
+  }
+
+  // Single-choice steps advance on their own, after a beat so the check shows.
+  form.addEventListener("change", e => {
+    if (e.target.type === "radio") setTimeout(() => show(cur + 1), 260);
+  });
+
+  const digits = v => v.replace(/\D/g, "").replace(/^1(?=\d{10}$)/, "");
+  const rules = {
+    city: v => v.trim().length >= 2,
+    first_name: v => v.trim().length > 0,
+    last_name: v => v.trim().length > 0,
+    phone: v => digits(v).length === 10,
+    email: v => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim())
+  };
+  function valid(step) {
+    let ok = true;
+    step.querySelectorAll("input:not([type=radio])").forEach(inp => {
+      const good = rules[inp.name] ? rules[inp.name](inp.value) : true;
+      inp.setAttribute("aria-invalid", !good);
+      if (!good && ok) { inp.focus(); ok = false; }
+    });
+    return ok;
+  }
+  form.querySelectorAll("input:not([type=radio])").forEach(inp =>
+    inp.addEventListener("input", () => inp.getAttribute("aria-invalid") === "true" && rules[inp.name]?.(inp.value) && inp.setAttribute("aria-invalid", "false")));
+
+  // US phone mask: (404) 555-0123
+  form.phone.addEventListener("input", e => {
+    const d = digits(e.target.value).slice(0, 10);
+    e.target.value = d.length > 6 ? `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}` : d.length > 3 ? `(${d.slice(0, 3)}) ${d.slice(3)}` : d;
+  });
+
+  form.querySelectorAll("[data-next]").forEach(b => b.addEventListener("click", () => valid(steps[cur]) && show(cur + 1)));
+  form.addEventListener("keydown", e => {
+    if (e.key === "Enter" && cur === 2) { e.preventDefault(); valid(steps[2]) && show(3); }
+  });
+  // Posts to the v1 booking handler (POST /book/wish-cabinets): same CRM client, deal and activity.
+  // Its success is a 303 to ?booked=…&r=<request id>; fetch follows it, and r is the Lead eventID.
+  const TRACKING = ["utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content", "campaign_id", "adset_id", "ad_id", "placement"];
+  const label = input => {
+    const opt = input.closest(".opt");
+    const small = opt.querySelector("small");
+    return opt.querySelector("b").textContent + (small ? ` (${small.textContent})` : "");
+  };
+  const submitBtn = form.querySelector("[type=submit]"), formErr = document.getElementById("q-error");
+  let sending = false;
+  form.addEventListener("submit", async e => {
+    e.preventDefault();
+    if (sending || !valid(steps[LAST_Q])) return;
+    const svc = form.querySelector("input[name=service]:checked"), when = form.querySelector("input[name=timeline]:checked");
+    if (!svc || !when) return show(svc ? 1 : 0);
+    const qs = new URLSearchParams(location.search);
+    const body = new URLSearchParams({
+      first_name: form.first_name.value.trim(),
+      last_name: form.last_name.value.trim(),
+      phone: form.phone.value,
+      email: form.email.value.trim(),
+      city: form.city.value.trim(),
+      // "Not sure yet" has no CRM service of its own: it books as kitchen remodeling and says so in the notes.
+      services: svc.value,
+      notes: [`Looking for: ${label(svc)}`, `Wants to start: ${label(when)}`, `City: ${form.city.value.trim()}`, "Via landing page v2"].join("\n"),
+      website: form.website.value
+    });
+    TRACKING.forEach(f => qs.get(f) && body.set(f, qs.get(f)));
+
+    sending = true; submitBtn.disabled = true; formErr.hidden = true;
+    submitBtn.firstChild.textContent = "Sending…";
+    try {
+      const res = await fetch("/book/wish-cabinets", { method: "POST", body });
+      if (!res.ok || !res.redirected) throw new Error(String(res.status));
+      const r = new URL(res.url).searchParams.get("r") || "";
+      if (window.fbq && /^book_[a-z0-9_]{1,60}$/.test(r)) fbq("track", "Lead", {}, { eventID: r });
+      show(LAST_Q + 1);
+    } catch (err) {
+      formErr.textContent = err.message === "429"
+        ? "We've received several requests from your network in the last few minutes. Please wait a bit and try again."
+        : "Something went wrong and your request wasn't sent. Please check your info and try again.";
+      formErr.hidden = false;
+    } finally {
+      sending = false; submitBtn.disabled = false;
+      submitBtn.firstChild.textContent = "Send my request";
+    }
+  });
+  back.addEventListener("click", () => show(Math.max(0, cur - 1)));
+
+  function open(service) {
+    if (cur > LAST_Q) { form.reset(); form.querySelectorAll("[aria-invalid]").forEach(i => i.removeAttribute("aria-invalid")); }
+    if (service) { const r = form.querySelector(`input[name=service][value=${service}]`); if (r) r.checked = true; }
+    dlg.showModal();
+    show(service ? 1 : cur > LAST_Q ? 0 : cur);
+  }
+  document.querySelectorAll("[data-open]").forEach(b => b.addEventListener("click", () => open(b.dataset.service)));
+  document.getElementById("q-close").addEventListener("click", () => dlg.close());
+  document.getElementById("q-finish").addEventListener("click", () => dlg.close());
+  dlg.addEventListener("click", e => { if (e.target === dlg) dlg.close(); });
+})();
+</script>
+</body>
+</html>
